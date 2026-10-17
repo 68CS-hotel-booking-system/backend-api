@@ -1,0 +1,14 @@
+spring:
+  config:
+    import: "optional:file:./.env[.properties]"
+
+springdoc:
+  api-docs:
+    enabled: true
+
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    com.team.hotelbooking: DEBUG
