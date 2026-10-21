@@ -11,6 +11,9 @@ import com.team.hotelbooking.identity.infrastructure.persistence.mapper.UserPers
 import com.team.hotelbooking.identity.infrastructure.persistence.repository.RoleJpaRepository;
 import com.team.hotelbooking.identity.infrastructure.persistence.repository.UserJpaRepository;
 import com.team.hotelbooking.identity.infrastructure.persistence.repository.UserRoleJpaRepository;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -60,6 +63,28 @@ public class JpaUserRepositoryAdapter implements UserRepository {
     }
 
     return UserPersistenceMapper.toDomain(entity, user.roles());
+  }
+
+  @Override
+  public Optional<User> findByIdForUpdate(UUID id) {
+    return users
+        .findByIdAndDeletedFalse(id)
+        .map(entity -> UserPersistenceMapper.toDomain(entity, userRoles.findRoleKeysByUserId(id)));
+  }
+
+  @Override
+  public void updateVerification(User user) {
+    UserJpaEntity entity =
+        users
+            .findByIdAndDeletedFalse(user.id())
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
+
+    entity.setStatus(UserJpaEntity.DbStatus.valueOf(user.status().name().toLowerCase(Locale.ROOT)));
+
+    entity.setEmailVerifiedAt(user.emailVerifiedAt());
+    entity.setUpdatedAt(user.updatedAt());
+
+    users.saveAndFlush(entity);
   }
 
   private RuntimeException translateConflict(DataIntegrityViolationException exception) {

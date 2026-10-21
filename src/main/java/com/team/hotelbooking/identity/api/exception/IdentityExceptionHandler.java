@@ -25,7 +25,11 @@ public class IdentityExceptionHandler {
     HttpStatus status =
         switch (exception.code()) {
           case VALIDATION_FAILED -> HttpStatus.BAD_REQUEST;
-          case EMAIL_ALREADY_USED, PHONE_ALREADY_USED -> HttpStatus.CONFLICT;
+
+          case EMAIL_ALREADY_USED, PHONE_ALREADY_USED, CONFLICT -> HttpStatus.CONFLICT;
+
+          case TOKEN_INVALID, TOKEN_EXPIRED, TOKEN_ALREADY_USED -> HttpStatus.valueOf(422);
+
           case RATE_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
         };
 

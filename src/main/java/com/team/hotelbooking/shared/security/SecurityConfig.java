@@ -24,7 +24,10 @@ public class SecurityConfig {
                     .requestMatchers(
                         "/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                     .permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/auth/register",
+                        "/api/v1/auth/email-verifications")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
@@ -34,7 +37,10 @@ public class SecurityConfig {
                 exceptions
                     .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler))
-        .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/auth/register"));
+        .csrf(
+            csrf ->
+                csrf.ignoringRequestMatchers(
+                    "/api/v1/auth/register", "/api/v1/auth/email-verifications"));
 
     return http.build();
   }

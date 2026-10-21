@@ -18,7 +18,18 @@ target/
 *.iws
 *.iml
 *.ipr
-/docs
+# Keep other local docs ignored; include the business draft and database review.
+/docs/*
+!/docs/business/
+/docs/business/*
+!/docs/business/module-scope-and-rules-draft.md
+!/docs/business/database-fit-review.md
+!/docs/database/
+/docs/database/*
+!/docs/database/README.md
+!/docs/database/erd.md
+!/docs/database/data-dictionary.md
+!/docs/database/business-rules.md
 
 ### NetBeans ###
 /nbproject/private/
