@@ -20,6 +20,23 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    default-encoding: UTF-8
+    properties:
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 3000
+      "[mail.smtp.writetimeout]": 5000
+
+auth:
+  verification-ttl: PT24H
+  verification-url: ${AUTH_VERIFICATION_URL:http://localhost:5173/verify-email}
+  mail-from: ${AUTH_MAIL_FROM:noreply@hotel.test}
+
+  register:
+    max-requests: 5
+    window-seconds: 60
 
   flyway:
     enabled: true
@@ -30,6 +47,10 @@ management:
     web:
       exposure:
         include: health
+
+  health:
+    mail:
+      enabled: false
 
   endpoint:
     health:
