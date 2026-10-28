@@ -15,4 +15,8 @@ public interface UserRepository {
   Optional<User> findByIdForUpdate(UUID id);
 
   void updateVerification(User user);
+
+  Optional<User> findById(UUID id);
+
+  Optional<User> findByEmail(String normalizedEmail);
 }

@@ -87,6 +87,23 @@ public class JpaUserRepositoryAdapter implements UserRepository {
     users.saveAndFlush(entity);
   }
 
+  @Override
+  public Optional<User> findByEmail(String normalizedEmail) {
+    return users
+        .findByEmailAndDeletedFalse(normalizedEmail)
+        .map(
+            entity ->
+                UserPersistenceMapper.toDomain(
+                    entity, userRoles.findRoleKeysByUserId(entity.getId())));
+  }
+
+  @Override
+  public Optional<User> findById(UUID id) {
+    return users
+        .findOneByIdAndDeletedFalse(id)
+        .map(entity -> UserPersistenceMapper.toDomain(entity, userRoles.findRoleKeysByUserId(id)));
+  }
+
   private RuntimeException translateConflict(DataIntegrityViolationException exception) {
 
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {

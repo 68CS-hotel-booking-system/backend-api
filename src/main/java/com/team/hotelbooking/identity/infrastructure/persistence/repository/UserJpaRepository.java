@@ -13,6 +13,10 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
 
   boolean existsByPhone(String phone);
 
+  Optional<UserJpaEntity> findByEmailAndDeletedFalse(String email);
+
+  Optional<UserJpaEntity> findOneByIdAndDeletedFalse(UUID id);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<UserJpaEntity> findByIdAndDeletedFalse(UUID id);
 }

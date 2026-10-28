@@ -28,6 +28,12 @@ public class IdentityExceptionHandler {
 
           case EMAIL_ALREADY_USED, PHONE_ALREADY_USED, CONFLICT -> HttpStatus.CONFLICT;
 
+          case ACCOUNT_LOCKED -> HttpStatus.FORBIDDEN;
+
+          case EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
+
+          case INVALID_CREDENTIALS -> HttpStatus.UNAUTHORIZED;
+
           case TOKEN_INVALID, TOKEN_EXPIRED, TOKEN_ALREADY_USED -> HttpStatus.valueOf(422);
 
           case RATE_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;

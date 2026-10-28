@@ -23,6 +23,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
   public RestAuthenticationEntryPoint(
       ProblemDetailFactory problemDetailFactory, JsonMapper jsonMapper) {
+
     this.problemDetailFactory = problemDetailFactory;
     this.jsonMapper = jsonMapper;
   }
@@ -31,6 +32,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
   public void commence(
       HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
       throws IOException {
+
     var problem =
         problemDetailFactory.create(
             HttpStatus.UNAUTHORIZED, CommonErrorCode.UNAUTHORIZED, new ServletWebRequest(request));
@@ -39,8 +41,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
     response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
-    // Phù hợp với HTTP Basic trong ví dụ này.
-    response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"hotel-booking\"");
+    response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
 
     response.getOutputStream().write(jsonMapper.writeValueAsBytes(problem));
   }

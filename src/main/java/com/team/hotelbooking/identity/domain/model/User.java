@@ -114,6 +114,16 @@ public record User(
         version);
   }
 
+  public void ensureCanLogin() {
+    if (status == Status.BANNED || status == Status.INACTIVE) {
+      throw new IdentityException(IdentityErrorCode.ACCOUNT_LOCKED);
+    }
+
+    if (status == Status.PENDING || emailVerifiedAt == null) {
+      throw new IdentityException(IdentityErrorCode.EMAIL_NOT_VERIFIED);
+    }
+  }
+
   @Override
   public String toString() {
     return "User[id=" + id + ", status=" + status + "]";

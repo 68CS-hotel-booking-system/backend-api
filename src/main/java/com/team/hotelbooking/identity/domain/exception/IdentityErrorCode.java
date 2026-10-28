@@ -10,7 +10,11 @@ public enum IdentityErrorCode implements ErrorCode {
   TOKEN_INVALID("Token không hợp lệ."),
   TOKEN_EXPIRED("Token đã hết hạn."),
   TOKEN_ALREADY_USED("Token đã được sử dụng."),
-  CONFLICT("Trạng thái tài khoản không cho phép xác minh.");
+  CONFLICT("Trạng thái tài khoản không cho phép xác minh."),
+  INVALID_CREDENTIALS("Email hoặc mật khẩu không đúng."),
+  ACCOUNT_LOCKED("Tài khoản đang bị khóa."),
+  EMAIL_NOT_VERIFIED("Vui lòng xác minh email trước khi đăng nhập."),
+  ;
 
   private final String message;
 

@@ -9,7 +9,6 @@ import com.team.hotelbooking.identity.domain.model.User;
 import com.team.hotelbooking.identity.domain.model.VerificationToken;
 import com.team.hotelbooking.identity.domain.repository.UserRepository;
 import com.team.hotelbooking.identity.domain.repository.VerificationTokenRepository;
-
 import java.time.Clock;
 import java.time.Instant;
 
@@ -21,10 +20,10 @@ public class VerifyEmailService implements VerifyEmailUseCase {
   private final Clock clock;
 
   public VerifyEmailService(
-    UserRepository users,
-    VerificationTokenRepository tokens,
-    OpaqueTokens opaqueTokens,
-    Clock clock) {
+      UserRepository users,
+      VerificationTokenRepository tokens,
+      OpaqueTokens opaqueTokens,
+      Clock clock) {
 
     this.users = users;
     this.tokens = tokens;
@@ -43,14 +42,14 @@ public class VerifyEmailService implements VerifyEmailUseCase {
     }
 
     VerificationToken token =
-      tokens
-        .findByHashForUpdate(opaqueTokens.hash(rawToken))
-        .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
+        tokens
+            .findByHashForUpdate(opaqueTokens.hash(rawToken))
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
 
     User user =
-      users
-        .findByIdForUpdate(token.userId())
-        .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
+        users
+            .findByIdForUpdate(token.userId())
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
 
     Instant now = clock.instant();
 

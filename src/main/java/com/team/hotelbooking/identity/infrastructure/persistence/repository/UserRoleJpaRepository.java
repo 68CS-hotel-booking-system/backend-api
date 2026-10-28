@@ -11,9 +11,11 @@ public interface UserRoleJpaRepository extends JpaRepository<UserRoleJpaEntity, 
 
   @Query(
       """
-    select r.roleKey
-    from RoleJpaEntity r, UserRoleJpaEntity  ur
-    where ur.roleId = r.id and ur.userId = :userId
-    """)
+      select r.roleKey
+      from RoleJpaEntity r, UserRoleJpaEntity  ur
+      where ur.roleId = r.id
+           and ur.userId = :userId
+           and r.active = true
+      """)
   Set<String> findRoleKeysByUserId(@Param("userId") UUID userId);
 }

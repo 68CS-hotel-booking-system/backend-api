@@ -13,7 +13,6 @@ import com.team.hotelbooking.identity.domain.model.VerificationToken;
 import com.team.hotelbooking.identity.domain.repository.UserRepository;
 import com.team.hotelbooking.identity.domain.repository.VerificationTokenRepository;
 import com.team.hotelbooking.identity.domain.service.PasswordPolicy;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,13 +29,13 @@ public final class RegisterService implements RegisterUseCase {
   private final Duration verificationTtl;
 
   public RegisterService(
-    UserRepository users,
-    VerificationTokenRepository verificationTokens,
-    PasswordHasher passwords,
-    OpaqueTokens opaqueTokens,
-    VerificationEmailQueue emails,
-    Clock clock,
-    Duration verificationTtl) {
+      UserRepository users,
+      VerificationTokenRepository verificationTokens,
+      PasswordHasher passwords,
+      OpaqueTokens opaqueTokens,
+      VerificationEmailQueue emails,
+      Clock clock,
+      Duration verificationTtl) {
 
     if (verificationTtl.isZero() || verificationTtl.isNegative()) {
       throw new IllegalArgumentException("Verification TTL must be positive.");
@@ -69,13 +68,13 @@ public final class RegisterService implements RegisterUseCase {
     Instant now = clock.instant();
 
     User user =
-      User.register(
-        UUID.randomUUID(),
-        email,
-        passwords.hash(command.password()),
-        command.fullName(),
-        phone,
-        now);
+        User.register(
+            UUID.randomUUID(),
+            email,
+            passwords.hash(command.password()),
+            command.fullName(),
+            phone,
+            now);
 
     User saved = users.add(user);
 
@@ -83,7 +82,7 @@ public final class RegisterService implements RegisterUseCase {
     Instant expiresAt = now.plus(verificationTtl);
 
     verificationTokens.add(
-      new VerificationToken(UUID.randomUUID(), saved.id(), issued.hash(), expiresAt, now));
+        new VerificationToken(UUID.randomUUID(), saved.id(), issued.hash(), expiresAt, now));
 
     emails.enqueue(saved.id(), saved.email(), issued.raw(), expiresAt);
 
