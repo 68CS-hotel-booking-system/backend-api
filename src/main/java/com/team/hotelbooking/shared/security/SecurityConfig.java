@@ -2,7 +2,7 @@ package com.team.hotelbooking.shared.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -17,11 +17,14 @@ public class SecurityConfig {
       RestAuthenticationEntryPoint authenticationEntryPoint,
       RestAccessDeniedHandler accessDeniedHandler)
       throws Exception {
+
     http.authorizeHttpRequests(
             authorize ->
                 authorize
                     .requestMatchers(
                         "/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
@@ -31,7 +34,7 @@ public class SecurityConfig {
                 exceptions
                     .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler))
-        .csrf(Customizer.withDefaults());
+        .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/auth/register"));
 
     return http.build();
   }
