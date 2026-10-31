@@ -1,5 +1,6 @@
 package com.team.hotelbooking.identity.domain.model;
 
+import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
 import com.team.hotelbooking.identity.domain.exception.IdentityException;
 import java.time.Instant;
 import java.util.Locale;
@@ -93,6 +94,34 @@ public record User(
     }
 
     return phone;
+  }
+
+  public User verifyEmail(Instant now) {
+    if (status != Status.PENDING || emailVerifiedAt != null) {
+      throw new IdentityException(IdentityErrorCode.CONFLICT);
+    }
+    return new User(
+        id,
+        email,
+        passwordHash,
+        fullName,
+        phone,
+        Status.ACTIVE,
+        now,
+        roles,
+        createdAt,
+        now,
+        version);
+  }
+
+  public void ensureCanLogin() {
+    if (status == Status.BANNED || status == Status.INACTIVE) {
+      throw new IdentityException(IdentityErrorCode.ACCOUNT_LOCKED);
+    }
+
+    if (status == Status.PENDING || emailVerifiedAt == null) {
+      throw new IdentityException(IdentityErrorCode.EMAIL_NOT_VERIFIED);
+    }
   }
 
   @Override

@@ -34,7 +34,7 @@ jobs:
       SPRING_DATASOURCE_USERNAME: test
       SPRING_DATASOURCE_PASSWORD: test
       # Set true after real Flyway migrations have been added.
-      REQUIRE_MIGRATIONS: 'false'
+      REQUIRE_MIGRATIONS: 'true'
 
     steps:
 
@@ -102,7 +102,7 @@ jobs:
           sha256sum image.tar > image.tar.sha256
 
       - name: Smoke test the image against a fresh PostgreSQL database
-        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
         env:
           VERIFIED_IMAGE_ID: ${{ steps.build.outputs.image_id }}
         run: |
@@ -127,6 +127,9 @@ jobs:
             exit 1
           fi
 
+          # Khóa JWT mới cho mỗi lần chạy CI.
+          ci_jwt_secret="$(openssl rand -base64 32)"
+
           docker run --detach --name ci-backend --network ci-smoke \
             --publish 127.0.0.1:18080:8080 \
             --env SERVER_PORT=8080 \
@@ -135,6 +138,11 @@ jobs:
             --env SPRING_DATASOURCE_USERNAME=ci_user \
             --env SPRING_DATASOURCE_PASSWORD=ci_test_password \
             --env SPRING_FLYWAY_ENABLED=true \
+            --env AUTH_JWT_SECRET_BASE64="$ci_jwt_secret" \
+            --env AUTH_VERIFICATION_URL=http://localhost:5173/verify-email \
+            --env AUTH_MAIL_FROM=noreply@hotel.test \
+            --env MAIL_HOST=localhost \
+            --env MAIL_PORT=1025 \
             "$VERIFIED_IMAGE_ID"
 
           application_ready=false
@@ -156,7 +164,8 @@ jobs:
             echo "::error::Backend did not report health UP."
             exit 1
           fi
-
+          echo "BACKEND_HEALTH:"
+          cat health.json
           migration_check="not-required"
           if [[ "$REQUIRE_MIGRATIONS" == true ]]; then
             applied="$(docker exec ci-postgres psql -U ci_user -d ci_smoke -Atc \
@@ -166,6 +175,7 @@ jobs:
               exit 1
             fi
             migration_check="versioned-migrations-present"
+            echo "MIGRATIONS_OK: $applied"
           fi
 
           jq -n --arg migrationCheck "$migration_check" \
@@ -174,7 +184,7 @@ jobs:
               migrationCheck: $migrationCheck}' > smoke-result.json
 
       - name: Smoke diagnostics and cleanup
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/develop')
         env:
           JOB_STATUS: ${{ job.status }}
         run: |
