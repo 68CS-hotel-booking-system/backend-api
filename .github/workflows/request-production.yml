@@ -1,0 +1,30 @@
+name: Request production readiness check
+
+# Chỉ gửi tín hiệu khi toàn bộ Backend CI trên main đã hoàn tất thành công.
+on:
+  workflow_run:
+    workflows: ["Backend CI"]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Không checkout source hoặc chạy artifact của workflow trước.
+      - name: Ask infrastructure to check production readiness
+        env:
+          GH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          : "${GH_TOKEN:?Missing INFRA_DISPATCH_TOKEN}"
+          gh workflow run deploy-production.yml \
+            --repo 68CS-hotel-booking-system/infrastructure --ref main
