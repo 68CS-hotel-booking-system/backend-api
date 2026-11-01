@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    # Testcontainers sẽ cung cấp kết nối DB thực tế.
+    url: jdbc:postgresql://localhost:5432/unused
+    username: test
+    password: test
+
+  mail:
+    host: localhost
+    port: 1025
+
+auth:
+  verification-url: http://localhost:5173/verify-email
+  mail-from: noreply@hotel.test
+
+  jwt:
+    # Khóa cố định CHỈ dành cho test.
+    secret-base64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=

@@ -25,11 +25,42 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    default-encoding: UTF-8
+
+    properties:
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 3000
+      "[mail.smtp.writetimeout]": 5000
+
+auth:
+  verification-ttl: PT24H
+  verification-url: ${AUTH_VERIFICATION_URL}
+  mail-from: ${AUTH_MAIL_FROM}
+
+  refresh-ttl: P7D
+
+  jwt:
+    issuer: https://hotel-booking.local
+    audience: hotel-booking-api
+    access-ttl: PT15M
+    secret-base64: ${AUTH_JWT_SECRET_BASE64}
+
+  register:
+    max-requests: 5
+    window-seconds: 60
+
 management:
   endpoints:
     web:
       exposure:
         include: health
+
+  health:
+    mail:
+      enabled: false
 
   endpoint:
     health:
