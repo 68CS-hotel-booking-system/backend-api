@@ -89,6 +89,7 @@ jobs:
           docker build --pull --platform linux/amd64 \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "io.hotelbooking.source-tree=$(git rev-parse 'HEAD^{tree}')" \
             --tag "$LOCAL_IMAGE" .
 
           docker image inspect --format '{{.Id}}' "$LOCAL_IMAGE" > image-id.txt
@@ -165,7 +166,7 @@ jobs:
             exit 1
           fi
           echo "BACKEND_HEALTH:"
-          cat health.json
+          jq . health.json
           migration_check="not-required"
           if [[ "$REQUIRE_MIGRATIONS" == true ]]; then
             applied="$(docker exec ci-postgres psql -U ci_user -d ci_smoke -Atc \
@@ -363,3 +364,27 @@ jobs:
       - name: Log out of GHCR
         if: always()
         run: docker logout ghcr.io
+
+  deploy-staging:
+    name: Request backend deployment to staging
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      # Dùng đúng image đã được job publish xác nhận.
+      - name: Request infrastructure deployment
+        env:
+          GH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
+          BACKEND_IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          set -euo pipefail
+
+          : "${GH_TOKEN:?Missing INFRA_DISPATCH_TOKEN}"
+          : "${BACKEND_IMAGE:?Missing published backend image}"
+
+          gh workflow run deploy-staging.yml \
+            --repo 68CS-hotel-booking-system/infrastructure \
+            --ref main \
+            -f backend_image="$BACKEND_IMAGE"
