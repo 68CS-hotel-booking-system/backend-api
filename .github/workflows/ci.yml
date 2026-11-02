@@ -141,6 +141,7 @@ jobs:
             --env SPRING_FLYWAY_ENABLED=true \
             --env AUTH_JWT_SECRET_BASE64="$ci_jwt_secret" \
             --env AUTH_VERIFICATION_URL=http://localhost:5173/verify-email \
+            --env AUTH_PASSWORD_RESET_URL=http://localhost:5173/reset-password \
             --env AUTH_MAIL_FROM=noreply@hotel.test \
             --env MAIL_HOST=localhost \
             --env MAIL_PORT=1025 \
