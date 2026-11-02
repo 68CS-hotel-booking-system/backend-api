@@ -54,6 +54,7 @@ public class JwtAccessTokens implements AccessTokens {
             .expiresAt(expiry)
             .id(UUID.randomUUID().toString())
             .claim("token_use", "access")
+            .claim("auth_version", user.authVersion())
             .claim("roles", user.roles().stream().sorted().toList())
             .build();
 

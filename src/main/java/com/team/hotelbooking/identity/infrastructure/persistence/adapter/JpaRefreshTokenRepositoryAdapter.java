@@ -4,6 +4,8 @@ import com.team.hotelbooking.identity.domain.model.RefreshToken;
 import com.team.hotelbooking.identity.domain.repository.RefreshTokenRepository;
 import com.team.hotelbooking.identity.infrastructure.persistence.entity.RefreshTokenJpaEntity;
 import com.team.hotelbooking.identity.infrastructure.persistence.repository.RefreshTokenJpaRepository;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -25,5 +27,40 @@ public class JpaRefreshTokenRepositoryAdapter implements RefreshTokenRepository 
     entity.setRevoked(token.revoked());
 
     tokens.saveAndFlush(entity);
+  }
+
+  @Override
+  public Optional<UUID> findUserIdByTokenHash(String tokenHash) {
+    return tokens.findUserIdByTokenHash(tokenHash);
+  }
+
+  @Override
+  public Optional<RefreshToken> findByTokenHashForUpdate(String tokenHash) {
+    return tokens
+        .findByTokenHashForUpdate(tokenHash)
+        .map(
+            entity ->
+                new RefreshToken(
+                    entity.getId(),
+                    entity.getUserId(),
+                    entity.getFamilyId(),
+                    entity.getTokenHash(),
+                    entity.getExpiresAt(),
+                    entity.isRevoked()));
+  }
+
+  @Override
+  public void revokeFamily(UUID familyId) {
+    tokens.revokeByFamilyId(familyId);
+  }
+
+  @Override
+  public void revokeById(UUID tokenId) {
+    tokens.revokeByTokenId(tokenId);
+  }
+
+  @Override
+  public void revokeAllByUserId(UUID userId) {
+    tokens.revokeAllByUserId(userId);
   }
 }

@@ -32,7 +32,11 @@ public class IdentityExceptionHandler {
 
           case EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
 
-          case INVALID_CREDENTIALS -> HttpStatus.UNAUTHORIZED;
+          case INVALID_CREDENTIALS,
+              INVALID_REFRESH_TOKEN,
+              REFRESH_TOKEN_REUSED,
+              ACCOUNT_UNAVAILABLE ->
+              HttpStatus.UNAUTHORIZED;
 
           case TOKEN_INVALID, TOKEN_EXPIRED, TOKEN_ALREADY_USED -> HttpStatus.valueOf(422);
 
