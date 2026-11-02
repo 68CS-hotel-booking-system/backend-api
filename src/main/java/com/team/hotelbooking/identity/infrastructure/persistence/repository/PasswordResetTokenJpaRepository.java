@@ -2,11 +2,9 @@ package com.team.hotelbooking.identity.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.identity.infrastructure.persistence.entity.PasswordResetTokenJpaEntity;
 import jakarta.persistence.LockModeType;
-
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -14,10 +12,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PasswordResetTokenJpaRepository
-  extends JpaRepository<PasswordResetTokenJpaEntity, UUID> {
+    extends JpaRepository<PasswordResetTokenJpaEntity, UUID> {
 
   @Query(
-    """
+      """
       select max(t.createdAt)
       from PasswordResetTokenJpaEntity t
       where t.userId = :userId
@@ -29,7 +27,7 @@ public interface PasswordResetTokenJpaRepository
 
   @Modifying
   @Query(
-    """
+      """
       update PasswordResetTokenJpaEntity t
       set t.usedAt = :usedAt
       where t.id = :tokenId
@@ -40,7 +38,7 @@ public interface PasswordResetTokenJpaRepository
 
   @Modifying
   @Query(
-    """
+      """
       update PasswordResetTokenJpaEntity t
       set t.revoked = true
       where t.userId = :userId
@@ -49,13 +47,13 @@ public interface PasswordResetTokenJpaRepository
         and t.revoked = false
       """)
   int revokeOtherUnusedByUserId(
-    @Param("userId") UUID userId, @Param("excludedTokenId") UUID excludedTokenId);
+      @Param("userId") UUID userId, @Param("excludedTokenId") UUID excludedTokenId);
 
-  @Query("""
+  @Query(
+      """
     select t.userId
     from PasswordResetTokenJpaEntity t
     where t.tokenHash = :tokenHash
     """)
-  Optional<UUID> findUserIdByTokenHash(
-    @Param("tokenHash") String tokenHash);
+  Optional<UUID> findUserIdByTokenHash(@Param("tokenHash") String tokenHash);
 }

@@ -7,11 +7,9 @@ import com.team.hotelbooking.identity.domain.repository.PasswordResetTokenReposi
 import com.team.hotelbooking.identity.infrastructure.persistence.entity.PasswordResetTokenJpaEntity;
 import com.team.hotelbooking.identity.infrastructure.persistence.mapper.PasswordResetTokenMapper;
 import com.team.hotelbooking.identity.infrastructure.persistence.repository.PasswordResetTokenJpaRepository;
-
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -41,8 +39,8 @@ public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenRe
   public Optional<PasswordResetToken> findByTokenHashForUpdate(String tokenHash) {
 
     return tokens
-      .findByTokenHash(tokenHash)
-      .map(entity -> PasswordResetTokenMapper.toDomain(entity));
+        .findByTokenHash(tokenHash)
+        .map(entity -> PasswordResetTokenMapper.toDomain(entity));
   }
 
   @Override

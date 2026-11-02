@@ -2,9 +2,7 @@ package com.team.hotelbooking.identity.infrastructure.security;
 
 import com.team.hotelbooking.identity.domain.model.User;
 import com.team.hotelbooking.identity.domain.repository.UserRepository;
-
 import java.util.UUID;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -31,9 +29,9 @@ public class CurrentUserJwtConverter implements Converter<Jwt, AbstractAuthentic
     }
 
     User user =
-      users
-        .findById(userId)
-        .orElseThrow(() -> new InvalidBearerTokenException("Account unavailable."));
+        users
+            .findById(userId)
+            .orElseThrow(() -> new InvalidBearerTokenException("Account unavailable."));
 
     if (user.status() == User.Status.BANNED || user.status() == User.Status.INACTIVE) {
       throw new InvalidBearerTokenException("Account unavailable.");
@@ -57,7 +55,7 @@ public class CurrentUserJwtConverter implements Converter<Jwt, AbstractAuthentic
     }
 
     var authorities =
-      user.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
+        user.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
 
     return new JwtAuthenticationToken(jwt, authorities, userId.toString());
   }
