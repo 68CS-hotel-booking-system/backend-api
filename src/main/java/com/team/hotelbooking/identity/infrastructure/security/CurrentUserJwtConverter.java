@@ -34,8 +34,24 @@ public class CurrentUserJwtConverter implements Converter<Jwt, AbstractAuthentic
             .orElseThrow(() -> new InvalidBearerTokenException("Account unavailable."));
 
     if (user.status() == User.Status.BANNED || user.status() == User.Status.INACTIVE) {
-
       throw new InvalidBearerTokenException("Account unavailable.");
+    }
+
+    Object claim = jwt.getClaims().get("auth_version");
+
+    long tokenAuthVersion;
+
+    if (claim == null) {
+      // JWT phát hành trước khi bổ sung auth_version.
+      tokenAuthVersion = 0L;
+    } else if (claim instanceof Integer || claim instanceof Long) {
+      tokenAuthVersion = ((Number) claim).longValue();
+    } else {
+      throw new InvalidBearerTokenException("Invalid token version.");
+    }
+
+    if (tokenAuthVersion != user.authVersion()) {
+      throw new InvalidBearerTokenException("Token has been invalidated.");
     }
 
     var authorities =

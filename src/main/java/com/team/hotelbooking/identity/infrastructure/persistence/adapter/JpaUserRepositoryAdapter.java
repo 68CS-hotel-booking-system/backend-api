@@ -98,6 +98,20 @@ public class JpaUserRepositoryAdapter implements UserRepository {
   }
 
   @Override
+  public void updatePassword(User updatedUser) {
+    UserJpaEntity entity =
+        users
+            .findByIdAndDeletedFalse(updatedUser.id())
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
+
+    entity.setPasswordHash(updatedUser.passwordHash());
+    entity.setAuthVersion(updatedUser.authVersion());
+    entity.setUpdatedAt(updatedUser.updatedAt());
+
+    users.saveAndFlush(entity);
+  }
+
+  @Override
   public Optional<User> findById(UUID id) {
     return users
         .findOneByIdAndDeletedFalse(id)

@@ -12,6 +12,7 @@ spring:
 auth:
   verification-url: http://localhost:5173/verify-email
   mail-from: noreply@hotel.test
+  password-reset-url: http://localhost:5173/reset-password
 
   jwt:
     # Khóa cố định CHỈ dành cho test.

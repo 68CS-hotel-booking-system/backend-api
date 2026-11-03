@@ -14,6 +14,11 @@ public enum IdentityErrorCode implements ErrorCode {
   INVALID_CREDENTIALS("Email hoặc mật khẩu không đúng."),
   ACCOUNT_LOCKED("Tài khoản đang bị khóa."),
   EMAIL_NOT_VERIFIED("Vui lòng xác minh email trước khi đăng nhập."),
+  INVALID_REFRESH_TOKEN("Refresh token không hợp lệ hoặc đã hết hạn."),
+  REFRESH_TOKEN_REUSED("Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."),
+  ACCOUNT_UNAVAILABLE("Tài khoản không còn khả dụng."),
+  CURRENT_PASSWORD_INCORRECT("Mật khẩu hiện tại không đúng."),
+  NEW_PASSWORD_SAME_AS_CURRENT("Mật khẩu mới phải khác mật khẩu hiện tại."),
   ;
 
   private final String message;

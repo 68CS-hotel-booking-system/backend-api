@@ -52,6 +52,10 @@ auth:
     max-requests: 5
     window-seconds: 60
 
+  password-reset-url: ${AUTH_PASSWORD_RESET_URL}
+  password-reset-ttl: PT15M
+  password-reset-cooldown: PT1M
+
 management:
   endpoints:
     web:
