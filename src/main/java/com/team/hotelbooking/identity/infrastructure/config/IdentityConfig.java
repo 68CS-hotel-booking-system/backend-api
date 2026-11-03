@@ -6,6 +6,7 @@ import com.team.hotelbooking.identity.application.port.PasswordHasher;
 import com.team.hotelbooking.identity.application.port.PasswordResetEmailQueue;
 import com.team.hotelbooking.identity.application.port.VerificationEmailQueue;
 import com.team.hotelbooking.identity.application.result.LoginResult;
+import com.team.hotelbooking.identity.application.usecase.ChangePasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.ForgotPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.GetCurrentUserUseCase;
 import com.team.hotelbooking.identity.application.usecase.LoginUseCase;
@@ -14,6 +15,7 @@ import com.team.hotelbooking.identity.application.usecase.RefreshTokenUseCase;
 import com.team.hotelbooking.identity.application.usecase.RegisterUseCase;
 import com.team.hotelbooking.identity.application.usecase.ResetPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.VerifyEmailUseCase;
+import com.team.hotelbooking.identity.application.usecase.impl.ChangePasswordService;
 import com.team.hotelbooking.identity.application.usecase.impl.ForgotPasswordService;
 import com.team.hotelbooking.identity.application.usecase.impl.GetCurrentUserService;
 import com.team.hotelbooking.identity.application.usecase.impl.LoginService;
@@ -256,6 +258,24 @@ public class IdentityConfig {
             opaqueTokens,
             passwordHasher,
             clock);
+
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public ChangePasswordUseCase changePasswordUseCase(
+      UserRepository users,
+      PasswordHasher passwords,
+      RefreshTokenRepository refreshTokens,
+      PasswordResetTokenRepository resetTokens,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+
+    ChangePasswordService service =
+        new ChangePasswordService(users, passwords, refreshTokens, resetTokens, clock);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 

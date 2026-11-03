@@ -55,4 +55,9 @@ public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenRe
   public void revokeOtherUnusedByUserId(UUID userId, UUID excludedTokenId) {
     tokens.revokeOtherUnusedByUserId(userId, excludedTokenId);
   }
+
+  @Override
+  public void revokeAllUnusedByUserId(UUID userId) {
+    tokens.revokeAllUnusedByUserId(userId);
+  }
 }

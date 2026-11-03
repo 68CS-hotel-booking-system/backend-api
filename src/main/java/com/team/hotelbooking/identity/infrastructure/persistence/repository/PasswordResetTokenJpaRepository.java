@@ -51,9 +51,20 @@ public interface PasswordResetTokenJpaRepository
 
   @Query(
       """
-    select t.userId
-    from PasswordResetTokenJpaEntity t
-    where t.tokenHash = :tokenHash
-    """)
+      select t.userId
+      from PasswordResetTokenJpaEntity t
+      where t.tokenHash = :tokenHash
+      """)
   Optional<UUID> findUserIdByTokenHash(@Param("tokenHash") String tokenHash);
+
+  @Modifying
+  @Query(
+      """
+    update PasswordResetTokenJpaEntity t
+    set t.revoked = true
+    where t.userId = :userId
+        and t.usedAt is null
+        and t.revoked = false
+    """)
+  int revokeAllUnusedByUserId(@Param("userId") UUID userId);
 }

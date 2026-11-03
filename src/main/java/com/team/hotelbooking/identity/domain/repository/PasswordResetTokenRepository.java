@@ -17,4 +17,6 @@ public interface PasswordResetTokenRepository {
   void markUsed(PasswordResetToken consumedToken);
 
   void revokeOtherUnusedByUserId(UUID userId, UUID excludedTokenId);
+
+  void revokeAllUnusedByUserId(UUID userId);
 }
