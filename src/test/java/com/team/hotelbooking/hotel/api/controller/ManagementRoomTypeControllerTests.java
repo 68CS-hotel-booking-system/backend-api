@@ -11,6 +11,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.team.hotelbooking.hotel.api.dto.request.UpdateRoomTypeRequest;
 import com.team.hotelbooking.hotel.api.exception.HotelExceptionHandler;
 import com.team.hotelbooking.hotel.application.result.RoomTypeResult;
+import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.shared.web.ProblemDetailFactory;
@@ -34,13 +35,15 @@ class ManagementRoomTypeControllerTests {
   private MockMvc mvc;
   private ObjectMapper objectMapper;
 
+  @Mock private CreateRoomTypeUseCase createRoomTypeUseCase;
   @Mock private UpdateRoomTypeUseCase updateRoomTypeUseCase;
 
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     mvc =
-        MockMvcBuilders.standaloneSetup(new ManagementRoomTypeController(updateRoomTypeUseCase))
+        MockMvcBuilders.standaloneSetup(
+                new ManagementRoomTypeController(createRoomTypeUseCase, updateRoomTypeUseCase))
             .setControllerAdvice(new HotelExceptionHandler(new ProblemDetailFactory()))
             .build();
   }

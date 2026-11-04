@@ -1,6 +1,12 @@
 package com.team.hotelbooking.hotel.infrastructure.persistence.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -18,18 +24,14 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor
 public class HotelJpaEntity {
 
-  public enum DbHotelStatus {
-    draft,
-    active,
-    inactive
+  public enum DbStatus {
+    DRAFT
   }
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.AUTO)
-  private UUID id;
+  @Id private UUID id;
 
   @Column(name = "owner_user_id", nullable = false)
-  private UUID ownerUserId;
+  private UUID ownerId;
 
   @Column(name = "city_id", nullable = false)
   private UUID cityId;
@@ -37,10 +39,10 @@ public class HotelJpaEntity {
   @Column(nullable = false, length = 255)
   private String name;
 
-  @Column(nullable = false, unique = true, length = 255)
+  @Column(nullable = false, length = 255)
   private String slug;
 
-  @Column(columnDefinition = "TEXT")
+  @Column(columnDefinition = "text")
   private String description;
 
   @Column(nullable = false, length = 255)
@@ -56,26 +58,35 @@ public class HotelJpaEntity {
   private Short starRating;
 
   @Column(name = "check_in_time", nullable = false)
-  private LocalTime checkInTime = LocalTime.of(14, 0);
+  private LocalTime checkInTime;
 
   @Column(name = "check_out_time", nullable = false)
-  private LocalTime checkOutTime = LocalTime.of(12, 0);
+  private LocalTime checkOutTime;
 
   @Enumerated(EnumType.STRING)
   @JdbcTypeCode(SqlTypes.NAMED_ENUM)
   @Column(nullable = false, columnDefinition = "hotel_status__t")
-  private DbHotelStatus status = DbHotelStatus.draft;
-
-  @Column(name = "is_active", nullable = false)
-  private boolean active = true;
+  private DbStatus status;
 
   @Column(name = "created_at", nullable = false)
-  private Instant createdAt = Instant.now();
+  private Instant createdAt;
 
   @Column(name = "updated_at", nullable = false)
-  private Instant updatedAt = Instant.now();
+  private Instant updatedAt;
 
   @Version
   @Column(nullable = false)
-  private Long version = 0L;
+  private Long version;
+
+  public UUID getOwnerUserId() {
+    return ownerId;
+  }
+
+  public void setOwnerUserId(UUID ownerUserId) {
+    this.ownerId = ownerUserId;
+  }
+
+  public boolean isActive() {
+    return true;
+  }
 }

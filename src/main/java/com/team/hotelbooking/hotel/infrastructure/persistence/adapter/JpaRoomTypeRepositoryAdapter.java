@@ -1,0 +1,31 @@
+package com.team.hotelbooking.hotel.infrastructure.persistence.adapter;
+
+import com.team.hotelbooking.hotel.domain.model.RoomType;
+import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
+import com.team.hotelbooking.hotel.infrastructure.persistence.mapper.RoomTypePersistenceMapper;
+import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
+import java.util.Optional;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+@Repository
+@RequiredArgsConstructor
+public class JpaRoomTypeRepositoryAdapter implements RoomTypeRepository {
+
+  private final RoomTypeJpaRepository roomTypeJpaRepository;
+
+  @Override
+  public RoomType add(RoomType roomType) {
+    var entity = RoomTypePersistenceMapper.toNewEntity(roomType);
+    var saved = roomTypeJpaRepository.saveAndFlush(entity);
+    return RoomTypePersistenceMapper.toDomain(saved);
+  }
+
+  @Override
+  public Optional<RoomType> findByIdAndHotelId(UUID roomTypeId, UUID hotelId) {
+    return roomTypeJpaRepository
+        .findByIdAndHotelId(roomTypeId, hotelId)
+        .map(RoomTypePersistenceMapper::toDomain);
+  }
+}

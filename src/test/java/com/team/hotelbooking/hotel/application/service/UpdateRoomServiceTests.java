@@ -54,7 +54,7 @@ class UpdateRoomServiceTests {
     existingRoom.setHotelId(hotelId);
     existingRoom.setRoomTypeId(roomTypeId);
     existingRoom.setRoomNumber("P.101");
-    existingRoom.setFloor((short) 1);
+    existingRoom.setFloor("1");
     existingRoom.setStatus(RoomJpaEntity.DbRoomStatus.ready);
     existingRoom.setActive(true);
     existingRoom.setCreatedAt(Instant.parse("2026-10-01T00:00:00Z"));

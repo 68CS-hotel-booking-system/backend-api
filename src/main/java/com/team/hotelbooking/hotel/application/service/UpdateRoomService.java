@@ -50,7 +50,7 @@ public class UpdateRoomService implements UpdateRoomUseCase {
     }
 
     if (command.floor() != null) {
-      room.setFloor(command.floor());
+      room.setFloor(String.valueOf(command.floor()));
     }
 
     if (command.status() != null) {
@@ -72,12 +72,20 @@ public class UpdateRoomService implements UpdateRoomUseCase {
 
     RoomJpaEntity saved = roomJpaRepository.save(room);
 
+    Short floorNumber = null;
+    if (saved.getFloor() != null) {
+      try {
+        floorNumber = Short.valueOf(saved.getFloor());
+      } catch (NumberFormatException ignored) {
+      }
+    }
+
     return new RoomResult(
         saved.getId(),
         saved.getHotelId(),
         saved.getRoomTypeId(),
         saved.getRoomNumber(),
-        saved.getFloor(),
+        floorNumber,
         saved.getStatus().name(),
         saved.isActive(),
         saved.getCreatedAt(),

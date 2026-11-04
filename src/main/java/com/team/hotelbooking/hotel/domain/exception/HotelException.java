@@ -1,20 +1,28 @@
 package com.team.hotelbooking.hotel.domain.exception;
 
-import lombok.Getter;
+public final class HotelException extends RuntimeException {
 
-@Getter
-public class HotelException extends RuntimeException {
+  private final HotelErrorCode code;
 
-  private final HotelErrorCode errorCode;
-
-  public HotelException(HotelErrorCode errorCode) {
-    super(errorCode.defaultMessage());
-    this.errorCode = errorCode;
+  public HotelException(HotelErrorCode code) {
+    this(code, code.defaultMessage());
   }
 
-  public HotelException(HotelErrorCode errorCode, String customMessage) {
-    super(customMessage);
-    this.errorCode = errorCode;
+  public HotelException(HotelErrorCode code, String message) {
+    super(message);
+    this.code = code;
+  }
+
+  public HotelErrorCode code() {
+    return code;
+  }
+
+  public HotelErrorCode getErrorCode() {
+    return code;
+  }
+
+  public static HotelException invalid(String message) {
+    return new HotelException(HotelErrorCode.VALIDATION_FAILED, message);
   }
 
   public static HotelException hotelNotFound(String message) {

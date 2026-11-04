@@ -1,5 +1,6 @@
 package com.team.hotelbooking.identity.infrastructure.config;
 
+import com.team.hotelbooking.identity.AccountDirectory;
 import com.team.hotelbooking.identity.application.port.AccessTokens;
 import com.team.hotelbooking.identity.application.port.OpaqueTokens;
 import com.team.hotelbooking.identity.application.port.PasswordHasher;
@@ -40,6 +41,7 @@ import com.team.hotelbooking.identity.domain.repository.RoleRepository;
 import com.team.hotelbooking.identity.domain.repository.UserRepository;
 import com.team.hotelbooking.identity.domain.repository.UserRoleRepository;
 import com.team.hotelbooking.identity.domain.repository.VerificationTokenRepository;
+import com.team.hotelbooking.identity.infrastructure.integration.IdentityAccountDirectoryAdapter;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
@@ -339,5 +341,19 @@ public class IdentityConfig {
 
     return command ->
         Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public AccountDirectory accountDirectory(
+      UserRepository users, PlatformTransactionManager transactionManager) {
+
+    IdentityAccountDirectoryAdapter adapter = new IdentityAccountDirectoryAdapter(users);
+
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    transaction.setReadOnly(true);
+
+    return userId ->
+        Objects.requireNonNull(transaction.execute(status -> adapter.findById(userId)));
   }
 }

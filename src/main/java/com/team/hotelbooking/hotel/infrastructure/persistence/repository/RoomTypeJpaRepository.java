@@ -7,9 +7,10 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, UUID> {
+
+  Optional<RoomTypeJpaEntity> findByIdAndHotelId(UUID roomTypeId, UUID hotelId);
+
   List<RoomTypeJpaEntity> findAllByHotelIdAndActiveTrue(UUID hotelId);
 
   Optional<RoomTypeJpaEntity> findByIdAndHotelIdAndActiveTrue(UUID id, UUID hotelId);
-
-  Optional<RoomTypeJpaEntity> findByIdAndHotelId(UUID id, UUID hotelId);
 }

@@ -1,46 +1,29 @@
--- Enums
-CREATE TYPE hotel_status__t AS ENUM ('draft', 'active', 'inactive');
-CREATE TYPE room_status__t AS ENUM ('ready', 'cleaning', 'maintenance');
-CREATE TYPE room_block_status__t AS ENUM ('ACTIVE', 'RELEASED');
-CREATE TYPE inventory_reservation_status__t AS ENUM ('HELD', 'CONFIRMED', 'RELEASED');
-CREATE TYPE hotel_member_role__t AS ENUM ('HOTEL_MANAGER', 'RECEPTIONIST');
-CREATE TYPE commission_basis__t AS ENUM ('BEFORE_DISCOUNT', 'AFTER_DISCOUNT', 'AFTER_HOTEL_DISCOUNT');
-CREATE TYPE hotel_contract_status__t AS ENUM ('DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED');
+-- Enums for TV5 (Inventory, Pricing, Finance)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'room_block_status__t') THEN
+        CREATE TYPE room_block_status__t AS ENUM ('ACTIVE', 'RELEASED');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'inventory_reservation_status__t') THEN
+        CREATE TYPE inventory_reservation_status__t AS ENUM ('HELD', 'CONFIRMED', 'RELEASED');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'hotel_member_role__t') THEN
+        CREATE TYPE hotel_member_role__t AS ENUM ('HOTEL_MANAGER', 'RECEPTIONIST');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'commission_basis__t') THEN
+        CREATE TYPE commission_basis__t AS ENUM ('BEFORE_DISCOUNT', 'AFTER_DISCOUNT', 'AFTER_HOTEL_DISCOUNT');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'hotel_contract_status__t') THEN
+        CREATE TYPE hotel_contract_status__t AS ENUM ('DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED');
+    END IF;
+END $$;
 
--- Base prerequisite tables
-CREATE TABLE cities (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    country_code VARCHAR(2) NOT NULL DEFAULT 'VN',
-    name VARCHAR(100) NOT NULL,
-    slug VARCHAR(150) NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- Extend room_types for pricing & occupancy
+ALTER TABLE room_types ADD COLUMN IF NOT EXISTS max_occupancy SMALLINT NOT NULL DEFAULT 2;
+ALTER TABLE room_types ADD COLUMN IF NOT EXISTS base_price BIGINT NOT NULL DEFAULT 0;
 
-CREATE TABLE hotels (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_user_id UUID NOT NULL REFERENCES users(id),
-    city_id UUID NOT NULL REFERENCES cities(id),
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
-    description TEXT,
-    address VARCHAR(255) NOT NULL,
-    latitude DECIMAL(9,6),
-    longitude DECIMAL(9,6),
-    star_rating SMALLINT,
-    check_in_time TIME NOT NULL DEFAULT '14:00:00',
-    check_out_time TIME NOT NULL DEFAULT '12:00:00',
-    status hotel_status__t NOT NULL DEFAULT 'draft',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    version BIGINT NOT NULL DEFAULT 0
-);
-
-CREATE INDEX idx_hotels_city_id ON hotels(city_id);
-CREATE INDEX idx_hotels_owner_user_id ON hotels(owner_user_id);
-
-CREATE TABLE hotel_members (
+-- 0. hotel_members
+CREATE TABLE IF NOT EXISTS hotel_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -50,44 +33,10 @@ CREATE TABLE hotel_members (
     CONSTRAINT uq_hotel_members_hotel_user_role UNIQUE (hotel_id, user_id, role)
 );
 
-CREATE INDEX idx_hotel_members_user_id ON hotel_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_hotel_members_user_id ON hotel_members(user_id);
 
-CREATE TABLE room_types (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    max_adults SMALLINT NOT NULL DEFAULT 2,
-    max_children SMALLINT NOT NULL DEFAULT 0,
-    max_occupancy SMALLINT NOT NULL DEFAULT 2,
-    base_price BIGINT NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_room_types_adults CHECK (max_adults >= 1),
-    CONSTRAINT ck_room_types_children CHECK (max_children >= 0)
-);
-
-CREATE INDEX idx_room_types_hotel_id ON room_types(hotel_id);
-
-CREATE TABLE rooms (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
-    room_type_id UUID NOT NULL REFERENCES room_types(id) ON DELETE RESTRICT,
-    room_number VARCHAR(50) NOT NULL,
-    floor SMALLINT,
-    status room_status__t NOT NULL DEFAULT 'ready',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_rooms_hotel_room_number UNIQUE (hotel_id, room_number)
-);
-
-CREATE INDEX idx_rooms_room_type ON rooms(room_type_id);
-
--- TV5 Domain Tables
 -- 1. room_rates (PR01)
-CREATE TABLE room_rates (
+CREATE TABLE IF NOT EXISTS room_rates (
     room_type_id UUID NOT NULL REFERENCES room_types(id) ON DELETE CASCADE,
     rate_date DATE NOT NULL,
     amount BIGINT NOT NULL,
@@ -98,10 +47,10 @@ CREATE TABLE room_rates (
     CONSTRAINT ck_room_rates_amount CHECK (amount >= 0)
 );
 
-CREATE INDEX idx_room_rates_date ON room_rates(rate_date);
+CREATE INDEX IF NOT EXISTS idx_room_rates_date ON room_rates(rate_date);
 
 -- 2. room_inventory (IV01)
-CREATE TABLE room_inventory (
+CREATE TABLE IF NOT EXISTS room_inventory (
     room_type_id UUID NOT NULL REFERENCES room_types(id) ON DELETE CASCADE,
     inventory_date DATE NOT NULL,
     total_inventory SMALLINT NOT NULL DEFAULT 0,
@@ -113,7 +62,7 @@ CREATE TABLE room_inventory (
 );
 
 -- 3. room_blocks (IV01)
-CREATE TABLE room_blocks (
+CREATE TABLE IF NOT EXISTS room_blocks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
     room_type_id UUID NOT NULL REFERENCES room_types(id) ON DELETE CASCADE,
@@ -129,10 +78,10 @@ CREATE TABLE room_blocks (
     CONSTRAINT ck_room_blocks_dates CHECK (end_date >= start_date)
 );
 
-CREATE INDEX idx_room_blocks_room_type_dates ON room_blocks(room_type_id, start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_room_blocks_room_type_dates ON room_blocks(room_type_id, start_date, end_date);
 
 -- 4. inventory_reservations (IV01)
-CREATE TABLE inventory_reservations (
+CREATE TABLE IF NOT EXISTS inventory_reservations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_item_id UUID,
     room_type_id UUID NOT NULL REFERENCES room_types(id) ON DELETE CASCADE,
@@ -145,10 +94,10 @@ CREATE TABLE inventory_reservations (
     CONSTRAINT ck_inv_res_quantity CHECK (quantity > 0)
 );
 
-CREATE INDEX idx_inv_res_room_type_date ON inventory_reservations(room_type_id, stay_date, status);
+CREATE INDEX IF NOT EXISTS idx_inv_res_room_type_date ON inventory_reservations(room_type_id, stay_date, status);
 
 -- 5. hotel_contracts (FN01, FN02)
-CREATE TABLE hotel_contracts (
+CREATE TABLE IF NOT EXISTS hotel_contracts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     contract_code VARCHAR(100) NOT NULL,
     hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
@@ -166,10 +115,10 @@ CREATE TABLE hotel_contracts (
     CONSTRAINT ck_hotel_contracts_rate CHECK (commission_rate >= 0.00 AND commission_rate <= 100.00)
 );
 
-CREATE INDEX idx_hotel_contracts_hotel ON hotel_contracts(hotel_id, status);
+CREATE INDEX IF NOT EXISTS idx_hotel_contracts_hotel ON hotel_contracts(hotel_id, status);
 
 -- 6. hotel_financial_access (FN00, FN16)
-CREATE TABLE hotel_financial_access (
+CREATE TABLE IF NOT EXISTS hotel_financial_access (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hotel_id UUID NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -182,9 +131,9 @@ CREATE TABLE hotel_financial_access (
     CONSTRAINT uq_hotel_financial_access_hotel_user UNIQUE (hotel_id, user_id)
 );
 
-CREATE INDEX idx_hotel_financial_access_user ON hotel_financial_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_hotel_financial_access_user ON hotel_financial_access(user_id);
 
-CREATE TABLE hotel_financial_access_history (
+CREATE TABLE IF NOT EXISTS hotel_financial_access_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     financial_access_id UUID NOT NULL REFERENCES hotel_financial_access(id) ON DELETE CASCADE,
     hotel_id UUID NOT NULL,
@@ -197,4 +146,5 @@ CREATE TABLE hotel_financial_access_history (
     changed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_financial_access_history ON hotel_financial_access_history(financial_access_id, version);
+CREATE INDEX IF NOT EXISTS idx_financial_access_history ON hotel_financial_access_history(financial_access_id, version);
+

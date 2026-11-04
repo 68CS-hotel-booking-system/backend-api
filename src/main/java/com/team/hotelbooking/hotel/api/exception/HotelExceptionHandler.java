@@ -21,15 +21,28 @@ public class HotelExceptionHandler {
 
   @ExceptionHandler(HotelException.class)
   public ResponseEntity<ProblemDetail> handle(HotelException exception, WebRequest request) {
+
     HttpStatus status =
-        switch (exception.getErrorCode()) {
-          case INVALID_OCCUPANCY, INVALID_PRICE, INVALID_REQUEST -> HttpStatus.BAD_REQUEST;
-          case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND, ROOM_NOT_FOUND -> HttpStatus.NOT_FOUND;
-          case DUPLICATE_ROOM_NUMBER -> HttpStatus.CONFLICT;
+        switch (exception.code()) {
+          case VALIDATION_FAILED, INVALID_OCCUPANCY, INVALID_PRICE, INVALID_REQUEST ->
+              HttpStatus.BAD_REQUEST;
+          case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+          case OWNER_NOT_FOUND,
+              CITY_NOT_FOUND,
+              HOTEL_NOT_FOUND,
+              ROOM_TYPE_NOT_FOUND,
+              ROOM_NOT_FOUND ->
+              HttpStatus.NOT_FOUND;
+          case OWNER_NOT_ELIGIBLE,
+              HOTEL_SLUG_CONFLICT,
+              ROOM_TYPE_INACTIVE,
+              ROOM_NUMBER_CONFLICT,
+              DUPLICATE_ROOM_NUMBER ->
+              HttpStatus.CONFLICT;
         };
 
-    ProblemDetail body =
-        problems.create(status, exception.getErrorCode(), exception.getMessage(), request);
+    ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);
+
     return ResponseEntity.status(status).body(body);
   }
 }

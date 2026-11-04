@@ -11,6 +11,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.team.hotelbooking.hotel.api.dto.request.UpdateRoomRequest;
 import com.team.hotelbooking.hotel.api.exception.HotelExceptionHandler;
 import com.team.hotelbooking.hotel.application.result.RoomResult;
+import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.shared.web.ProblemDetailFactory;
@@ -34,13 +35,15 @@ class ManagementRoomControllerTests {
   private MockMvc mvc;
   private ObjectMapper objectMapper;
 
+  @Mock private CreateRoomUseCase createRoomUseCase;
   @Mock private UpdateRoomUseCase updateRoomUseCase;
 
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     mvc =
-        MockMvcBuilders.standaloneSetup(new ManagementRoomController(updateRoomUseCase))
+        MockMvcBuilders.standaloneSetup(
+                new ManagementRoomController(createRoomUseCase, updateRoomUseCase))
             .setControllerAdvice(new HotelExceptionHandler(new ProblemDetailFactory()))
             .build();
   }

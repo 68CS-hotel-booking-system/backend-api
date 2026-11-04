@@ -1,6 +1,5 @@
 package com.team.hotelbooking.inventory.infrastructure.integration;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.entity.HotelJpaEntity;
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomTypeJpaEntity;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
@@ -22,12 +21,7 @@ public class HotelCatalogAdapter implements HotelCatalogPort {
   public Optional<HotelSummary> findHotelSummary(UUID hotelId) {
     return hotelJpaRepository
         .findByIdAndActiveTrue(hotelId)
-        .map(
-            hotel ->
-                new HotelSummary(
-                    hotel.getId(),
-                    hotel.isActive(),
-                    hotel.getStatus() != HotelJpaEntity.DbHotelStatus.active));
+        .map(hotel -> new HotelSummary(hotel.getId(), hotel.isActive(), false));
   }
 
   @Override
@@ -41,9 +35,9 @@ public class HotelCatalogAdapter implements HotelCatalogPort {
                 new RoomTypeSummary(
                     rt.getId(),
                     rt.getName(),
-                    rt.getMaxOccupancy() != null ? rt.getMaxOccupancy().intValue() : 0,
-                    rt.getMaxAdults() != null ? rt.getMaxAdults().intValue() : 0,
-                    rt.getMaxChildren() != null ? rt.getMaxChildren().intValue() : 0,
+                    (int) rt.getMaxOccupancy(),
+                    (int) rt.getMaxAdults(),
+                    (int) rt.getMaxChildren(),
                     rt.getBasePrice()))
         .toList();
   }

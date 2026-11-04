@@ -1,6 +1,12 @@
 package com.team.hotelbooking.hotel.infrastructure.persistence.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Getter;
@@ -16,15 +22,18 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor
 public class RoomJpaEntity {
 
+  public enum DbReadiness {
+    READY,
+    DIRTY
+  }
+
   public enum DbRoomStatus {
     ready,
     cleaning,
     maintenance
   }
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.AUTO)
-  private UUID id;
+  @Id private UUID id;
 
   @Column(name = "hotel_id", nullable = false)
   private UUID hotelId;
@@ -35,19 +44,57 @@ public class RoomJpaEntity {
   @Column(name = "room_number", nullable = false, length = 50)
   private String roomNumber;
 
-  private Short floor;
+  @Column(length = 20)
+  private String floor;
 
   @Enumerated(EnumType.STRING)
   @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-  @Column(nullable = false, columnDefinition = "room_status__t")
-  private DbRoomStatus status = DbRoomStatus.ready;
+  @Column(nullable = false, columnDefinition = "room_readiness__t")
+  private DbReadiness readiness = DbReadiness.READY;
 
-  @Column(name = "is_active", nullable = false)
-  private boolean active = true;
+  @Column(name = "readiness_updated_at", nullable = false)
+  private Instant readinessUpdatedAt = Instant.now();
+
+  @Column(name = "readiness_updated_by")
+  private UUID readinessUpdatedBy;
+
+  @Column(name = "operational_from", nullable = false)
+  private Instant operationalFrom = Instant.now();
+
+  @Column(name = "operational_until")
+  private Instant operationalUntil;
 
   @Column(name = "created_at", nullable = false)
   private Instant createdAt = Instant.now();
 
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt = Instant.now();
+
+  @Version
+  @Column(nullable = false)
+  private Long version = 0L;
+
+  public boolean isActive() {
+    return operationalUntil == null || operationalUntil.isAfter(Instant.now());
+  }
+
+  public void setActive(Boolean active) {
+    if (active != null && !active) {
+      this.operationalUntil = Instant.now();
+    } else if (active != null && active) {
+      this.operationalUntil = null;
+    }
+  }
+
+  public DbRoomStatus getStatus() {
+    return readiness == DbReadiness.READY ? DbRoomStatus.ready : DbRoomStatus.cleaning;
+  }
+
+  public void setStatus(DbRoomStatus status) {
+    if (status == DbRoomStatus.ready) {
+      this.readiness = DbReadiness.READY;
+    } else {
+      this.readiness = DbReadiness.DIRTY;
+    }
+  }
 }
