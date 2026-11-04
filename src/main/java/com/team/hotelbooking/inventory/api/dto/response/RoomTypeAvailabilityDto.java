@@ -1,5 +1,6 @@
 package com.team.hotelbooking.inventory.api.dto.response;
 
+import com.team.hotelbooking.inventory.application.result.RoomTypeAvailabilityResult;
 import java.util.UUID;
 
 public record RoomTypeAvailabilityDto(
@@ -12,4 +13,19 @@ public record RoomTypeAvailabilityDto(
     boolean isAvailable,
     Long pricePerNight,
     Long totalEstimatedPrice,
-    String currency) {}
+    String currency) {
+
+  public static RoomTypeAvailabilityDto from(RoomTypeAvailabilityResult result) {
+    return new RoomTypeAvailabilityDto(
+        result.roomTypeId(),
+        result.roomTypeName(),
+        result.maxOccupancy(),
+        result.maxAdults(),
+        result.maxChildren(),
+        result.availableQuantity(),
+        result.isAvailable(),
+        result.pricePerNight(),
+        result.totalEstimatedPrice(),
+        result.currency());
+  }
+}
