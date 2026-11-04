@@ -1,10 +1,9 @@
 package com.team.hotelbooking.pricing.api.controller;
 
-import com.team.hotelbooking.pricing.api.dto.response.DailyRateDto;
+import com.team.hotelbooking.pricing.api.dto.request.GetRoomRatesRequest;
 import com.team.hotelbooking.pricing.api.dto.response.RoomTypeRatesResponse;
-import com.team.hotelbooking.pricing.application.command.GetRoomRatesQuery;
+import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
-import com.team.hotelbooking.pricing.domain.model.RoomTypeRates;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,22 +11,21 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotNull;
-import java.time.LocalDate;
-import java.util.List;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/management/hotels")
 @RequiredArgsConstructor
-@Validated
 @Tag(name = "Pricing - Rates", description = "API quản lý giá phòng theo ngày")
 public class ManagementRateController {
 
@@ -56,33 +54,11 @@ public class ManagementRateController {
   public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> getRoomRates(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,
-      @Parameter(description = "Ngày bắt đầu (YYYY-MM-DD)", required = true)
-          @RequestParam
-          @NotNull(message = "Ngày bắt đầu không được để trống.")
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate startDate,
-      @Parameter(description = "Ngày kết thúc (YYYY-MM-DD)", required = true)
-          @RequestParam
-          @NotNull(message = "Ngày kết thúc không được để trống.")
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate endDate) {
+      @ParameterObject @Valid GetRoomRatesRequest request) {
 
-    RoomTypeRates result =
-        getRoomRatesUseCase.execute(new GetRoomRatesQuery(hotelId, roomTypeId, startDate, endDate));
+    RoomTypeRatesResult result = getRoomRatesUseCase.execute(request.toQuery(hotelId, roomTypeId));
 
-    List<DailyRateDto> dtos =
-        result.rates().stream()
-            .map(r -> new DailyRateDto(r.date(), r.price(), r.hasRate(), r.updatedAt()))
-            .toList();
-
-    RoomTypeRatesResponse response =
-        new RoomTypeRatesResponse(
-            result.hotelId(),
-            result.roomTypeId(),
-            result.currency(),
-            result.startDate(),
-            result.endDate(),
-            dtos);
+    RoomTypeRatesResponse response = RoomTypeRatesResponse.from(result);
 
     return ResponseEntity.ok(ApiResponse.success("Thành công.", response));
   }

@@ -1,8 +1,8 @@
 package com.team.hotelbooking.pricing.application.service;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
 import com.team.hotelbooking.pricing.application.command.GetRoomRatesQuery;
+import com.team.hotelbooking.pricing.application.port.PricingHotelPort;
+import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
 import com.team.hotelbooking.pricing.domain.model.DailyRate;
@@ -16,32 +16,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class GetRoomRatesService implements GetRoomRatesUseCase {
 
-  private final HotelJpaRepository hotelJpaRepository;
-  private final RoomTypeJpaRepository roomTypeJpaRepository;
+  private final PricingHotelPort pricingHotelPort;
   private final RoomRateJpaRepository roomRateJpaRepository;
 
   @Override
-  public RoomTypeRates execute(GetRoomRatesQuery query) {
+  public RoomTypeRatesResult execute(GetRoomRatesQuery query) {
     validateDates(query.startDate(), query.endDate());
 
-    hotelJpaRepository
-        .findByIdAndActiveTrue(query.hotelId())
-        .orElseThrow(() -> PricingException.hotelNotFound("Không tìm thấy khách sạn."));
+    if (!pricingHotelPort.isHotelActive(query.hotelId())) {
+      throw PricingException.hotelNotFound("Không tìm thấy khách sạn.");
+    }
 
-    roomTypeJpaRepository
-        .findByIdAndHotelIdAndActiveTrue(query.roomTypeId(), query.hotelId())
-        .orElseThrow(
-            () ->
-                PricingException.roomTypeNotFound(
-                    "Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn."));
+    if (!pricingHotelPort.isRoomTypeActiveInHotel(query.roomTypeId(), query.hotelId())) {
+      throw PricingException.roomTypeNotFound(
+          "Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn.");
+    }
 
     List<RoomRateJpaEntity> ratesFromDb =
         roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(
@@ -62,8 +55,16 @@ public class GetRoomRatesService implements GetRoomRatesUseCase {
       }
     }
 
-    return new RoomTypeRates(
-        query.hotelId(), query.roomTypeId(), "VND", query.startDate(), query.endDate(), dailyRates);
+    RoomTypeRates domain =
+        new RoomTypeRates(
+            query.hotelId(),
+            query.roomTypeId(),
+            "VND",
+            query.startDate(),
+            query.endDate(),
+            dailyRates);
+
+    return RoomTypeRatesResult.from(domain);
   }
 
   private void validateDates(LocalDate startDate, LocalDate endDate) {

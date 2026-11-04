@@ -1,8 +1,8 @@
 package com.team.hotelbooking.pricing.application.usecase;
 
 import com.team.hotelbooking.pricing.application.command.GetRoomRatesQuery;
-import com.team.hotelbooking.pricing.domain.model.RoomTypeRates;
+import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 
 public interface GetRoomRatesUseCase {
-  RoomTypeRates execute(GetRoomRatesQuery query);
+  RoomTypeRatesResult execute(GetRoomRatesQuery query);
 }
