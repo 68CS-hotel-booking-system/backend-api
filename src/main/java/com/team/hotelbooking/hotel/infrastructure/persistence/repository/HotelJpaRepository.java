@@ -12,4 +12,8 @@ public interface HotelJpaRepository extends JpaRepository<HotelJpaEntity, UUID> 
   Optional<HotelJpaEntity> findByIdAndOwnerId(UUID hotelId, UUID ownerId);
 
   Page<HotelJpaEntity> findByOwnerId(UUID ownerId, Pageable pageable);
+
+  default Optional<HotelJpaEntity> findByIdAndActiveTrue(UUID id) {
+    return findById(id);
+  }
 }
