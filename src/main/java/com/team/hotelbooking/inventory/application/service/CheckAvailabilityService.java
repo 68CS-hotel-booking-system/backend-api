@@ -1,47 +1,42 @@
 package com.team.hotelbooking.inventory.application.service;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.entity.HotelJpaEntity;
-import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomTypeJpaEntity;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
 import com.team.hotelbooking.inventory.application.command.CheckAvailabilityQuery;
+import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
 import com.team.hotelbooking.inventory.application.port.InventoryQueryPort;
 import com.team.hotelbooking.inventory.application.port.RoomPricingPort;
+import com.team.hotelbooking.inventory.application.result.CheckAvailabilityResult;
 import com.team.hotelbooking.inventory.application.usecase.CheckAvailabilityUseCase;
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.inventory.domain.model.HotelAvailability;
 import com.team.hotelbooking.inventory.domain.model.RoomTypeAvailability;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class CheckAvailabilityService implements CheckAvailabilityUseCase {
 
-  private final HotelJpaRepository hotelJpaRepository;
-  private final RoomTypeJpaRepository roomTypeJpaRepository;
+  private final HotelCatalogPort hotelCatalogPort;
   private final InventoryQueryPort inventoryQueryPort;
   private final RoomPricingPort roomPricingPort;
+  private final Clock clock;
 
   @Override
-  public HotelAvailability execute(CheckAvailabilityQuery query) {
+  public CheckAvailabilityResult execute(CheckAvailabilityQuery query) {
     validateDates(query.checkInDate(), query.checkOutDate());
 
-    HotelJpaEntity hotel =
-        hotelJpaRepository
-            .findByIdAndActiveTrue(query.hotelId())
+    HotelCatalogPort.HotelSummary hotel =
+        hotelCatalogPort
+            .findHotelSummary(query.hotelId())
             .orElseThrow(
                 () ->
                     InventoryException.hotelNotFound("Khách sạn không tồn tại hoặc chưa mở bán."));
 
-    if (hotel.getStatus() != HotelJpaEntity.DbHotelStatus.active) {
+    if (hotel.isSuspended()) {
       throw InventoryException.hotelNotFound("Khách sạn hiện đang tạm ngừng kinh doanh.");
     }
 
@@ -53,26 +48,26 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
         (query.children() != null && query.children() >= 0) ? query.children() : 0;
     int totalGuests = requestedAdults + requestedChildren;
 
-    List<RoomTypeJpaEntity> roomTypes =
-        roomTypeJpaRepository.findAllByHotelIdAndActiveTrue(query.hotelId());
+    List<HotelCatalogPort.RoomTypeSummary> roomTypes =
+        hotelCatalogPort.findActiveRoomTypes(query.hotelId());
 
     List<RoomTypeAvailability> availabilityList = new ArrayList<>();
 
-    for (RoomTypeJpaEntity rt : roomTypes) {
-      if (rt.getMaxOccupancy() < totalGuests || rt.getMaxAdults() < requestedAdults) {
+    for (HotelCatalogPort.RoomTypeSummary rt : roomTypes) {
+      if (rt.maxOccupancy() < totalGuests || rt.maxAdults() < requestedAdults) {
         continue;
       }
 
       int availableQty =
           inventoryQueryPort.calculateAvailableQuantity(
-              rt.getId(), query.checkInDate(), query.checkOutDate());
+              rt.id(), query.checkInDate(), query.checkOutDate());
 
       boolean isAvailable = availableQty >= requestedQuantity;
 
       // Tính toán giá cho kỳ nghỉ
       LocalDate lastNight = query.checkOutDate().minusDays(1);
       Map<LocalDate, Long> rateMap =
-          roomPricingPort.getDailyRates(rt.getId(), query.checkInDate(), lastNight);
+          roomPricingPort.getDailyRates(rt.id(), query.checkInDate(), lastNight);
 
       long totalEstimatedPrice = 0L;
       for (LocalDate date = query.checkInDate();
@@ -82,7 +77,7 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
         if (nightlyAmount != null) {
           totalEstimatedPrice += nightlyAmount;
         } else {
-          totalEstimatedPrice += (rt.getBasePrice() != null ? rt.getBasePrice() : 0L);
+          totalEstimatedPrice += (rt.basePrice() != null ? rt.basePrice() : 0L);
         }
       }
 
@@ -91,11 +86,11 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
 
       availabilityList.add(
           new RoomTypeAvailability(
-              rt.getId(),
-              rt.getName(),
-              rt.getMaxOccupancy().intValue(),
-              rt.getMaxAdults().intValue(),
-              rt.getMaxChildren().intValue(),
+              rt.id(),
+              rt.name(),
+              rt.maxOccupancy(),
+              rt.maxAdults(),
+              rt.maxChildren(),
               availableQty,
               isAvailable,
               pricePerNight,
@@ -103,8 +98,11 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
               "VND"));
     }
 
-    return new HotelAvailability(
-        hotel.getId(), query.checkInDate(), query.checkOutDate(), totalNights, availabilityList);
+    HotelAvailability domain =
+        new HotelAvailability(
+            hotel.id(), query.checkInDate(), query.checkOutDate(), totalNights, availabilityList);
+
+    return CheckAvailabilityResult.from(domain);
   }
 
   private void validateDates(LocalDate checkInDate, LocalDate checkOutDate) {
@@ -112,7 +110,8 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
       throw InventoryException.invalidDateRange("Ngày nhận và trả phòng không được để trống.");
     }
 
-    if (checkInDate.isBefore(LocalDate.now())) {
+    LocalDate today = LocalDate.now(clock);
+    if (checkInDate.isBefore(today)) {
       throw InventoryException.invalidDateRange("Ngày nhận phòng không thể ở trong quá khứ.");
     }
 
