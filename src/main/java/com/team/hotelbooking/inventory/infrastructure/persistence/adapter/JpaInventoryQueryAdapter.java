@@ -6,6 +6,7 @@ import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlo
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.DailyReservationOccupancy;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.InventoryReservationJpaRepository;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.RoomBlockJpaRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -24,6 +25,7 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
   private final RoomJpaRepository roomJpaRepository;
   private final RoomBlockJpaRepository roomBlockJpaRepository;
   private final InventoryReservationJpaRepository reservationJpaRepository;
+  private final Clock clock;
 
   @Override
   public int calculateAvailableQuantity(
@@ -34,7 +36,7 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
       return 0;
     }
 
-    Instant now = Instant.now();
+    Instant now = clock.instant();
 
     // 1. Lấy tất cả room blocks còn ACTIVE giao thoa với khoảng lưu trú [checkInDate, checkOutDate)
     List<RoomBlockJpaEntity> activeBlocks =

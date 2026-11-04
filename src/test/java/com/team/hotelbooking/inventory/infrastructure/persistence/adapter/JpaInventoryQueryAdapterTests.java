@@ -11,7 +11,10 @@ import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlo
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.DailyReservationOccupancy;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.InventoryReservationJpaRepository;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.RoomBlockJpaRepository;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,13 +33,15 @@ class JpaInventoryQueryAdapterTests {
   @Mock private RoomBlockJpaRepository roomBlockJpaRepository;
   @Mock private InventoryReservationJpaRepository reservationJpaRepository;
 
+  private final Clock clock = Clock.fixed(Instant.parse("2026-11-04T12:00:00Z"), ZoneOffset.UTC);
+
   private JpaInventoryQueryAdapter adapter;
 
   @BeforeEach
   void setUp() {
     adapter =
         new JpaInventoryQueryAdapter(
-            roomJpaRepository, roomBlockJpaRepository, reservationJpaRepository);
+            roomJpaRepository, roomBlockJpaRepository, reservationJpaRepository, clock);
   }
 
   @Nested
