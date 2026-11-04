@@ -39,7 +39,7 @@ public class SecurityConfig {
                         "/api/v1/auth/forgot-password",
                         "/api/v1/auth/reset-password")
                     .permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/v1/cities")
+                    .requestMatchers(HttpMethod.GET, "/api/v1/cities", "/api/v1/amenities")
                     .permitAll()
                     .requestMatchers(
                         HttpMethod.GET, "/api/v1/admin/roles", "/api/v1/admin/users/*/roles")

@@ -5,14 +5,17 @@ import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.GetManagementHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListAmenitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListCitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
 import com.team.hotelbooking.hotel.application.usecase.impl.GetManagementHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListAmenitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListCitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementHotelsService;
+import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
@@ -107,5 +110,16 @@ public class HotelConfig {
     transaction.setReadOnly(true);
 
     return () -> Objects.requireNonNull(transaction.execute(status -> service.execute()));
+  }
+
+  @Bean
+  public ListAmenitiesUseCase listAmenitiesUseCase(
+      AmenityRepository amenities, PlatformTransactionManager transactionManager) {
+    ListAmenitiesService service = new ListAmenitiesService(amenities);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return category ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(category)));
   }
 }
