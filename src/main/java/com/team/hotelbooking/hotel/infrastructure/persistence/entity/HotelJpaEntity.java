@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -46,10 +47,10 @@ public class HotelJpaEntity {
   private String address;
 
   @Column(precision = 9, scale = 6)
-  private Double latitude;
+  private BigDecimal latitude;
 
   @Column(precision = 9, scale = 6)
-  private Double longitude;
+  private BigDecimal longitude;
 
   @Column(name = "star_rating")
   private Short starRating;

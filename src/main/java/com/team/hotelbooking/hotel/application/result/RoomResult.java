@@ -13,4 +13,3 @@ public record RoomResult(
     boolean active,
     Instant createdAt,
     Instant updatedAt) {}
-

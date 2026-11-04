@@ -14,22 +14,36 @@ public interface RoomBlockJpaRepository extends JpaRepository<RoomBlockJpaEntity
       """
       SELECT COUNT(rb) FROM RoomBlockJpaEntity rb
       WHERE rb.roomTypeId = :roomTypeId
-        AND rb.status = com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlockJpaEntity.DbRoomBlockStatus.ACTIVE
+        AND rb.status = :status
         AND rb.startDate <= :date
         AND rb.endDate >= :date
       """)
-  long countActiveBlocksOnDate(@Param("roomTypeId") UUID roomTypeId, @Param("date") LocalDate date);
+  long countActiveBlocksOnDate(
+      @Param("roomTypeId") UUID roomTypeId,
+      @Param("date") LocalDate date,
+      @Param("status") RoomBlockJpaEntity.DbRoomBlockStatus status);
+
+  default long countActiveBlocksOnDate(UUID roomTypeId, LocalDate date) {
+    return countActiveBlocksOnDate(roomTypeId, date, RoomBlockJpaEntity.DbRoomBlockStatus.ACTIVE);
+  }
 
   @Query(
       """
       SELECT rb FROM RoomBlockJpaEntity rb
       WHERE rb.roomTypeId = :roomTypeId
-        AND rb.status = com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlockJpaEntity.DbRoomBlockStatus.ACTIVE
+        AND rb.status = :status
         AND rb.startDate < :endDate
         AND rb.endDate >= :startDate
       """)
   List<RoomBlockJpaEntity> findActiveBlocksInRange(
       @Param("roomTypeId") UUID roomTypeId,
       @Param("startDate") LocalDate startDate,
-      @Param("endDate") LocalDate endDate);
+      @Param("endDate") LocalDate endDate,
+      @Param("status") RoomBlockJpaEntity.DbRoomBlockStatus status);
+
+  default List<RoomBlockJpaEntity> findActiveBlocksInRange(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDate) {
+    return findActiveBlocksInRange(
+        roomTypeId, startDate, endDate, RoomBlockJpaEntity.DbRoomBlockStatus.ACTIVE);
+  }
 }

@@ -25,12 +25,18 @@ public interface HotelContractJpaRepository extends JpaRepository<HotelContractJ
       """
       SELECT COUNT(c) FROM HotelContractJpaEntity c
       WHERE c.hotelId = :hotelId
-        AND c.status = com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelContractJpaEntity.DbContractStatus.ACTIVE
+        AND c.status = :status
         AND c.startsAt < :endsAt
         AND c.endsAt > :startsAt
       """)
   long countOverlappingActiveContracts(
       @Param("hotelId") UUID hotelId,
       @Param("startsAt") Instant startsAt,
-      @Param("endsAt") Instant endsAt);
+      @Param("endsAt") Instant endsAt,
+      @Param("status") HotelContractJpaEntity.DbContractStatus status);
+
+  default long countOverlappingActiveContracts(UUID hotelId, Instant startsAt, Instant endsAt) {
+    return countOverlappingActiveContracts(
+        hotelId, startsAt, endsAt, HotelContractJpaEntity.DbContractStatus.ACTIVE);
+  }
 }

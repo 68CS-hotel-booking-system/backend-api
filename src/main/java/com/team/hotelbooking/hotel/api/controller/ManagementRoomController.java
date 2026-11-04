@@ -65,4 +65,3 @@ public class ManagementRoomController {
         ApiResponse.success("Cập nhật phòng thành công.", RoomResponse.from(result)));
   }
 }
-

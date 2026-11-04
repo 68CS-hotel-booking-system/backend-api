@@ -91,7 +91,7 @@ CREATE TABLE room_rates (
     room_type_id UUID NOT NULL REFERENCES room_types(id) ON DELETE CASCADE,
     rate_date DATE NOT NULL,
     amount BIGINT NOT NULL,
-    currency CHAR(3) NOT NULL DEFAULT 'VND',
+    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (room_type_id, rate_date),

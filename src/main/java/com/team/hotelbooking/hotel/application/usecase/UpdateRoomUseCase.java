@@ -7,4 +7,3 @@ public interface UpdateRoomUseCase {
 
   RoomResult execute(UpdateRoomCommand command);
 }
-
