@@ -39,6 +39,13 @@ public class SecurityConfig {
                         "/api/v1/auth/forgot-password",
                         "/api/v1/auth/reset-password")
                     .permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET, "/api/v1/admin/roles", "/api/v1/admin/users/*/roles")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/admin/users/*/roles/*")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/users/*/roles/*")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .sessionManagement(

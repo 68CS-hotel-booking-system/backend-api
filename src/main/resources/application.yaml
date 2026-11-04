@@ -1,9 +1,16 @@
 server:
   port: ${SERVER_PORT:8080}
 
+app:
+  pagination:
+    default-size: 20
+    max-size: 100
+
 spring:
   application:
     name: hotel-booking-backend
+  config:
+    import: "optional:file:./.env[.properties]"
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
