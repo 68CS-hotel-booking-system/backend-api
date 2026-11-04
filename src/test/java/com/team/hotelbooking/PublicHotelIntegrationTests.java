@@ -39,7 +39,13 @@ class PublicHotelIntegrationTests {
       UUID.fromString("b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e");
   private static final UUID MISSING_HOTEL_ID =
       UUID.fromString("c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f");
+  private static final UUID EMPTY_HOTEL_ID =
+      UUID.fromString("d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70");
   private static final UUID DA_NANG_ID = UUID.fromString("822cafba-73f6-4ec0-bae7-71804535cae3");
+  private static final UUID INACTIVE_ROOM_TYPE_ID =
+      UUID.fromString("e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7a81");
+  private static final UUID DRAFT_HOTEL_ROOM_TYPE_ID =
+      UUID.fromString("f6a7b8c9-d0e1-4f2a-9b3c-4d5e6f7a8b92");
 
   @Autowired private MockMvc mvc;
 
@@ -60,6 +66,19 @@ class PublicHotelIntegrationTests {
         OWNER_ID);
     insertHotel(ACTIVE_HOTEL_ID, "Khách sạn Biển Xanh", "ACTIVE");
     insertHotel(DRAFT_HOTEL_ID, "Khách sạn Nháp", "DRAFT");
+    insertHotel(EMPTY_HOTEL_ID, "Khách sạn Chưa Có Phòng", "ACTIVE");
+    insertRoomType(
+        UUID.fromString("a7b8c9d0-e1f2-4a3b-8c4d-5e6f7a8b9c03"),
+        ACTIVE_HOTEL_ID,
+        "Standard Twin",
+        true);
+    insertRoomType(
+        UUID.fromString("b8c9d0e1-f2a3-4b4c-9d5e-6f7a8b9c0d14"),
+        ACTIVE_HOTEL_ID,
+        "Deluxe King",
+        true);
+    insertRoomType(INACTIVE_ROOM_TYPE_ID, ACTIVE_HOTEL_ID, "Phòng ngừng bán", false);
+    insertRoomType(DRAFT_HOTEL_ROOM_TYPE_ID, DRAFT_HOTEL_ID, "Phòng của hotel nháp", true);
   }
 
   @Nested
@@ -135,6 +154,89 @@ class PublicHotelIntegrationTests {
   }
 
   @Nested
+  @DisplayName("GET /api/v1/hotels/{hotelId}/room-types")
+  class ListPublicRoomTypesApiTests {
+
+    @Test
+    void shouldReturnOnlyActiveRoomTypesInDatabaseOrderWhenHotelIsActive() throws Exception {
+      // Given
+      // Thứ tự name phụ thuộc collation của DB test, nên lấy kỳ vọng từ chính DB đó.
+      List<String> expectedIds =
+          jdbc.queryForList(
+              """
+              SELECT id::text FROM room_types
+              WHERE hotel_id = ? AND is_active ORDER BY name, id
+              """,
+              String.class,
+              ACTIVE_HOTEL_ID);
+
+      // When
+      String body =
+          mvc.perform(get("/api/v1/hotels/" + ACTIVE_HOTEL_ID + "/room-types"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.message").value("Lấy danh sách loại phòng thành công."))
+              .andReturn()
+              .getResponse()
+              .getContentAsString();
+
+      // Then
+      JsonNode data = mapper.readTree(body).get("data");
+      List<String> ids = data.valueStream().map(item -> item.get("id").asString()).toList();
+      assertEquals(2, ids.size());
+      assertEquals(expectedIds, ids);
+      assertFalse(ids.contains(INACTIVE_ROOM_TYPE_ID.toString()), "Không trả loại phòng ngừng bán");
+      assertEquals(
+          List.of("id", "name", "description", "maxAdults", "maxChildren"),
+          data.get(0).propertyNames().stream().toList());
+      assertEquals(2, data.get(0).get("maxAdults").asInt());
+      assertEquals(0, data.get(0).get("maxChildren").asInt());
+    }
+
+    @Test
+    void shouldReturnEmptyArrayWhenActiveHotelHasNoRoomType() throws Exception {
+      // When / Then
+      mvc.perform(get("/api/v1/hotels/" + EMPTY_HOTEL_ID + "/room-types"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data").isArray())
+          .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void shouldReturnSameNotFoundAsHotelDetailWhenHotelIsDraftOrMissing() throws Exception {
+      // When
+      JsonNode draft = readProblemAt("/api/v1/hotels/" + DRAFT_HOTEL_ID + "/room-types");
+      JsonNode missing = readProblemAt("/api/v1/hotels/" + MISSING_HOTEL_ID + "/room-types");
+      JsonNode hotelDetail = readProblem(MISSING_HOTEL_ID);
+
+      // Then
+      assertEquals("HOTEL_NOT_FOUND", draft.get("code").asString());
+      assertFalse(
+          draft.toString().contains(DRAFT_HOTEL_ROOM_TYPE_ID.toString()),
+          "Không lộ loại phòng của hotel chưa công khai");
+      for (String field : List.of("status", "title", "code", "detail", "errors")) {
+        assertEquals(missing.get(field), draft.get(field), "Field khác nhau: " + field);
+        assertEquals(hotelDetail.get(field), draft.get(field), "Khác HT04 ở field: " + field);
+      }
+    }
+
+    @Test
+    void shouldRejectRequestWhenBearerTokenIsInvalid() throws Exception {
+      // When / Then
+      mvc.perform(
+              get("/api/v1/hotels/" + ACTIVE_HOTEL_ID + "/room-types")
+                  .header(HttpHeaders.AUTHORIZATION, "Bearer invalid-token"))
+          .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectCreateRequestWhenNoTokenIsProvided() throws Exception {
+      // When / Then
+      mvc.perform(post("/api/v1/hotels/" + ACTIVE_HOTEL_ID + "/room-types"))
+          .andExpect(status().isUnauthorized());
+    }
+  }
+
+  @Nested
   @DisplayName("POST /api/v1/hotels/{hotelId}")
   class PostPublicHotelApiTests {
 
@@ -158,6 +260,19 @@ class PublicHotelIntegrationTests {
         name,
         "test-" + id,
         status);
+  }
+
+  private void insertRoomType(UUID id, UUID hotelId, String name, boolean active) {
+    jdbc.update(
+        """
+        INSERT INTO room_types (id, hotel_id, name, is_active)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (id) DO NOTHING
+        """,
+        id,
+        hotelId,
+        name,
+        active);
   }
 
   private JsonNode readProblem(UUID hotelId) throws Exception {

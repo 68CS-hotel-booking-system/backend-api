@@ -10,7 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.team.hotelbooking.hotel.api.exception.HotelExceptionHandler;
 import com.team.hotelbooking.hotel.application.result.GetPublicHotelResult;
+import com.team.hotelbooking.hotel.application.result.ListPublicRoomTypesResult;
 import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.shared.config.JacksonConfig;
@@ -18,6 +20,7 @@ import com.team.hotelbooking.shared.web.GlobalExceptionHandler;
 import com.team.hotelbooking.shared.web.ProblemDetailFactory;
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,6 +46,8 @@ class PublicHotelControllerResponseTests {
   private static final String PATH = "/api/v1/hotels/" + HOTEL_ID;
 
   @Mock private GetPublicHotelUseCase getPublicHotelUseCase;
+
+  @Mock private ListPublicRoomTypesUseCase listPublicRoomTypesUseCase;
 
   @InjectMocks private PublicHotelController controller;
 
@@ -141,6 +146,82 @@ class PublicHotelControllerResponseTests {
       response
           .andExpect(status().isBadRequest())
           .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+  }
+
+  @Nested
+  @DisplayName("GET /api/v1/hotels/{hotelId}/room-types")
+  class ListPublicRoomTypesApiTests {
+
+    private static final String ROOM_TYPES_PATH = PATH + "/room-types";
+    private static final UUID DELUXE_ID = UUID.fromString("5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b");
+    private static final UUID STANDARD_ID = UUID.fromString("6f7a8b9c-0d1e-4f2a-9b3c-4d5e6f7a8b9c");
+
+    @Test
+    void shouldReturnRoomTypesInUseCaseOrderWhenHotelIsActive() throws Exception {
+      // Given
+      given(listPublicRoomTypesUseCase.execute(HOTEL_ID))
+          .willReturn(
+              List.of(
+                  new ListPublicRoomTypesResult(
+                      DELUXE_ID, "Deluxe King", "Hướng biển", (short) 2, (short) 1),
+                  new ListPublicRoomTypesResult(
+                      STANDARD_ID, "Standard Twin", null, (short) 2, (short) 0)));
+
+      // When
+      ResultActions response = mvc.perform(get(ROOM_TYPES_PATH));
+
+      // Then
+      response
+          .andExpect(status().isOk())
+          .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+          .andExpect(header().doesNotExist("Cache-Control"))
+          .andExpect(jsonPath("$.*", hasSize(2)))
+          .andExpect(jsonPath("$.message").value("Lấy danh sách loại phòng thành công."))
+          .andExpect(jsonPath("$.data", hasSize(2)))
+          .andExpect(jsonPath("$.data[0].*", hasSize(5)))
+          .andExpect(jsonPath("$.data[0].id").value(DELUXE_ID.toString()))
+          .andExpect(jsonPath("$.data[0].name").value("Deluxe King"))
+          .andExpect(jsonPath("$.data[0].description").value("Hướng biển"))
+          .andExpect(jsonPath("$.data[0].maxAdults").value(2))
+          .andExpect(jsonPath("$.data[0].maxChildren").value(1))
+          .andExpect(jsonPath("$.data[1].id").value(STANDARD_ID.toString()))
+          .andExpect(jsonPath("$.data[1].description").isEmpty())
+          .andExpect(jsonPath("$.data[0].hotelId").doesNotExist())
+          .andExpect(jsonPath("$.data[0].active").doesNotExist())
+          .andExpect(jsonPath("$.data[0].version").doesNotExist());
+    }
+
+    @Test
+    void shouldReturnEmptyArrayWhenHotelHasNoActiveRoomType() throws Exception {
+      // Given
+      given(listPublicRoomTypesUseCase.execute(HOTEL_ID)).willReturn(List.of());
+
+      // When
+      ResultActions response = mvc.perform(get(ROOM_TYPES_PATH));
+
+      // Then
+      response
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data").isArray())
+          .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    @Test
+    void shouldReturnProblemDetailWhenHotelIsNotPublic() throws Exception {
+      // Given
+      given(listPublicRoomTypesUseCase.execute(HOTEL_ID))
+          .willThrow(new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+
+      // When
+      ResultActions response = mvc.perform(get(ROOM_TYPES_PATH));
+
+      // Then
+      response
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.code").value("HOTEL_NOT_FOUND"))
+          .andExpect(jsonPath("$.detail").value("Không tìm thấy khách sạn."))
+          .andExpect(jsonPath("$.instance").value(ROOM_TYPES_PATH));
     }
   }
 }

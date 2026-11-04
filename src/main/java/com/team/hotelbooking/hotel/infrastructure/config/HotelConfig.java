@@ -9,6 +9,7 @@ import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListAmenitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListCitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
@@ -17,6 +18,7 @@ import com.team.hotelbooking.hotel.application.usecase.impl.GetPublicHotelServic
 import com.team.hotelbooking.hotel.application.usecase.impl.ListAmenitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListCitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementHotelsService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicRoomTypesService;
 import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
@@ -129,6 +131,19 @@ public class HotelConfig {
   public GetPublicHotelUseCase getPublicHotelUseCase(
       HotelRepository hotels, PlatformTransactionManager transactionManager) {
     GetPublicHotelService service = new GetPublicHotelService(hotels);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return hotelId ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(hotelId)));
+  }
+
+  @Bean
+  public ListPublicRoomTypesUseCase listPublicRoomTypesUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      PlatformTransactionManager transactionManager) {
+    ListPublicRoomTypesService service = new ListPublicRoomTypesService(hotels, roomTypes);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
