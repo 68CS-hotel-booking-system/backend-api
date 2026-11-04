@@ -14,6 +14,8 @@ public interface HotelRepository {
 
   Optional<Hotel> findByIdAndOwnerId(UUID hotelId, UUID ownerId);
 
+  Optional<Hotel> findByIdAndStatus(UUID hotelId, Hotel.Status status);
+
   PageResult<Hotel> findAll(PageQuery pagination);
 
   PageResult<Hotel> findByOwnerId(UUID ownerId, PageQuery pagination);

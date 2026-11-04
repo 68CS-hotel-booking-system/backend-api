@@ -53,6 +53,13 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   }
 
   @Override
+  public Optional<Hotel> findByIdAndStatus(UUID hotelId, Hotel.Status status) {
+    return hotelJpaRepository
+        .findByIdAndStatus(hotelId, HotelPersistenceMapper.toDbStatus(status))
+        .map(HotelPersistenceMapper::toDomain);
+  }
+
+  @Override
   public PageResult<Hotel> findAll(PageQuery pagination) {
     return PageResultMapper.from(
         hotelJpaRepository.findAll(pageable(pagination)), HotelPersistenceMapper::toDomain);

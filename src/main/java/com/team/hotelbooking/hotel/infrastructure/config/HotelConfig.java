@@ -5,6 +5,7 @@ import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.GetManagementHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListAmenitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListCitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCase;
@@ -12,6 +13,7 @@ import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
 import com.team.hotelbooking.hotel.application.usecase.impl.GetManagementHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.GetPublicHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListAmenitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListCitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementHotelsService;
@@ -121,5 +123,16 @@ public class HotelConfig {
 
     return category ->
         Objects.requireNonNull(transaction.execute(status -> service.execute(category)));
+  }
+
+  @Bean
+  public GetPublicHotelUseCase getPublicHotelUseCase(
+      HotelRepository hotels, PlatformTransactionManager transactionManager) {
+    GetPublicHotelService service = new GetPublicHotelService(hotels);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return hotelId ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(hotelId)));
   }
 }

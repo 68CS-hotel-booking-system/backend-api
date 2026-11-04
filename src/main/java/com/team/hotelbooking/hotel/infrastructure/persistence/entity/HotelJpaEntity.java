@@ -25,7 +25,8 @@ import org.hibernate.type.SqlTypes;
 public class HotelJpaEntity {
 
   public enum DbStatus {
-    DRAFT
+    DRAFT,
+    ACTIVE
   }
 
   @Id private UUID id;

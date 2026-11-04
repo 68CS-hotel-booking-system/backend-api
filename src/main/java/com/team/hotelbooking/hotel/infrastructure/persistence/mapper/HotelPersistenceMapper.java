@@ -49,4 +49,8 @@ public final class HotelPersistenceMapper {
         entity.getUpdatedAt(),
         entity.getVersion());
   }
+
+  public static HotelJpaEntity.DbStatus toDbStatus(Hotel.Status status) {
+    return HotelJpaEntity.DbStatus.valueOf(status.name());
+  }
 }
