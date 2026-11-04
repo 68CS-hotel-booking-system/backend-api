@@ -3,13 +3,12 @@ package com.team.hotelbooking.payment.api.controller;
 import com.team.hotelbooking.payment.api.dto.request.UpdateFinancialAccessRequest;
 import com.team.hotelbooking.payment.api.dto.response.FinancialAccessDetailResponse;
 import com.team.hotelbooking.payment.api.dto.response.FinancialAccessDto;
-import com.team.hotelbooking.payment.api.dto.response.FinancialAccessHistoryDto;
 import com.team.hotelbooking.payment.application.command.GetFinancialAccessQuery;
 import com.team.hotelbooking.payment.application.command.UpdateFinancialAccessCommand;
+import com.team.hotelbooking.payment.application.result.FinancialAccessDetailResult;
+import com.team.hotelbooking.payment.application.result.FinancialAccessResult;
 import com.team.hotelbooking.payment.application.usecase.GetFinancialAccessUseCase;
 import com.team.hotelbooking.payment.application.usecase.UpdateFinancialAccessUseCase;
-import com.team.hotelbooking.payment.domain.model.FinancialAccess;
-import com.team.hotelbooking.payment.domain.model.FinancialAccessDetail;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,13 +17,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/hotels")
@@ -67,7 +70,7 @@ public class AdminFinancialAccessController {
           UUID userId,
       @Valid @RequestBody UpdateFinancialAccessRequest request) {
 
-    FinancialAccess result =
+    FinancialAccessResult result =
         updateFinancialAccessUseCase.execute(
             new UpdateFinancialAccessCommand(
                 hotelId,
@@ -78,17 +81,7 @@ public class AdminFinancialAccessController {
                 request.expectedVersion(),
                 null));
 
-    FinancialAccessDto dto =
-        new FinancialAccessDto(
-            result.id(),
-            result.hotelId(),
-            result.userId(),
-            result.granted(),
-            result.accessScope(),
-            result.reason(),
-            result.grantedByUserId(),
-            result.grantedAt(),
-            result.version());
+    FinancialAccessDto dto = FinancialAccessDto.from(result);
 
     return ResponseEntity.ok(ApiResponse.success("Cập nhật quyền tài chính thành công.", dto));
   }
@@ -112,37 +105,10 @@ public class AdminFinancialAccessController {
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID người dùng", required = true) @PathVariable UUID userId) {
 
-    FinancialAccessDetail detail =
+    FinancialAccessDetailResult detail =
         getFinancialAccessUseCase.execute(new GetFinancialAccessQuery(hotelId, userId));
 
-    List<FinancialAccessHistoryDto> historyDtos =
-        detail.history().stream()
-            .map(
-                h ->
-                    new FinancialAccessHistoryDto(
-                        h.id(),
-                        h.version(),
-                        h.granted(),
-                        h.accessScope(),
-                        h.reason(),
-                        h.changedByUserId(),
-                        h.changedAt()))
-            .toList();
-
-    FinancialAccessDetailResponse response =
-        new FinancialAccessDetailResponse(
-            detail.id(),
-            detail.hotelId(),
-            detail.userId(),
-            detail.userName(),
-            detail.userEmail(),
-            detail.granted(),
-            detail.accessScope(),
-            detail.reason(),
-            detail.grantedByUserId(),
-            detail.grantedAt(),
-            detail.version(),
-            historyDtos);
+    FinancialAccessDetailResponse response = FinancialAccessDetailResponse.from(detail);
 
     return ResponseEntity.ok(ApiResponse.success("Thành công.", response));
   }

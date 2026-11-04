@@ -1,8 +1,8 @@
 package com.team.hotelbooking.payment.application.usecase;
 
 import com.team.hotelbooking.payment.application.command.CreateContractCommand;
-import com.team.hotelbooking.payment.domain.model.HotelContract;
+import com.team.hotelbooking.payment.application.result.HotelContractResult;
 
 public interface CreateContractUseCase {
-  HotelContract execute(CreateContractCommand command);
+  HotelContractResult execute(CreateContractCommand command);
 }

@@ -1,8 +1,9 @@
 package com.team.hotelbooking.payment.application.service;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.identity.infrastructure.persistence.repository.UserJpaRepository;
 import com.team.hotelbooking.payment.application.command.UpdateFinancialAccessCommand;
+import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
+import com.team.hotelbooking.payment.application.port.PaymentIdentityPort;
+import com.team.hotelbooking.payment.application.result.FinancialAccessResult;
 import com.team.hotelbooking.payment.application.usecase.UpdateFinancialAccessUseCase;
 import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.domain.model.FinancialAccess;
@@ -10,30 +11,28 @@ import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelFina
 import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelFinancialAccessJpaEntity;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessHistoryJpaRepository;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessJpaRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
 @RequiredArgsConstructor
 public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCase {
 
-  private final HotelJpaRepository hotelJpaRepository;
-  private final UserJpaRepository userJpaRepository;
   private final HotelFinancialAccessJpaRepository accessJpaRepository;
   private final HotelFinancialAccessHistoryJpaRepository historyJpaRepository;
+  private final PaymentHotelPort paymentHotelPort;
+  private final PaymentIdentityPort paymentIdentityPort;
+  private final Clock clock;
 
   @Override
-  @Transactional
-  public FinancialAccess execute(UpdateFinancialAccessCommand command) {
-    if (!hotelJpaRepository.existsById(command.hotelId())) {
+  public FinancialAccessResult execute(UpdateFinancialAccessCommand command) {
+    if (!paymentHotelPort.existsById(command.hotelId())) {
       throw FinanceException.hotelNotFound("Không tìm thấy khách sạn.");
     }
 
-    if (!userJpaRepository.existsById(command.targetUserId())) {
+    if (!paymentIdentityPort.existsById(command.targetUserId())) {
       throw FinanceException.userNotFound("Không tìm thấy người dùng được chỉ định.");
     }
 
@@ -44,6 +43,7 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
         accessJpaRepository.findByHotelIdAndUserId(command.hotelId(), command.targetUserId());
 
     HotelFinancialAccessJpaEntity entity;
+    Instant now = clock.instant();
 
     if (optionalAccess.isEmpty()) {
       if (command.expectedVersion() != null && command.expectedVersion() != 0L) {
@@ -58,7 +58,7 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
       entity.setAccessScope(command.accessScope() != null ? command.accessScope() : "FINANCE_READ");
       entity.setReason(command.reason());
       entity.setGrantedByUserId(adminId);
-      entity.setGrantedAt(Instant.now());
+      entity.setGrantedAt(now);
 
       entity = accessJpaRepository.save(entity);
 
@@ -72,7 +72,7 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
       history.setReason(entity.getReason());
       history.setVersion(entity.getVersion());
       history.setChangedByUserId(adminId);
-      history.setChangedAt(Instant.now());
+      history.setChangedAt(now);
       historyJpaRepository.save(history);
 
     } else {
@@ -98,7 +98,7 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
       history.setReason(entity.getReason());
       history.setVersion(entity.getVersion());
       history.setChangedByUserId(adminId);
-      history.setChangedAt(Instant.now());
+      history.setChangedAt(now);
       historyJpaRepository.save(history);
 
       // Cập nhật giá trị mới
@@ -108,20 +108,23 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
       }
       entity.setReason(command.reason());
       entity.setGrantedByUserId(adminId);
-      entity.setGrantedAt(Instant.now());
+      entity.setGrantedAt(now);
 
       entity = accessJpaRepository.save(entity);
     }
 
-    return new FinancialAccess(
-        entity.getId(),
-        entity.getHotelId(),
-        entity.getUserId(),
-        entity.isGranted(),
-        entity.getAccessScope(),
-        entity.getReason(),
-        entity.getGrantedByUserId(),
-        entity.getGrantedAt(),
-        entity.getVersion());
+    FinancialAccess domain =
+        new FinancialAccess(
+            entity.getId(),
+            entity.getHotelId(),
+            entity.getUserId(),
+            entity.isGranted(),
+            entity.getAccessScope(),
+            entity.getReason(),
+            entity.getGrantedByUserId(),
+            entity.getGrantedAt(),
+            entity.getVersion());
+
+    return FinancialAccessResult.from(domain);
   }
 }

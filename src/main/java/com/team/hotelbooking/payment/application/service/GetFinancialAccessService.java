@@ -1,9 +1,9 @@
 package com.team.hotelbooking.payment.application.service;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.identity.infrastructure.persistence.entity.UserJpaEntity;
-import com.team.hotelbooking.identity.infrastructure.persistence.repository.UserJpaRepository;
 import com.team.hotelbooking.payment.application.command.GetFinancialAccessQuery;
+import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
+import com.team.hotelbooking.payment.application.port.PaymentIdentityPort;
+import com.team.hotelbooking.payment.application.result.FinancialAccessDetailResult;
 import com.team.hotelbooking.payment.application.usecase.GetFinancialAccessUseCase;
 import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.domain.model.FinancialAccessDetail;
@@ -14,28 +14,24 @@ import com.team.hotelbooking.payment.infrastructure.persistence.repository.Hotel
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessJpaRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class GetFinancialAccessService implements GetFinancialAccessUseCase {
 
-  private final HotelJpaRepository hotelJpaRepository;
-  private final UserJpaRepository userJpaRepository;
   private final HotelFinancialAccessJpaRepository accessJpaRepository;
   private final HotelFinancialAccessHistoryJpaRepository historyJpaRepository;
+  private final PaymentHotelPort paymentHotelPort;
+  private final PaymentIdentityPort paymentIdentityPort;
 
   @Override
-  public FinancialAccessDetail execute(GetFinancialAccessQuery query) {
-    if (!hotelJpaRepository.existsById(query.hotelId())) {
+  public FinancialAccessDetailResult execute(GetFinancialAccessQuery query) {
+    if (!paymentHotelPort.existsById(query.hotelId())) {
       throw FinanceException.hotelNotFound("Không tìm thấy khách sạn.");
     }
 
-    UserJpaEntity targetUser =
-        userJpaRepository
-            .findById(query.targetUserId())
+    PaymentIdentityPort.UserSnapshot targetUser =
+        paymentIdentityPort
+            .findUserSnapshot(query.targetUserId())
             .orElseThrow(
                 () -> FinanceException.userNotFound("Không tìm thấy người dùng được chỉ định."));
 
@@ -67,18 +63,21 @@ public class GetFinancialAccessService implements GetFinancialAccessUseCase {
                         h.getChangedAt()))
             .toList();
 
-    return new FinancialAccessDetail(
-        access.getId(),
-        access.getHotelId(),
-        access.getUserId(),
-        targetUser.getFullName(),
-        targetUser.getEmail(),
-        access.isGranted(),
-        access.getAccessScope(),
-        access.getReason(),
-        access.getGrantedByUserId(),
-        access.getGrantedAt(),
-        access.getVersion(),
-        historyList);
+    FinancialAccessDetail domain =
+        new FinancialAccessDetail(
+            access.getId(),
+            access.getHotelId(),
+            access.getUserId(),
+            targetUser.fullName(),
+            targetUser.email(),
+            access.isGranted(),
+            access.getAccessScope(),
+            access.getReason(),
+            access.getGrantedByUserId(),
+            access.getGrantedAt(),
+            access.getVersion(),
+            historyList);
+
+    return FinancialAccessDetailResult.from(domain);
   }
 }

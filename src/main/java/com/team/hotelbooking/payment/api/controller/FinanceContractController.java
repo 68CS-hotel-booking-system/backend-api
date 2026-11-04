@@ -2,6 +2,7 @@ package com.team.hotelbooking.payment.api.controller;
 
 import com.team.hotelbooking.payment.api.dto.response.HotelContractDto;
 import com.team.hotelbooking.payment.application.command.GetContractsQuery;
+import com.team.hotelbooking.payment.application.result.HotelContractResult;
 import com.team.hotelbooking.payment.application.usecase.GetContractsUseCase;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
 import com.team.hotelbooking.shared.web.ApiResponse;
@@ -20,7 +21,11 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/finance/hotels")
@@ -56,25 +61,10 @@ public class FinanceContractController {
           HotelContract.ContractStatus status,
       @PageableDefault(size = 10) Pageable pageable) {
 
-    Page<HotelContract> pageResult =
+    Page<HotelContractResult> pageResult =
         getContractsUseCase.execute(new GetContractsQuery(hotelId, status, null, true, pageable));
 
-    Page<HotelContractDto> dtoPage =
-        pageResult.map(
-            c ->
-                new HotelContractDto(
-                    c.id(),
-                    c.contractCode(),
-                    c.hotelId(),
-                    c.ownerUserId(),
-                    c.commissionRate(),
-                    c.commissionBasis(),
-                    c.startsAt(),
-                    c.endsAt(),
-                    c.status(),
-                    c.createdByUserId(),
-                    c.createdAt(),
-                    c.updatedAt()));
+    Page<HotelContractDto> dtoPage = pageResult.map(HotelContractDto::from);
 
     return ResponseEntity.ok(ApiResponse.success("Thành công.", PageResponse.from(dtoPage)));
   }

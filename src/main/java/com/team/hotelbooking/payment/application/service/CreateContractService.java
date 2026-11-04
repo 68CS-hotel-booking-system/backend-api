@@ -1,36 +1,35 @@
 package com.team.hotelbooking.payment.application.service;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.identity.infrastructure.persistence.repository.UserJpaRepository;
 import com.team.hotelbooking.payment.application.command.CreateContractCommand;
+import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
+import com.team.hotelbooking.payment.application.port.PaymentIdentityPort;
+import com.team.hotelbooking.payment.application.result.HotelContractResult;
 import com.team.hotelbooking.payment.application.usecase.CreateContractUseCase;
 import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
 import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelContractJpaEntity;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelContractJpaRepository;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
 @RequiredArgsConstructor
 public class CreateContractService implements CreateContractUseCase {
 
   private final HotelContractJpaRepository contractJpaRepository;
-  private final HotelJpaRepository hotelJpaRepository;
-  private final UserJpaRepository userJpaRepository;
+  private final PaymentHotelPort paymentHotelPort;
+  private final PaymentIdentityPort paymentIdentityPort;
+  private final Clock clock;
 
   @Override
-  @Transactional
-  public HotelContract execute(CreateContractCommand command) {
-    if (!hotelJpaRepository.existsById(command.hotelId())) {
+  public HotelContractResult execute(CreateContractCommand command) {
+    if (!paymentHotelPort.existsById(command.hotelId())) {
       throw FinanceException.hotelNotFound("Không tìm thấy khách sạn.");
     }
 
-    if (!userJpaRepository.existsById(command.ownerUserId())) {
+    if (!paymentIdentityPort.existsById(command.ownerUserId())) {
       throw FinanceException.userNotFound("Không tìm thấy chủ sở hữu (Owner) được chỉ định.");
     }
 
@@ -77,6 +76,8 @@ public class CreateContractService implements CreateContractUseCase {
             ? HotelContractJpaEntity.DbCommissionBasis.valueOf(command.commissionBasis().name())
             : HotelContractJpaEntity.DbCommissionBasis.AFTER_DISCOUNT;
 
+    Instant now = clock.instant();
+
     HotelContractJpaEntity entity = new HotelContractJpaEntity();
     entity.setContractCode(code);
     entity.setHotelId(command.hotelId());
@@ -88,23 +89,26 @@ public class CreateContractService implements CreateContractUseCase {
     entity.setStatus(status);
     entity.setCreatedByUserId(
         command.currentAdminUserId() != null ? command.currentAdminUserId() : UUID.randomUUID());
-    entity.setCreatedAt(Instant.now());
-    entity.setUpdatedAt(Instant.now());
+    entity.setCreatedAt(now);
+    entity.setUpdatedAt(now);
 
     HotelContractJpaEntity saved = contractJpaRepository.save(entity);
 
-    return new HotelContract(
-        saved.getId(),
-        saved.getContractCode(),
-        saved.getHotelId(),
-        saved.getOwnerUserId(),
-        saved.getCommissionRate(),
-        HotelContract.CommissionBasis.valueOf(saved.getCommissionBasis().name()),
-        saved.getStartsAt(),
-        saved.getEndsAt(),
-        HotelContract.ContractStatus.valueOf(saved.getStatus().name()),
-        saved.getCreatedByUserId(),
-        saved.getCreatedAt(),
-        saved.getUpdatedAt());
+    HotelContract domain =
+        new HotelContract(
+            saved.getId(),
+            saved.getContractCode(),
+            saved.getHotelId(),
+            saved.getOwnerUserId(),
+            saved.getCommissionRate(),
+            HotelContract.CommissionBasis.valueOf(saved.getCommissionBasis().name()),
+            saved.getStartsAt(),
+            saved.getEndsAt(),
+            HotelContract.ContractStatus.valueOf(saved.getStatus().name()),
+            saved.getCreatedByUserId(),
+            saved.getCreatedAt(),
+            saved.getUpdatedAt());
+
+    return HotelContractResult.from(domain);
   }
 }
