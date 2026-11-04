@@ -32,4 +32,8 @@ public final class PricingException extends RuntimeException {
   public static PricingException roomTypeNotFound(String message) {
     return new PricingException(PricingErrorCode.ROOM_TYPE_NOT_FOUND, message);
   }
+
+  public static PricingException invalidAmount(String message) {
+    return new PricingException(PricingErrorCode.INVALID_AMOUNT, message);
+  }
 }
