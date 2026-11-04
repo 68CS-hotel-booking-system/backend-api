@@ -6,6 +6,9 @@ public enum HotelErrorCode implements ErrorCode {
   VALIDATION_FAILED("Dữ liệu khách sạn không hợp lệ."),
   ACCESS_DENIED("Bạn không có quyền thực hiện thao tác này."),
   HOTEL_NOT_FOUND("Không tìm thấy khách sạn."),
+  ROOM_TYPE_NOT_FOUND("Không tìm thấy loại phòng trong khách sạn."),
+  ROOM_TYPE_INACTIVE("Loại phòng đã ngừng hoạt động."),
+  ROOM_NUMBER_CONFLICT("Số phòng đã tồn tại trong khách sạn."),
   OWNER_NOT_FOUND("Không tìm thấy tài khoản chủ khách sạn."),
   OWNER_NOT_ELIGIBLE(
       "Tài khoản chủ khách sạn phải đang hoạt động, đã xác minh email và có quyền HOTEL_OWNER."),

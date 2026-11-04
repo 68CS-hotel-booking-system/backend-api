@@ -26,8 +26,10 @@ public class HotelExceptionHandler {
         switch (exception.code()) {
           case VALIDATION_FAILED -> HttpStatus.BAD_REQUEST;
           case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
-          case OWNER_NOT_FOUND, CITY_NOT_FOUND, HOTEL_NOT_FOUND -> HttpStatus.NOT_FOUND;
-          case OWNER_NOT_ELIGIBLE, HOTEL_SLUG_CONFLICT -> HttpStatus.CONFLICT;
+          case OWNER_NOT_FOUND, CITY_NOT_FOUND, HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND ->
+              HttpStatus.NOT_FOUND;
+          case OWNER_NOT_ELIGIBLE, HOTEL_SLUG_CONFLICT, ROOM_TYPE_INACTIVE, ROOM_NUMBER_CONFLICT ->
+              HttpStatus.CONFLICT;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);

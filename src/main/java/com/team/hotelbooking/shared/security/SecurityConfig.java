@@ -49,6 +49,11 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/v1/admin/hotels")
                     .hasRole("ADMIN")
                     .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/management/hotels/*/room-types",
+                        "/api/v1/management/hotels/*/rooms")
+                    .hasAnyRole("ADMIN", "HOTEL_OWNER")
+                    .requestMatchers(
                         HttpMethod.GET, "/api/v1/management/hotels", "/api/v1/management/hotels/*")
                     .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .anyRequest()
