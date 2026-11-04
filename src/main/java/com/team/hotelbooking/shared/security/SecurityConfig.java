@@ -61,7 +61,10 @@ public class SecurityConfig {
                         "/api/v1/management/hotels/*/rooms")
                     .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .requestMatchers(
-                        HttpMethod.GET, "/api/v1/management/hotels", "/api/v1/management/hotels/*")
+                        HttpMethod.GET,
+                        "/api/v1/management/hotels",
+                        "/api/v1/management/hotels/*",
+                        "/api/v1/management/hotels/*/room-types")
                     .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .anyRequest()
                     .authenticated())

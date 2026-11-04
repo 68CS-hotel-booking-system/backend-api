@@ -12,4 +12,6 @@ public interface RoomTypeRepository {
   Optional<RoomType> findByIdAndHotelId(UUID roomTypeId, UUID hotelId);
 
   List<RoomType> findActiveByHotelId(UUID hotelId);
+
+  List<RoomType> findByHotelId(UUID hotelId);
 }

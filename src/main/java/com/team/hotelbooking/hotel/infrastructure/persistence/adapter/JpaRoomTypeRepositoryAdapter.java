@@ -36,4 +36,11 @@ public class JpaRoomTypeRepositoryAdapter implements RoomTypeRepository {
         .map(RoomTypePersistenceMapper::toDomain)
         .toList();
   }
+
+  @Override
+  public List<RoomType> findByHotelId(UUID hotelId) {
+    return roomTypeJpaRepository.findAllByHotelIdOrderByNameAscIdAsc(hotelId).stream()
+        .map(RoomTypePersistenceMapper::toDomain)
+        .toList();
+  }
 }
