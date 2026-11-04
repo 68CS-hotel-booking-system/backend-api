@@ -1,9 +1,6 @@
 package com.team.hotelbooking.shared.web;
 
 import com.team.hotelbooking.shared.exception.CommonErrorCode;
-import com.team.hotelbooking.shared.exception.ConflictException;
-import com.team.hotelbooking.shared.exception.DomainException;
-import com.team.hotelbooking.shared.exception.NotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,21 +35,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   public GlobalExceptionHandler(ProblemDetailFactory problemDetailFactory) {
     this.problemDetailFactory = problemDetailFactory;
-  }
-
-  @ExceptionHandler(DomainException.class)
-  public @Nullable ResponseEntity<Object> handleDomainException(
-      DomainException exception, WebRequest request) {
-    HttpStatus status =
-        switch (exception) {
-          case NotFoundException ignored -> HttpStatus.NOT_FOUND;
-          case ConflictException ignored -> HttpStatus.CONFLICT;
-          default -> HttpStatus.UNPROCESSABLE_CONTENT;
-        };
-    ProblemDetail problem =
-        problemDetailFactory.create(
-            status, exception.getErrorCode(), exception.getMessage(), request);
-    return handleExceptionInternal(exception, problem, new HttpHeaders(), status, request);
   }
 
   @ExceptionHandler({OptimisticLockingFailureException.class, OptimisticLockException.class})

@@ -26,9 +26,18 @@ public class IdentityExceptionHandler {
         switch (exception.code()) {
           case VALIDATION_FAILED, CURRENT_PASSWORD_INCORRECT -> HttpStatus.BAD_REQUEST;
 
-          case EMAIL_ALREADY_USED, PHONE_ALREADY_USED, CONFLICT -> HttpStatus.CONFLICT;
+          case EMAIL_ALREADY_USED,
+              PHONE_ALREADY_USED,
+              CONFLICT,
+              ROLE_UNAVAILABLE,
+              CUSTOMER_ROLE_REMOVAL_FORBIDDEN,
+              SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN,
+              LAST_ACTIVE_ADMIN ->
+              HttpStatus.CONFLICT;
 
-          case ACCOUNT_LOCKED -> HttpStatus.FORBIDDEN;
+          case ACCOUNT_LOCKED, ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+
+          case USER_NOT_FOUND -> HttpStatus.NOT_FOUND;
 
           case EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
 
