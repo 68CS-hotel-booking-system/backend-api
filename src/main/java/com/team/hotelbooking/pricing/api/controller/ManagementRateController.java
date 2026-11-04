@@ -1,9 +1,11 @@
 package com.team.hotelbooking.pricing.api.controller;
 
 import com.team.hotelbooking.pricing.api.dto.request.GetRoomRatesRequest;
+import com.team.hotelbooking.pricing.api.dto.request.SetRoomRatesRequest;
 import com.team.hotelbooking.pricing.api.dto.response.RoomTypeRatesResponse;
 import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
+import com.team.hotelbooking.pricing.application.usecase.SetRoomRatesUseCase;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +22,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ManagementRateController {
 
   private final GetRoomRatesUseCase getRoomRatesUseCase;
+  private final SetRoomRatesUseCase setRoomRatesUseCase;
 
   @Operation(
       summary = "[PR01] Tra cứu giá phòng chi tiết theo dải ngày",
@@ -58,8 +63,39 @@ public class ManagementRateController {
 
     RoomTypeRatesResult result = getRoomRatesUseCase.execute(request.toQuery(hotelId, roomTypeId));
 
-    RoomTypeRatesResponse response = RoomTypeRatesResponse.from(result);
+    return ResponseEntity.ok(
+        ApiResponse.success("Thành công.", RoomTypeRatesResponse.from(result)));
+  }
 
-    return ResponseEntity.ok(ApiResponse.success("Thành công.", response));
+  @Operation(
+      summary = "[PR02] Đặt giá phòng một ngày hoặc khoảng ngày",
+      description =
+          "Thiết lập đơn giá phòng mỗi đêm (VND) cho một ngày cụ thể (startDate) hoặc khoảng ngày liên tục [startDate, endDateExclusive). "
+              + "Thao tác cập nhật theo lô nguyên tử (atomic batch). Trả về bảng giá chi tiết của các ngày vừa cập nhật.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Thiết lập giá thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Dải ngày không hợp lệ hoặc số tiền nhỏ hơn hoặc bằng 0",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy khách sạn hoặc loại phòng",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+  })
+  @PutMapping("/{hotelId}/room-types/{roomTypeId}/rates")
+  @PreAuthorize("isAuthenticated()")
+  public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> setRoomRates(
+      @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
+      @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,
+      @Valid @RequestBody SetRoomRatesRequest request) {
+
+    RoomTypeRatesResult result =
+        setRoomRatesUseCase.execute(request.toCommand(hotelId, roomTypeId));
+
+    return ResponseEntity.ok(
+        ApiResponse.success("Thiết lập giá thành công.", RoomTypeRatesResponse.from(result)));
   }
 }
