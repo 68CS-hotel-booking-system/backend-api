@@ -30,21 +30,27 @@ public class RoomTypeJpaEntity {
   private String description;
 
   @Column(name = "max_adults", nullable = false)
-  private short maxAdults;
+  private short maxAdults = 2;
 
   @Column(name = "max_children", nullable = false)
-  private short maxChildren;
+  private short maxChildren = 0;
+
+  @Column(name = "max_occupancy", nullable = false)
+  private short maxOccupancy = 2;
+
+  @Column(name = "base_price", nullable = false)
+  private long basePrice = 0L;
 
   @Column(name = "is_active", nullable = false)
-  private boolean active;
+  private boolean active = true;
 
   @Column(name = "created_at", nullable = false)
-  private Instant createdAt;
+  private Instant createdAt = Instant.now();
 
   @Column(name = "updated_at", nullable = false)
-  private Instant updatedAt;
+  private Instant updatedAt = Instant.now();
 
   @Version
   @Column(nullable = false)
-  private Long version;
+  private Long version = 0L;
 }

@@ -13,6 +13,7 @@ import com.team.hotelbooking.hotel.application.command.ListManagementRoomTypesQu
 import com.team.hotelbooking.hotel.application.result.ListManagementRoomTypesResult;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.shared.config.JacksonConfig;
@@ -52,6 +53,8 @@ class ManagementRoomTypeControllerResponseTests {
   @Mock private CreateRoomTypeUseCase createRoomTypeUseCase;
 
   @Mock private ListManagementRoomTypesUseCase listManagementRoomTypesUseCase;
+
+  @Mock private UpdateRoomTypeUseCase updateRoomTypeUseCase;
 
   @InjectMocks private ManagementRoomTypeController controller;
 

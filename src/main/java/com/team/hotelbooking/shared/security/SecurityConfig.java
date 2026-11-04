@@ -39,6 +39,8 @@ public class SecurityConfig {
                         "/api/v1/auth/forgot-password",
                         "/api/v1/auth/reset-password")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/hotels/*/availability")
+                    .permitAll()
                     .requestMatchers(
                         HttpMethod.GET,
                         "/api/v1/cities",

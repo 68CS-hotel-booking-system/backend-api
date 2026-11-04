@@ -27,6 +27,12 @@ public class RoomJpaEntity {
     DIRTY
   }
 
+  public enum DbRoomStatus {
+    ready,
+    cleaning,
+    maintenance
+  }
+
   @Id private UUID id;
 
   @Column(name = "hotel_id", nullable = false)
@@ -35,7 +41,7 @@ public class RoomJpaEntity {
   @Column(name = "room_type_id", nullable = false)
   private UUID roomTypeId;
 
-  @Column(name = "room_number", nullable = false, length = 20)
+  @Column(name = "room_number", nullable = false, length = 50)
   private String roomNumber;
 
   @Column(length = 20)
@@ -44,27 +50,51 @@ public class RoomJpaEntity {
   @Enumerated(EnumType.STRING)
   @JdbcTypeCode(SqlTypes.NAMED_ENUM)
   @Column(nullable = false, columnDefinition = "room_readiness__t")
-  private DbReadiness readiness;
+  private DbReadiness readiness = DbReadiness.READY;
 
   @Column(name = "readiness_updated_at", nullable = false)
-  private Instant readinessUpdatedAt;
+  private Instant readinessUpdatedAt = Instant.now();
 
   @Column(name = "readiness_updated_by")
   private UUID readinessUpdatedBy;
 
   @Column(name = "operational_from", nullable = false)
-  private Instant operationalFrom;
+  private Instant operationalFrom = Instant.now();
 
   @Column(name = "operational_until")
   private Instant operationalUntil;
 
   @Column(name = "created_at", nullable = false)
-  private Instant createdAt;
+  private Instant createdAt = Instant.now();
 
   @Column(name = "updated_at", nullable = false)
-  private Instant updatedAt;
+  private Instant updatedAt = Instant.now();
 
   @Version
   @Column(nullable = false)
-  private Long version;
+  private Long version = 0L;
+
+  public boolean isActive() {
+    return operationalUntil == null || operationalUntil.isAfter(Instant.now());
+  }
+
+  public void setActive(Boolean active) {
+    if (active != null && !active) {
+      this.operationalUntil = Instant.now();
+    } else if (active != null && active) {
+      this.operationalUntil = null;
+    }
+  }
+
+  public DbRoomStatus getStatus() {
+    return readiness == DbReadiness.READY ? DbRoomStatus.ready : DbRoomStatus.cleaning;
+  }
+
+  public void setStatus(DbRoomStatus status) {
+    if (status == DbRoomStatus.ready) {
+      this.readiness = DbReadiness.READY;
+    } else {
+      this.readiness = DbReadiness.DIRTY;
+    }
+  }
 }

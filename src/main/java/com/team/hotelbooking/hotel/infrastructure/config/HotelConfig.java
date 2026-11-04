@@ -1,6 +1,8 @@
 package com.team.hotelbooking.hotel.infrastructure.config;
 
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
+import com.team.hotelbooking.hotel.application.service.UpdateRoomService;
+import com.team.hotelbooking.hotel.application.service.UpdateRoomTypeService;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
@@ -12,6 +14,8 @@ import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCa
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
+import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
@@ -28,6 +32,9 @@ import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
+import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
+import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpaRepository;
+import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
 import com.team.hotelbooking.shared.config.PaginationProperties;
 import java.time.Clock;
 import java.util.Objects;
@@ -108,6 +115,31 @@ public class HotelConfig {
     transaction.setReadOnly(true);
 
     return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public UpdateRoomTypeUseCase updateRoomTypeUseCase(
+      HotelJpaRepository hotelJpaRepository,
+      RoomTypeJpaRepository roomTypeJpaRepository,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    UpdateRoomTypeService service =
+        new UpdateRoomTypeService(hotelJpaRepository, roomTypeJpaRepository, clock);
+    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+    tx.setReadOnly(false);
+    return command -> tx.execute(status -> service.execute(command));
+  }
+
+  @Bean
+  public UpdateRoomUseCase updateRoomUseCase(
+      HotelJpaRepository hotelJpaRepository,
+      RoomJpaRepository roomJpaRepository,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    UpdateRoomService service = new UpdateRoomService(hotelJpaRepository, roomJpaRepository, clock);
+    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+    tx.setReadOnly(false);
+    return command -> tx.execute(status -> service.execute(command));
   }
 
   @Bean

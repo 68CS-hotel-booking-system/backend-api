@@ -14,6 +14,7 @@ import com.team.hotelbooking.hotel.application.command.ListManagementRoomsQuery;
 import com.team.hotelbooking.hotel.application.result.ListManagementRoomsResult;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
+import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.shared.config.JacksonConfig;
 import com.team.hotelbooking.shared.config.PaginationProperties;
 import com.team.hotelbooking.shared.pagination.PageQuery;
@@ -55,6 +56,8 @@ class ManagementRoomControllerResponseTests {
 
   @Mock private ListManagementRoomsUseCase listManagementRoomsUseCase;
 
+  @Mock private UpdateRoomUseCase updateRoomUseCase;
+
   private MockMvc mvc;
   private ListManagementRoomsResult room;
 
@@ -64,6 +67,7 @@ class ManagementRoomControllerResponseTests {
     ManagementRoomController controller =
         new ManagementRoomController(
             createRoomUseCase,
+            updateRoomUseCase,
             listManagementRoomsUseCase,
             new PaginationSupport(new PaginationProperties(20, 100)));
     JsonMapper.Builder mapperBuilder = JsonMapper.builder();

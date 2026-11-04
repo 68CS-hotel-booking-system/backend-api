@@ -78,4 +78,16 @@ public class HotelJpaEntity {
   @Version
   @Column(nullable = false)
   private Long version;
+
+  public UUID getOwnerUserId() {
+    return ownerId;
+  }
+
+  public void setOwnerUserId(UUID ownerUserId) {
+    this.ownerId = ownerUserId;
+  }
+
+  public boolean isActive() {
+    return true;
+  }
 }

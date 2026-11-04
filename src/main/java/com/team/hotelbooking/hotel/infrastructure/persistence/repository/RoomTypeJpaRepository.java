@@ -10,6 +10,10 @@ public interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, 
 
   Optional<RoomTypeJpaEntity> findByIdAndHotelId(UUID roomTypeId, UUID hotelId);
 
+  List<RoomTypeJpaEntity> findAllByHotelIdAndActiveTrue(UUID hotelId);
+
+  Optional<RoomTypeJpaEntity> findByIdAndHotelIdAndActiveTrue(UUID id, UUID hotelId);
+
   List<RoomTypeJpaEntity> findAllByHotelIdAndActiveTrueOrderByNameAscIdAsc(UUID hotelId);
 
   List<RoomTypeJpaEntity> findAllByHotelIdOrderByNameAscIdAsc(UUID hotelId);
