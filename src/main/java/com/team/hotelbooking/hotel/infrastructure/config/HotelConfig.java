@@ -10,6 +10,7 @@ import com.team.hotelbooking.hotel.application.usecase.ListAmenitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListCitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
@@ -20,6 +21,7 @@ import com.team.hotelbooking.hotel.application.usecase.impl.ListAmenitiesService
 import com.team.hotelbooking.hotel.application.usecase.impl.ListCitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementHotelsService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomTypesService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomsService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicRoomTypesService;
 import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.CityRepository;
@@ -161,6 +163,21 @@ public class HotelConfig {
       PlatformTransactionManager transactionManager) {
     ListManagementRoomTypesService service =
         new ListManagementRoomTypesService(hotels, roomTypes, accounts);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public ListManagementRoomsUseCase listManagementRoomsUseCase(
+      HotelRepository hotels,
+      RoomRepository rooms,
+      IdentityAccounts accounts,
+      PaginationProperties pagination,
+      PlatformTransactionManager transactionManager) {
+    ListManagementRoomsService service =
+        new ListManagementRoomsService(hotels, rooms, accounts, pagination.maxSize());
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 

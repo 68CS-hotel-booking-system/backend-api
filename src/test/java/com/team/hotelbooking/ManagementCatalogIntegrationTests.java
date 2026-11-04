@@ -1,6 +1,7 @@
 package com.team.hotelbooking;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -51,6 +52,7 @@ class ManagementCatalogIntegrationTests {
   private static final UUID DA_NANG_ID = UUID.fromString("822cafba-73f6-4ec0-bae7-71804535cae3");
   private static final String ROOM_TYPES_PATH =
       "/api/v1/management/hotels/" + HOTEL_ID + "/room-types";
+  private static final String ROOMS_PATH = "/api/v1/management/hotels/" + HOTEL_ID + "/rooms";
 
   @Autowired private MockMvc mvc;
 
@@ -138,6 +140,138 @@ class ManagementCatalogIntegrationTests {
     }
   }
 
+  @Nested
+  @DisplayName("GET /api/v1/management/hotels/{hotelId}/rooms")
+  class ListManagementRoomsApiTests {
+
+    @Test
+    void shouldReturnRoomsInFloorRoomNumberOrderWhenOwnerManagesHotel() throws Exception {
+      // Given
+      // floor/room_number là chuỗi và phụ thuộc collation; kỳ vọng lấy từ chính DB test.
+      List<String> expectedIds =
+          jdbc.queryForList(
+              """
+              SELECT id::text FROM rooms WHERE hotel_id = ?
+              ORDER BY floor ASC NULLS LAST, room_number, id
+              """,
+              String.class,
+              HOTEL_ID);
+
+      // When
+      JsonNode page =
+          readData(ROOMS_PATH, as(OWNER_ID, "HOTEL_OWNER"), "Cache-Control", "no-store");
+
+      // Then
+      assertEquals(expectedIds, ids(page.get("content")));
+      assertEquals(4, page.get("totalElements").asInt());
+      assertEquals(0, page.get("page").asInt());
+      assertEquals(20, page.get("size").asInt());
+    }
+
+    @Test
+    void shouldPlaceRoomsWithoutFloorLastAcrossPagesWhenSortingByFloor() throws Exception {
+      // When
+      JsonNode firstPage =
+          readData(ROOMS_PATH + "?page=0&size=3", as(OWNER_ID, "HOTEL_OWNER"), null, null);
+      JsonNode lastPage =
+          readData(ROOMS_PATH + "?page=1&size=3", as(OWNER_ID, "HOTEL_OWNER"), null, null);
+
+      // Then
+      firstPage
+          .get("content")
+          .valueStream()
+          .forEach(
+              item -> assertFalse(item.get("floor").isNull(), "Trang đầu chỉ có phòng có tầng"));
+      JsonNode noFloorRoom = lastPage.get("content").get(0);
+      assertEquals(1, lastPage.get("content").size());
+      assertTrue(noFloorRoom.get("floor").isNull(), "Phòng floor NULL nằm cuối danh sách");
+      assertEquals("G1", noFloorRoom.get("roomNumber").asString());
+    }
+
+    @Test
+    void shouldReturnOnlyRoomsOfRoomTypeWhenRoomTypeIdIsProvided() throws Exception {
+      // When
+      JsonNode page =
+          readData(
+              ROOMS_PATH + "?roomTypeId=" + ACTIVE_TYPE_ID,
+              as(OWNER_ID, "HOTEL_OWNER"),
+              null,
+              null);
+
+      // Then
+      assertEquals(3, page.get("totalElements").asInt());
+      page.get("content")
+          .valueStream()
+          .forEach(
+              item -> assertEquals(ACTIVE_TYPE_ID.toString(), item.get("roomTypeId").asString()));
+    }
+
+    @Test
+    void shouldReturnEmptyPageWhenRoomTypeBelongsToAnotherHotel() throws Exception {
+      // When
+      JsonNode page =
+          readData(
+              ROOMS_PATH + "?roomTypeId=" + OTHER_HOTEL_TYPE_ID,
+              as(OWNER_ID, "HOTEL_OWNER"),
+              null,
+              null);
+
+      // Then
+      assertEquals(0, page.get("totalElements").asInt());
+      assertEquals(0, page.get("content").size());
+    }
+
+    @Test
+    void shouldSplitResultIntoPagesWhenSizeIsProvided() throws Exception {
+      // When
+      JsonNode page =
+          readData(ROOMS_PATH + "?page=1&size=3", as(OWNER_ID, "HOTEL_OWNER"), null, null);
+
+      // Then
+      assertEquals(1, page.get("content").size());
+      assertEquals(4, page.get("totalElements").asInt());
+      assertEquals(2, page.get("totalPages").asInt());
+      assertTrue(page.get("last").asBoolean());
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenRoomTypeIdIsNotUuid() throws Exception {
+      // When / Then
+      mvc.perform(get(ROOMS_PATH + "?roomTypeId=abc").with(as(OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void shouldUseSameErrorCodeAsHotelListWhenQueryParameterHasWrongType() throws Exception {
+      // When
+      // HT07 của Đạt là chuẩn đối chiếu: sai kiểu query param đi qua handleTypeMismatch chung.
+      JsonNode hotelList =
+          readProblem("/api/v1/management/hotels?page=abc", as(OWNER_ID, "HOTEL_OWNER"));
+      JsonNode rooms = readProblem(ROOMS_PATH + "?page=abc", as(OWNER_ID, "HOTEL_OWNER"));
+
+      // Then
+      assertEquals("BAD_REQUEST", hotelList.get("code").asString());
+      assertEquals(hotelList.get("code"), rooms.get("code"));
+      assertEquals(hotelList.get("status"), rooms.get("status"));
+      assertEquals(hotelList.get("detail"), rooms.get("detail"));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenOwnerRequestsAnotherOwnersHotel() throws Exception {
+      // When / Then
+      mvc.perform(get(ROOMS_PATH).with(as(OTHER_OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.code").value("HOTEL_NOT_FOUND"));
+    }
+
+    @Test
+    void shouldRejectRequestWhenNoTokenIsProvided() throws Exception {
+      // When / Then
+      mvc.perform(get(ROOMS_PATH)).andExpect(status().isUnauthorized());
+    }
+  }
+
   private static JwtRequestPostProcessor as(UUID userId, String role) {
     return jwt()
         .jwt(token -> token.subject(userId.toString()))
@@ -153,6 +287,16 @@ class ManagementCatalogIntegrationTests {
     }
     String body = result.andReturn().getResponse().getContentAsString();
     return mapper.readTree(body).get("data");
+  }
+
+  private JsonNode readProblem(String uri, JwtRequestPostProcessor actor) throws Exception {
+    String body =
+        mvc.perform(get(uri).with(actor))
+            .andExpect(status().isBadRequest())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return mapper.readTree(body);
   }
 
   private static List<String> ids(JsonNode items) {

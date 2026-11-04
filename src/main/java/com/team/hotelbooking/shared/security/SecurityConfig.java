@@ -64,7 +64,8 @@ public class SecurityConfig {
                         HttpMethod.GET,
                         "/api/v1/management/hotels",
                         "/api/v1/management/hotels/*",
-                        "/api/v1/management/hotels/*/room-types")
+                        "/api/v1/management/hotels/*/room-types",
+                        "/api/v1/management/hotels/*/rooms")
                     .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .anyRequest()
                     .authenticated())
