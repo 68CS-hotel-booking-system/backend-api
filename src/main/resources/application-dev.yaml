@@ -2,10 +2,17 @@ spring:
   config:
     import: "optional:file:./.env[.properties]"
 
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+
+auth:
+  verification-url: ${AUTH_VERIFICATION_URL:http://localhost:5173/verify-email}
+  mail-from: ${AUTH_MAIL_FROM:noreply@hotel.test}
+
 springdoc:
   api-docs:
     enabled: true
-
   swagger-ui:
     enabled: true
 

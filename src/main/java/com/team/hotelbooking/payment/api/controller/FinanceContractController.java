@@ -5,6 +5,7 @@ import com.team.hotelbooking.payment.application.command.GetContractsQuery;
 import com.team.hotelbooking.payment.application.result.HotelContractResult;
 import com.team.hotelbooking.payment.application.usecase.GetContractsUseCase;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
+import com.team.hotelbooking.shared.persistence.PageResultMapper;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import com.team.hotelbooking.shared.web.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,23 +31,24 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/finance/hotels")
 @RequiredArgsConstructor
-@Tag(name = "Finance - Contracts", description = "API tra cứu danh sách hợp đồng tài chính")
+@Tag(
+    name = "Payment - Finance Contracts",
+    description = "API tra cứu hợp đồng hoa hồng dành cho đối tác/tài chính")
 public class FinanceContractController {
 
   private final GetContractsUseCase getContractsUseCase;
 
   @Operation(
-      summary = "[FN01] Tra cứu danh sách hợp đồng hoa hồng theo khách sạn",
+      summary = "[FN01] Tra cứu danh sách thỏa thuận hoa hồng của khách sạn",
       description =
-          "Lấy danh sách hợp đồng phân trang cho Admin, Chủ khách sạn (Owner) hoặc người được cấp quyền tài chính. "
-              + "Hỗ trợ lọc theo trạng thái hợp đồng (DRAFT, ACTIVE, EXPIRED, TERMINATED).")
+          "Dành cho Owner hoặc người đại diện được ủy quyền tra cứu các hợp đồng hoa hồng áp dụng cho khách sạn.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
-        description = "Lấy danh sách thành công"),
+        description = "Tra cứu thành công"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "403",
-        description = "Không có quyền truy cập dữ liệu tài chính của khách sạn này",
+        responseCode = "400",
+        description = "Tham số phân trang hoặc lọc không hợp lệ",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
@@ -64,8 +66,9 @@ public class FinanceContractController {
     Page<HotelContractResult> pageResult =
         getContractsUseCase.execute(new GetContractsQuery(hotelId, status, null, true, pageable));
 
-    Page<HotelContractDto> dtoPage = pageResult.map(HotelContractDto::from);
-
-    return ResponseEntity.ok(ApiResponse.success("Thành công.", PageResponse.from(dtoPage)));
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Thành công.",
+            PageResponse.from(PageResultMapper.from(pageResult, HotelContractDto::from))));
   }
 }

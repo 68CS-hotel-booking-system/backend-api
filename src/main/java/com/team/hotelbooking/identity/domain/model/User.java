@@ -1,5 +1,6 @@
 package com.team.hotelbooking.identity.domain.model;
 
+import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
 import com.team.hotelbooking.identity.domain.exception.IdentityException;
 import java.time.Instant;
 import java.util.Locale;
@@ -17,6 +18,7 @@ public record User(
     Set<String> roles,
     Instant createdAt,
     Instant updatedAt,
+    long authVersion,
     long version) {
 
   public enum Status {
@@ -50,7 +52,8 @@ public record User(
         Set.of("CUSTOMER"),
         now,
         now,
-        0L);
+        0L, // authVersion
+        0L); // version
   }
 
   public static String normalizeEmail(String raw) {
@@ -93,6 +96,55 @@ public record User(
     }
 
     return phone;
+  }
+
+  public User verifyEmail(Instant now) {
+    if (status != Status.PENDING || emailVerifiedAt != null) {
+      throw new IdentityException(IdentityErrorCode.CONFLICT);
+    }
+    return new User(
+        id,
+        email,
+        passwordHash,
+        fullName,
+        phone,
+        Status.ACTIVE,
+        now,
+        roles,
+        createdAt,
+        now,
+        authVersion,
+        version);
+  }
+
+  public void ensureCanLogin() {
+    if (status == Status.BANNED || status == Status.INACTIVE) {
+      throw new IdentityException(IdentityErrorCode.ACCOUNT_LOCKED);
+    }
+
+    if (status == Status.PENDING || emailVerifiedAt == null) {
+      throw new IdentityException(IdentityErrorCode.EMAIL_NOT_VERIFIED);
+    }
+  }
+
+  public User resetPassword(String newPasswordHash, Instant now) {
+    if (status == Status.BANNED || status == Status.INACTIVE) {
+      throw new IdentityException(IdentityErrorCode.ACCOUNT_LOCKED);
+    }
+
+    return new User(
+        id,
+        email,
+        newPasswordHash,
+        fullName,
+        phone,
+        status,
+        emailVerifiedAt,
+        roles,
+        createdAt,
+        now,
+        authVersion + 1,
+        version);
   }
 
   @Override

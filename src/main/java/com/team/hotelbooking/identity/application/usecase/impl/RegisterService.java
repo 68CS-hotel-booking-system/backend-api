@@ -1,10 +1,11 @@
-package com.team.hotelbooking.identity.application.usecase;
+package com.team.hotelbooking.identity.application.usecase.impl;
 
 import com.team.hotelbooking.identity.application.command.RegisterCommand;
 import com.team.hotelbooking.identity.application.port.OpaqueTokens;
 import com.team.hotelbooking.identity.application.port.PasswordHasher;
 import com.team.hotelbooking.identity.application.port.VerificationEmailQueue;
 import com.team.hotelbooking.identity.application.result.RegisterResult;
+import com.team.hotelbooking.identity.application.usecase.RegisterUseCase;
 import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
 import com.team.hotelbooking.identity.domain.exception.IdentityException;
 import com.team.hotelbooking.identity.domain.model.User;
