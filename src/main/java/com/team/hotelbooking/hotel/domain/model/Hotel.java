@@ -26,7 +26,8 @@ public record Hotel(
     long version) {
 
   public enum Status {
-    DRAFT
+    DRAFT,
+    ACTIVE
   }
 
   public static Hotel createDraft(

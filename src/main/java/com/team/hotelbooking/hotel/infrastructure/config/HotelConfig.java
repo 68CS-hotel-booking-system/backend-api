@@ -7,14 +7,27 @@ import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.GetManagementHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListAmenitiesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListCitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
 import com.team.hotelbooking.hotel.application.usecase.impl.GetManagementHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.GetPublicHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListAmenitiesService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListCitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementHotelsService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomTypesService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomsService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicRoomTypesService;
+import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
@@ -127,5 +140,79 @@ public class HotelConfig {
     TransactionTemplate tx = new TransactionTemplate(transactionManager);
     tx.setReadOnly(false);
     return command -> tx.execute(status -> service.execute(command));
+  }
+
+  @Bean
+  public ListCitiesUseCase listCitiesUseCase(
+      CityRepository cities, PlatformTransactionManager transactionManager) {
+    ListCitiesService service = new ListCitiesService(cities);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return () -> Objects.requireNonNull(transaction.execute(status -> service.execute()));
+  }
+
+  @Bean
+  public ListAmenitiesUseCase listAmenitiesUseCase(
+      AmenityRepository amenities, PlatformTransactionManager transactionManager) {
+    ListAmenitiesService service = new ListAmenitiesService(amenities);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return category ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(category)));
+  }
+
+  @Bean
+  public GetPublicHotelUseCase getPublicHotelUseCase(
+      HotelRepository hotels, PlatformTransactionManager transactionManager) {
+    GetPublicHotelService service = new GetPublicHotelService(hotels);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return hotelId ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(hotelId)));
+  }
+
+  @Bean
+  public ListPublicRoomTypesUseCase listPublicRoomTypesUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      PlatformTransactionManager transactionManager) {
+    ListPublicRoomTypesService service = new ListPublicRoomTypesService(hotels, roomTypes);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return hotelId ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(hotelId)));
+  }
+
+  @Bean
+  public ListManagementRoomTypesUseCase listManagementRoomTypesUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      IdentityAccounts accounts,
+      PlatformTransactionManager transactionManager) {
+    ListManagementRoomTypesService service =
+        new ListManagementRoomTypesService(hotels, roomTypes, accounts);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public ListManagementRoomsUseCase listManagementRoomsUseCase(
+      HotelRepository hotels,
+      RoomRepository rooms,
+      IdentityAccounts accounts,
+      PaginationProperties pagination,
+      PlatformTransactionManager transactionManager) {
+    ListManagementRoomsService service =
+        new ListManagementRoomsService(hotels, rooms, accounts, pagination.maxSize());
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
   }
 }

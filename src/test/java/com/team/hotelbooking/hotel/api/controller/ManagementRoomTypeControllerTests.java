@@ -12,6 +12,7 @@ import com.team.hotelbooking.hotel.api.dto.request.UpdateRoomTypeRequest;
 import com.team.hotelbooking.hotel.api.exception.HotelExceptionHandler;
 import com.team.hotelbooking.hotel.application.result.RoomTypeResult;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.shared.web.ProblemDetailFactory;
@@ -37,13 +38,15 @@ class ManagementRoomTypeControllerTests {
 
   @Mock private CreateRoomTypeUseCase createRoomTypeUseCase;
   @Mock private UpdateRoomTypeUseCase updateRoomTypeUseCase;
+  @Mock private ListManagementRoomTypesUseCase listManagementRoomTypesUseCase;
 
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     mvc =
         MockMvcBuilders.standaloneSetup(
-                new ManagementRoomTypeController(createRoomTypeUseCase, updateRoomTypeUseCase))
+                new ManagementRoomTypeController(
+                    createRoomTypeUseCase, updateRoomTypeUseCase, listManagementRoomTypesUseCase))
             .setControllerAdvice(new HotelExceptionHandler(new ProblemDetailFactory()))
             .build();
   }

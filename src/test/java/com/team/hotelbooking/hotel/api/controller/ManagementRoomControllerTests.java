@@ -12,8 +12,11 @@ import com.team.hotelbooking.hotel.api.dto.request.UpdateRoomRequest;
 import com.team.hotelbooking.hotel.api.exception.HotelExceptionHandler;
 import com.team.hotelbooking.hotel.application.result.RoomResult;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
+import com.team.hotelbooking.shared.config.PaginationProperties;
+import com.team.hotelbooking.shared.web.PaginationSupport;
 import com.team.hotelbooking.shared.web.ProblemDetailFactory;
 import java.time.Instant;
 import java.util.UUID;
@@ -37,13 +40,18 @@ class ManagementRoomControllerTests {
 
   @Mock private CreateRoomUseCase createRoomUseCase;
   @Mock private UpdateRoomUseCase updateRoomUseCase;
+  @Mock private ListManagementRoomsUseCase listManagementRoomsUseCase;
 
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     mvc =
         MockMvcBuilders.standaloneSetup(
-                new ManagementRoomController(createRoomUseCase, updateRoomUseCase))
+                new ManagementRoomController(
+                    createRoomUseCase,
+                    updateRoomUseCase,
+                    listManagementRoomsUseCase,
+                    new PaginationSupport(new PaginationProperties(20, 100))))
             .setControllerAdvice(new HotelExceptionHandler(new ProblemDetailFactory()))
             .build();
   }
