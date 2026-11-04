@@ -46,6 +46,11 @@ public class SecurityConfig {
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/users/*/roles/*")
                     .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/admin/hotels")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        HttpMethod.GET, "/api/v1/management/hotels", "/api/v1/management/hotels/*")
+                    .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .anyRequest()
                     .authenticated())
         .sessionManagement(
