@@ -147,6 +147,42 @@ public record User(
         version);
   }
 
+  public User changeStatus(Status newStatus, Instant now) {
+    if (newStatus == null) {
+      throw IdentityException.invalid("Trạng thái đích là bắt buộc.");
+    }
+
+    if (newStatus == Status.ACTIVE && emailVerifiedAt == null) {
+      throw new IdentityException(
+          IdentityErrorCode.INVALID_USER_STATUS_TRANSITION,
+          "Tài khoản chưa xác minh email chỉ có thể mở khóa về pending.");
+    }
+
+    if (newStatus == Status.PENDING && emailVerifiedAt != null) {
+      throw new IdentityException(
+          IdentityErrorCode.INVALID_USER_STATUS_TRANSITION,
+          "Không thể chuyển tài khoản đã xác minh email về pending.");
+    }
+
+    if (newStatus == status) {
+      return this;
+    }
+
+    return new User(
+        id,
+        email,
+        passwordHash,
+        fullName,
+        phone,
+        newStatus,
+        emailVerifiedAt,
+        roles,
+        createdAt,
+        now,
+        authVersion + 1,
+        version);
+  }
+
   @Override
   public String toString() {
     return "User[id=" + id + ", status=" + status + "]";

@@ -25,6 +25,13 @@ public enum IdentityErrorCode implements ErrorCode {
   LAST_ACTIVE_ADMIN("Không thể thu hồi quyền của quản trị viên hoạt động cuối cùng."),
   CURRENT_PASSWORD_INCORRECT("Mật khẩu hiện tại không đúng."),
   NEW_PASSWORD_SAME_AS_CURRENT("Mật khẩu mới phải khác mật khẩu hiện tại."),
+  NOT_IMPLEMENTED("Chức năng đang ở dạng template, chưa được triển khai."),
+  STALE_USER_VERSION("Tài khoản đã thay đổi. Vui lòng tải lại dữ liệu trước khi cập nhật."),
+  SELF_STATUS_CHANGE_FORBIDDEN("Bạn không thể tự thay đổi trạng thái tài khoản của mình."),
+  LAST_ACTIVE_ADMIN_STATUS_CHANGE_FORBIDDEN(
+      "Không thể vô hiệu hóa quản trị viên hoạt động cuối cùng."),
+  INVALID_USER_STATUS_TRANSITION("Không thể chuyển tài khoản sang trạng thái được yêu cầu."),
+  EMAIL_ALREADY_VERIFIED("Tài khoản đã xác minh email."),
   ;
 
   private final String message;

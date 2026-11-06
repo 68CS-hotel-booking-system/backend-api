@@ -8,30 +8,38 @@ import com.team.hotelbooking.identity.application.port.PasswordResetEmailQueue;
 import com.team.hotelbooking.identity.application.port.VerificationEmailQueue;
 import com.team.hotelbooking.identity.application.result.LoginResult;
 import com.team.hotelbooking.identity.application.usecase.ChangePasswordUseCase;
+import com.team.hotelbooking.identity.application.usecase.CreateAdminUserUseCase;
 import com.team.hotelbooking.identity.application.usecase.ForgotPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.GetCurrentUserUseCase;
 import com.team.hotelbooking.identity.application.usecase.GetUserRolesUseCase;
 import com.team.hotelbooking.identity.application.usecase.GrantRoleUseCase;
+import com.team.hotelbooking.identity.application.usecase.ListAdminUsersUseCase;
 import com.team.hotelbooking.identity.application.usecase.ListRolesUseCase;
 import com.team.hotelbooking.identity.application.usecase.LoginUseCase;
 import com.team.hotelbooking.identity.application.usecase.LogoutUseCase;
 import com.team.hotelbooking.identity.application.usecase.RefreshTokenUseCase;
 import com.team.hotelbooking.identity.application.usecase.RegisterUseCase;
+import com.team.hotelbooking.identity.application.usecase.ResendUserVerificationEmailUseCase;
 import com.team.hotelbooking.identity.application.usecase.ResetPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.RevokeRoleUseCase;
+import com.team.hotelbooking.identity.application.usecase.UpdateUserStatusUseCase;
 import com.team.hotelbooking.identity.application.usecase.VerifyEmailUseCase;
 import com.team.hotelbooking.identity.application.usecase.impl.ChangePasswordService;
+import com.team.hotelbooking.identity.application.usecase.impl.CreateAdminUserService;
 import com.team.hotelbooking.identity.application.usecase.impl.ForgotPasswordService;
 import com.team.hotelbooking.identity.application.usecase.impl.GetCurrentUserService;
 import com.team.hotelbooking.identity.application.usecase.impl.GetUserRolesService;
 import com.team.hotelbooking.identity.application.usecase.impl.GrantRoleService;
+import com.team.hotelbooking.identity.application.usecase.impl.ListAdminUsersService;
 import com.team.hotelbooking.identity.application.usecase.impl.ListRolesService;
 import com.team.hotelbooking.identity.application.usecase.impl.LoginService;
 import com.team.hotelbooking.identity.application.usecase.impl.LogoutService;
 import com.team.hotelbooking.identity.application.usecase.impl.RefreshTokenService;
 import com.team.hotelbooking.identity.application.usecase.impl.RegisterService;
+import com.team.hotelbooking.identity.application.usecase.impl.ResendUserVerificationEmailService;
 import com.team.hotelbooking.identity.application.usecase.impl.ResetPasswordService;
 import com.team.hotelbooking.identity.application.usecase.impl.RevokeRoleService;
+import com.team.hotelbooking.identity.application.usecase.impl.UpdateUserStatusService;
 import com.team.hotelbooking.identity.application.usecase.impl.VerifyEmailService;
 import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
 import com.team.hotelbooking.identity.domain.exception.IdentityException;
@@ -337,6 +345,70 @@ public class IdentityConfig {
       UserRoleRepository userRoles,
       PlatformTransactionManager transactionManager) {
     RevokeRoleService service = new RevokeRoleService(users, roles, userRoles);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public ListAdminUsersUseCase listAdminUsersUseCase(
+      UserRepository users, PlatformTransactionManager transactionManager) {
+
+    ListAdminUsersService service = new ListAdminUsersService(users);
+
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public CreateAdminUserUseCase createAdminUserUseCase(
+      PlatformTransactionManager transactionManager) {
+    CreateAdminUserService service = new CreateAdminUserService();
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public UpdateUserStatusUseCase updateUserStatusUseCase(
+      UserRepository users,
+      RoleRepository roles,
+      UserRoleRepository userRoles,
+      RefreshTokenRepository refreshTokens,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    UpdateUserStatusService service =
+        new UpdateUserStatusService(users, roles, userRoles, refreshTokens, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public ResendUserVerificationEmailUseCase resendUserVerificationEmailUseCase(
+      UserRepository users,
+      VerificationTokenRepository tokens,
+      OpaqueTokens opaqueTokens,
+      VerificationEmailQueue emails,
+      Clock clock,
+      PlatformTransactionManager transactionManager,
+      @Value("${auth.verification-ttl}") String verificationTtl,
+      @Value("${auth.verification-resend-cooldown}") String requestCooldown) {
+    ResendUserVerificationEmailService service =
+        new ResendUserVerificationEmailService(
+            users,
+            tokens,
+            opaqueTokens,
+            emails,
+            clock,
+            Duration.parse(verificationTtl),
+            Duration.parse(requestCooldown));
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
     return command ->

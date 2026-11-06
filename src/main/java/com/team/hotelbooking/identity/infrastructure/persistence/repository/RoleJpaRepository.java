@@ -17,5 +17,9 @@ public interface RoleJpaRepository extends JpaRepository<RoleJpaEntity, Integer>
   @Query("select r from RoleJpaEntity r where r.id = :roleId")
   Optional<RoleJpaEntity> findByIdForUpdate(@Param("roleId") Integer roleId);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select r from RoleJpaEntity r where r.roleKey = :roleKey")
+  Optional<RoleJpaEntity> findByRoleKeyForUpdate(@Param("roleKey") String roleKey);
+
   List<RoleJpaEntity> findAllByActiveTrueOrderByRoleKeyAsc();
 }

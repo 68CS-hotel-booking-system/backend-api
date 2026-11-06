@@ -26,6 +26,11 @@ public class JpaRoleRepositoryAdapter implements RoleRepository {
   }
 
   @Override
+  public Optional<Role> findByKeyForUpdate(String roleKey) {
+    return roles.findByRoleKeyForUpdate(roleKey).map(RolePersistenceMapper::toDomain);
+  }
+
+  @Override
   public List<Role> findAllActive() {
     return roles.findAllByActiveTrueOrderByRoleKeyAsc().stream()
         .map(RolePersistenceMapper::toDomain)

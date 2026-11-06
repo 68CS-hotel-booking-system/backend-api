@@ -2,6 +2,7 @@ package com.team.hotelbooking.identity.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.identity.infrastructure.persistence.entity.UserJpaEntity;
 import com.team.hotelbooking.identity.infrastructure.persistence.entity.UserRoleJpaEntity;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -37,4 +38,21 @@ public interface UserRoleJpaRepository extends JpaRepository<UserRoleJpaEntity, 
       """)
   long countActiveUsersByRoleId(
       @Param("roleId") Integer roleId, @Param("status") UserJpaEntity.DbStatus status);
+
+  interface UserRoleKeyView {
+
+    UUID getUserId();
+
+    String getRoleKey();
+  }
+
+  @Query(
+      """
+      select ur.userId as userId, r.roleKey as roleKey
+      from UserRoleJpaEntity ur, RoleJpaEntity r
+      where ur.roleId = r.id
+          and ur.userId in :userIds
+          and r.active = true
+      """)
+  List<UserRoleKeyView> findRoleKeysByUserIds(@Param("userIds") List<UUID> userIds);
 }

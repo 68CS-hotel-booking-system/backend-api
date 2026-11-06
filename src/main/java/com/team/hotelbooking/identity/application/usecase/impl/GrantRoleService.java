@@ -39,33 +39,30 @@ public class GrantRoleService implements GrantRoleUseCase {
       throw IdentityException.invalid("ID vai trò phải lớn hơn 0.");
     }
 
-    User actor =
-        users
-            .findById(command.actorId())
-            .orElseThrow(() -> new IdentityException(IdentityErrorCode.ACCESS_DENIED));
-
-    if (!actor.roles().contains("ADMIN")) {
-      throw new IdentityException(IdentityErrorCode.ACCESS_DENIED);
-    }
-
-    actor.ensureCanLogin();
-
-    // Khóa tài khoản trước khi kiểm tra vai trò để các yêu cầu cấp quyền không ghi trùng.
-    User target =
-        users
-            .findByIdForUpdate(command.targetUserId())
-            .orElseThrow(() -> new IdentityException(IdentityErrorCode.USER_NOT_FOUND));
-
-    target.ensureCanLogin();
-
     Role role =
         roles
-            .findById(command.roleId())
+            .findByIdForUpdate(command.roleId())
             .orElseThrow(() -> new IdentityException(IdentityErrorCode.ROLE_UNAVAILABLE));
 
     if (!role.active()) {
       throw new IdentityException(IdentityErrorCode.ROLE_UNAVAILABLE);
     }
+
+    // Khóa vai trò trước user, đồng bộ với thu hồi vai trò và đổi trạng thái tài khoản.
+    User actor =
+        users
+            .findById(command.actorId())
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.ACCESS_DENIED));
+    if (!actor.roles().contains("ADMIN")) {
+      throw new IdentityException(IdentityErrorCode.ACCESS_DENIED);
+    }
+    actor.ensureCanLogin();
+
+    User target =
+        users
+            .findByIdForUpdate(command.targetUserId())
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.USER_NOT_FOUND));
+    target.ensureCanLogin();
 
     Set<String> updatedRoles = new HashSet<>(target.roles());
     if (updatedRoles.add(role.roleKey())) {
