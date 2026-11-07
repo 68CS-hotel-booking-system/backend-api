@@ -122,9 +122,14 @@ public class IdentityConfig {
       VerificationTokenRepository tokens,
       OpaqueTokens opaqueTokens,
       Clock clock,
+      AccessTokens accessTokens,
+      RefreshTokenRepository refreshTokens,
+      @Value("${auth.refresh-ttl}") Duration refreshTtl,
       PlatformTransactionManager transactionManager) {
 
-    VerifyEmailService service = new VerifyEmailService(users, tokens, opaqueTokens, clock);
+    VerifyEmailService service =
+        new VerifyEmailService(
+            users, tokens, opaqueTokens, clock, accessTokens, refreshTokens, refreshTtl);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 

@@ -81,7 +81,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     // Thu hồi refresh token vừa được sử dụng.
     refreshTokenRepository.revokeById(token.id());
 
-    // Lưu hash của refresh token mới.
+    // Lưu hash của refresh token mới, giữ nguyên familyId, expiresAt và rememberMe.
     refreshTokenRepository.add(
         new RefreshToken(
             UUID.randomUUID(),
@@ -89,9 +89,16 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             token.familyId(),
             nextRefresh.hash(),
             token.expiresAt(),
-            false));
+            false,
+            token.rememberMe()));
 
-    // Trả giá trị token gốc cho client.
-    return LoginResult.from(user, access.value(), nextRefresh.raw(), access.expiresAt());
+    // Trả giá trị token mới cho client kèm thông tin phiên.
+    return LoginResult.from(
+        user,
+        access.value(),
+        nextRefresh.raw(),
+        access.expiresAt(),
+        token.rememberMe(),
+        token.expiresAt());
   }
 }

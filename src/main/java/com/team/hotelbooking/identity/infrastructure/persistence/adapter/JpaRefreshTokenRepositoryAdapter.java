@@ -25,6 +25,7 @@ public class JpaRefreshTokenRepositoryAdapter implements RefreshTokenRepository 
     entity.setTokenHash(token.tokenHash());
     entity.setExpiresAt(token.expiresAt());
     entity.setRevoked(token.revoked());
+    entity.setRememberMe(token.rememberMe());
 
     tokens.saveAndFlush(entity);
   }
@@ -46,7 +47,8 @@ public class JpaRefreshTokenRepositoryAdapter implements RefreshTokenRepository 
                     entity.getFamilyId(),
                     entity.getTokenHash(),
                     entity.getExpiresAt(),
-                    entity.isRevoked()));
+                    entity.isRevoked(),
+                    entity.isRememberMe()));
   }
 
   @Override

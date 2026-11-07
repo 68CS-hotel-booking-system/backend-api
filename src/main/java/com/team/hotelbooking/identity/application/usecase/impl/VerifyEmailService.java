@@ -1,15 +1,20 @@
 package com.team.hotelbooking.identity.application.usecase.impl;
 
+import com.team.hotelbooking.identity.application.port.AccessTokens;
 import com.team.hotelbooking.identity.application.port.OpaqueTokens;
+import com.team.hotelbooking.identity.application.result.LoginResult;
 import com.team.hotelbooking.identity.application.result.VerifyEmailResult;
 import com.team.hotelbooking.identity.application.usecase.VerifyEmailUseCase;
 import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
 import com.team.hotelbooking.identity.domain.exception.IdentityException;
+import com.team.hotelbooking.identity.domain.model.RefreshToken;
 import com.team.hotelbooking.identity.domain.model.User;
 import com.team.hotelbooking.identity.domain.model.VerificationToken;
+import com.team.hotelbooking.identity.domain.repository.RefreshTokenRepository;
 import com.team.hotelbooking.identity.domain.repository.UserRepository;
 import com.team.hotelbooking.identity.domain.repository.VerificationTokenRepository;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -20,16 +25,25 @@ public class VerifyEmailService implements VerifyEmailUseCase {
   private final OpaqueTokens opaqueTokens;
   private final Clock clock;
 
+  private final AccessTokens accessTokens;
+  private final RefreshTokenRepository refreshTokens;
+  private final Duration refreshTtl;
+
   public VerifyEmailService(
       UserRepository users,
       VerificationTokenRepository tokens,
       OpaqueTokens opaqueTokens,
-      Clock clock) {
-
+      Clock clock,
+      AccessTokens accessTokens,
+      RefreshTokenRepository refreshTokens,
+      Duration refreshTtl) {
     this.users = users;
     this.tokens = tokens;
     this.opaqueTokens = opaqueTokens;
     this.clock = clock;
+    this.accessTokens = accessTokens;
+    this.refreshTokens = refreshTokens;
+    this.refreshTtl = refreshTtl;
   }
 
   @Override
@@ -70,6 +84,28 @@ public class VerifyEmailService implements VerifyEmailUseCase {
     users.updateVerification(verified);
     tokens.markUsed(consumed);
 
-    return new VerifyEmailResult(true);
+    Instant refreshExpiresAt = now.plus(refreshTtl);
+    var access = accessTokens.issue(verified, now);
+    var refresh = opaqueTokens.generate();
+    boolean rememberMe = true;
+
+    refreshTokens.add(
+        new RefreshToken(
+            UUID.randomUUID(),
+            verified.id(),
+            UUID.randomUUID(),
+            refresh.hash(),
+            refreshExpiresAt,
+            false,
+            rememberMe));
+    LoginResult session =
+        LoginResult.from(
+            verified,
+            access.value(),
+            refresh.raw(),
+            access.expiresAt(),
+            rememberMe,
+            refreshExpiresAt);
+    return new VerifyEmailResult(true, session);
   }
 }

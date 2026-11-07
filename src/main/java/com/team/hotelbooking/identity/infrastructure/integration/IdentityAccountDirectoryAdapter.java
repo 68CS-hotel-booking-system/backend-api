@@ -22,6 +22,8 @@ public class IdentityAccountDirectoryAdapter implements AccountDirectory {
             user ->
                 new AccountInfo(
                     user.id(),
+                    user.fullName(),
+                    user.email(),
                     user.status() == User.Status.ACTIVE,
                     user.emailVerifiedAt() != null,
                     user.roles()));

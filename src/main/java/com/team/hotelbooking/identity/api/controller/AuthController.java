@@ -1,5 +1,6 @@
 package com.team.hotelbooking.identity.api.controller;
 
+import com.team.hotelbooking.identity.api.AuthCookieManager;
 import com.team.hotelbooking.identity.api.dto.request.ForgotPasswordRequest;
 import com.team.hotelbooking.identity.api.dto.request.LoginRequest;
 import com.team.hotelbooking.identity.api.dto.request.LogoutRequest;
@@ -27,8 +28,11 @@ import com.team.hotelbooking.identity.application.usecase.RefreshTokenUseCase;
 import com.team.hotelbooking.identity.application.usecase.RegisterUseCase;
 import com.team.hotelbooking.identity.application.usecase.ResetPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.VerifyEmailUseCase;
+import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
+import com.team.hotelbooking.identity.domain.exception.IdentityException;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -47,6 +51,7 @@ public class AuthController {
   private final LogoutUseCase logoutUseCase;
   private final ForgotPasswordUseCase forgotPasswordUseCase;
   private final ResetPasswordUseCase resetPasswordUseCase;
+  private final AuthCookieManager authCookieManager;
 
   @PostMapping("/register")
   public ResponseEntity<ApiResponse<RegisterResponse>> register(
@@ -65,24 +70,47 @@ public class AuthController {
 
   @PostMapping("/email-verifications")
   public ResponseEntity<ApiResponse<VerifyEmailResponse>> verifyEmail(
-      @Valid @RequestBody VerifyEmailRequest request) {
+      @Valid @RequestBody VerifyEmailRequest request,
+      HttpServletRequest servletRequest,
+      HttpServletResponse servletResponse) {
 
     VerifyEmailResult result = verifyEmailUseCase.execute(request.token());
 
+    if (result.session() != null) {
+      authCookieManager.addAuthCookies(
+          servletResponse,
+          servletRequest,
+          result.session().refreshToken(),
+          result.session().rememberMe(),
+          result.session().refreshExpiresAt());
+    }
     VerifyEmailResponse response = VerifyEmailResponse.from(result);
-
-    return ResponseEntity.ok(
-        ApiResponse.success("Xác minh email bằng token thành công.", response));
+    var builder = ResponseEntity.ok();
+    if (result.session() != null) {
+      builder.header("Cache-Control", "no-store").header("Pragma", "no-cache");
+    }
+    return builder.body(ApiResponse.success("Xác minh email bằng token thành công.", response));
   }
 
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<LoginResponse>> login(
-      @Valid @RequestBody LoginRequest request) {
+      @Valid @RequestBody LoginRequest request,
+      HttpServletRequest servletRequest,
+      HttpServletResponse servletResponse) {
 
     LoginResult result =
-        loginUseCase.execute(new LoginCommand(request.email(), request.password()));
+        loginUseCase.execute(
+            new LoginCommand(
+                request.email(), request.password(), Boolean.TRUE.equals(request.rememberMe())));
 
-    LoginResponse response = LoginResponse.from(result);
+    authCookieManager.addAuthCookies(
+        servletResponse,
+        servletRequest,
+        result.refreshToken(),
+        result.rememberMe(),
+        result.refreshExpiresAt());
+
+    LoginResponse response = LoginResponse.from(result, false);
 
     return ResponseEntity.ok()
         .header("Cache-Control", "no-store")
@@ -92,22 +120,70 @@ public class AuthController {
 
   @PostMapping("/refresh")
   public ResponseEntity<ApiResponse<LoginResponse>> refresh(
-      @Valid @RequestBody RefreshTokenRequest request) {
+      @Valid @RequestBody(required = false) RefreshTokenRequest request,
+      HttpServletRequest servletRequest,
+      HttpServletResponse servletResponse) {
 
-    LoginResult result = refreshTokenUseCase.execute(request.refreshToken());
+    String rawToken = authCookieManager.extractRefreshToken(servletRequest).orElse(null);
+    boolean fromCookie = rawToken != null && !rawToken.isBlank();
 
-    LoginResponse response = LoginResponse.from(result);
+    if (fromCookie) {
+      authCookieManager.validateCsrf(servletRequest);
+    } else if (request != null
+        && request.refreshToken() != null
+        && !request.refreshToken().isBlank()) {
+      rawToken = request.refreshToken();
+    } else {
+      authCookieManager.clearAuthCookies(servletResponse, servletRequest);
+      throw new IdentityException(IdentityErrorCode.INVALID_REFRESH_TOKEN);
+    }
 
-    return ResponseEntity.ok()
-        .header("Cache-Control", "no-store")
-        .header("Pragma", "no-cache")
-        .body(ApiResponse.success("Làm mới phiên đăng nhập thành công.", response));
+    try {
+      LoginResult result = refreshTokenUseCase.execute(rawToken);
+
+      authCookieManager.addAuthCookies(
+          servletResponse,
+          servletRequest,
+          result.refreshToken(),
+          result.rememberMe(),
+          result.refreshExpiresAt());
+
+      LoginResponse response = LoginResponse.from(result, false);
+
+      return ResponseEntity.ok()
+          .header("Cache-Control", "no-store")
+          .header("Pragma", "no-cache")
+          .body(ApiResponse.success("Làm mới phiên đăng nhập thành công.", response));
+    } catch (IdentityException error) {
+      authCookieManager.clearAuthCookies(servletResponse, servletRequest);
+      throw error;
+    }
   }
 
   @PostMapping("/logout")
-  public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody LogoutRequest request) {
+  public ResponseEntity<ApiResponse<Void>> logout(
+      @Valid @RequestBody(required = false) LogoutRequest request,
+      HttpServletRequest servletRequest,
+      HttpServletResponse servletResponse) {
 
-    logoutUseCase.execute(request.refreshToken());
+    String rawToken = authCookieManager.extractRefreshToken(servletRequest).orElse(null);
+    boolean fromCookie = rawToken != null && !rawToken.isBlank();
+
+    if (fromCookie) {
+      authCookieManager.validateCsrf(servletRequest);
+    } else if (request != null
+        && request.refreshToken() != null
+        && !request.refreshToken().isBlank()) {
+      rawToken = request.refreshToken();
+    }
+
+    try {
+      if (rawToken != null && !rawToken.isBlank()) {
+        logoutUseCase.execute(rawToken);
+      }
+    } finally {
+      authCookieManager.clearAuthCookies(servletResponse, servletRequest);
+    }
 
     return ResponseEntity.ok()
         .header("Cache-Control", "no-store")

@@ -8,7 +8,17 @@ public interface AccountDirectory {
 
   Optional<AccountInfo> findById(UUID userId);
 
-  record AccountInfo(UUID id, boolean active, boolean emailVerified, Set<String> roles) {
+  default boolean existsById(UUID userId) {
+    return findById(userId).isPresent();
+  }
+
+  record AccountInfo(
+      UUID id,
+      String fullName,
+      String email,
+      boolean active,
+      boolean emailVerified,
+      Set<String> roles) {
 
     public AccountInfo {
       roles = Set.copyOf(roles);
