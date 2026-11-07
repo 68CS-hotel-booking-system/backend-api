@@ -82,6 +82,7 @@ public class LoginService implements LoginUseCase {
     current.ensureCanLogin();
 
     Instant now = clock.instant();
+    Instant refreshExpiresAt = now.plus(refreshTtl);
 
     var access = accessTokens.issue(current, now);
     var refresh = opaqueTokens.generate();
@@ -92,9 +93,16 @@ public class LoginService implements LoginUseCase {
             current.id(),
             UUID.randomUUID(),
             refresh.hash(),
-            now.plus(refreshTtl),
-            false));
+            refreshExpiresAt,
+            false,
+            command.rememberMe()));
 
-    return LoginResult.from(current, access.value(), refresh.raw(), access.expiresAt());
+    return LoginResult.from(
+        current,
+        access.value(),
+        refresh.raw(),
+        access.expiresAt(),
+        command.rememberMe(),
+        refreshExpiresAt);
   }
 }

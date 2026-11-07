@@ -1,12 +1,11 @@
 package com.team.hotelbooking.identity.api.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record LogoutRequest(@NotBlank @Size(max = 128) String refreshToken) {
+public record LogoutRequest(@Size(max = 128) String refreshToken) {
 
   @Override
   public String toString() {
-    return "RefreshTokenRequest[REDACTED]";
+    return "LogoutRequest[REDACTED]";
   }
 }

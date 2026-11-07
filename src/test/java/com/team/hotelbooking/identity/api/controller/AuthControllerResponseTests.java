@@ -15,8 +15,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.team.hotelbooking.identity.api.AuthCookieManager;
 import com.team.hotelbooking.identity.api.dto.request.LoginRequest;
 import com.team.hotelbooking.identity.api.dto.request.RefreshTokenRequest;
+import com.team.hotelbooking.identity.api.dto.response.LoginResponse;
+import com.team.hotelbooking.identity.api.dto.response.VerifyEmailResponse;
 import com.team.hotelbooking.identity.api.exception.IdentityExceptionHandler;
 import com.team.hotelbooking.identity.application.command.LoginCommand;
 import com.team.hotelbooking.identity.application.command.RegisterCommand;
@@ -29,6 +32,7 @@ import com.team.hotelbooking.identity.application.usecase.LoginUseCase;
 import com.team.hotelbooking.identity.application.usecase.LogoutUseCase;
 import com.team.hotelbooking.identity.application.usecase.RefreshTokenUseCase;
 import com.team.hotelbooking.identity.application.usecase.RegisterUseCase;
+import com.team.hotelbooking.identity.application.usecase.ResetPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.VerifyEmailUseCase;
 import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
 import com.team.hotelbooking.identity.domain.exception.IdentityException;
@@ -57,6 +61,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ResolvableType;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -111,6 +117,10 @@ class AuthControllerResponseTests {
 
   @Mock private ForgotPasswordUseCase forgotPasswordUseCase;
 
+  @Mock private ResetPasswordUseCase resetPasswordUseCase;
+
+  @Mock private AuthCookieManager authCookieManager;
+
   @InjectMocks private AuthController controller;
 
   private RegisterCommand registerCommand;
@@ -159,7 +169,7 @@ class AuthControllerResponseTests {
     }
 
     @Test
-    void shouldPreserveJsonStatusAndHeadersWhenRegistrationSucceeds() throws Exception {
+    void shouldPreserveJsonAndDefaultHeadersWhenRegistrationSucceeds() throws Exception {
       // Given
       given(registerUseCase.execute(registerCommand)).willReturn(registerResult);
 
@@ -187,6 +197,20 @@ class AuthControllerResponseTests {
       // Then
       assertProblemDetail(
           response, 409, IdentityErrorCode.EMAIL_ALREADY_USED, "/api/v1/auth/register");
+    }
+
+    @Test
+    void shouldReturnProblemDetailWhenRegistrationFailsUnexpectedly() throws Exception {
+      // Given
+      given(registerUseCase.execute(registerCommand))
+          .willThrow(new IllegalStateException("private connection pool closed"));
+
+      // When
+      ResultActions response = performPost("/api/v1/auth/register", REGISTER_REQUEST_JSON);
+
+      // Then
+      assertProblemDetail(response, 500, CommonErrorCode.INTERNAL_ERROR, "/api/v1/auth/register");
+      response.andExpect(content().string(not(containsString("private connection pool closed"))));
     }
   }
 
@@ -222,7 +246,9 @@ class AuthControllerResponseTests {
           .andExpect(header().doesNotExist("Cache-Control"))
           .andExpect(header().doesNotExist("Pragma"));
       assertJsonResponse(
-          ApiResponse.success("Xác minh email bằng token thành công.", result), response);
+          ApiResponse.success(
+              "Xác minh email bằng token thành công.", VerifyEmailResponse.from(result)),
+          response);
     }
 
     @ParameterizedTest(name = "{0} → HTTP {1}")
@@ -322,7 +348,12 @@ class AuthControllerResponseTests {
       LoginRequest request = new LoginRequest(EMAIL, PASSWORD);
 
       // When
-      String rendered = controller.login(request).getBody().data().toString();
+      String rendered =
+          controller
+              .login(request, new MockHttpServletRequest(), new MockHttpServletResponse())
+              .getBody()
+              .data()
+              .toString();
 
       // Then
       assertTokensRedacted(rendered);
@@ -406,7 +437,12 @@ class AuthControllerResponseTests {
       RefreshTokenRequest request = new RefreshTokenRequest(INCOMING_TOKEN);
 
       // When
-      String rendered = controller.refresh(request).getBody().data().toString();
+      String rendered =
+          controller
+              .refresh(request, new MockHttpServletRequest(), new MockHttpServletResponse())
+              .getBody()
+              .data()
+              .toString();
 
       // Then
       assertTokensRedacted(rendered);
@@ -526,7 +562,8 @@ class AuthControllerResponseTests {
   // Helper dùng chung: tạo fixture, thực hiện request và kiểm tra response.
 
   private LoginResult loginResultWithUser(LoginResult.UserInfo user) {
-    return new LoginResult(ACCESS_TOKEN, REFRESH_TOKEN, "Bearer", EXPIRES_AT, user);
+    return new LoginResult(
+        ACCESS_TOKEN, REFRESH_TOKEN, "Bearer", EXPIRES_AT, user, false, EXPIRES_AT);
   }
 
   private Class<?> responseType(String methodName) {
@@ -553,7 +590,8 @@ class AuthControllerResponseTests {
         .andExpect(header().string("Cache-Control", "no-store"))
         .andExpect(header().string("Pragma", "no-cache"))
         .andExpect(jsonPath("$.data.expiresAt").value("2026-11-02T01:02:03.123456789Z"));
-    assertJsonResponse(ApiResponse.success(message, expectedResult), response);
+    assertJsonResponse(
+        ApiResponse.success(message, LoginResponse.from(expectedResult, false)), response);
   }
 
   private void assertTokensRedacted(String rendered) {

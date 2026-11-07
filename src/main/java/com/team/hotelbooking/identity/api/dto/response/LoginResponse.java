@@ -12,9 +12,13 @@ public record LoginResponse(
     UserResponse user) {
 
   public static LoginResponse from(LoginResult result) {
+    return from(result, false);
+  }
+
+  public static LoginResponse from(LoginResult result, boolean includeRefreshToken) {
     return new LoginResponse(
         result.accessToken(),
-        result.refreshToken(),
+        includeRefreshToken ? result.refreshToken() : null,
         result.tokenType(),
         result.expiresAt(),
         result.user() == null ? null : UserResponse.from(result.user()));
