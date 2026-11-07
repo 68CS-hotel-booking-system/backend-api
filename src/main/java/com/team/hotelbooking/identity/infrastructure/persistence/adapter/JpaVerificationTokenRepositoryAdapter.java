@@ -4,7 +4,9 @@ import com.team.hotelbooking.identity.domain.model.VerificationToken;
 import com.team.hotelbooking.identity.domain.repository.VerificationTokenRepository;
 import com.team.hotelbooking.identity.infrastructure.persistence.entity.VerificationTokenJpaEntity;
 import com.team.hotelbooking.identity.infrastructure.persistence.repository.VerificationTokenJpaRepository;
+import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -41,6 +43,21 @@ public class JpaVerificationTokenRepositoryAdapter implements VerificationTokenR
                     entity.getCreatedAt(),
                     entity.getUsedAt(),
                     entity.getRevokedAt()));
+  }
+
+  @Override
+  public Optional<UUID> findUserIdByTokenHash(String tokenHash) {
+    return tokens.findUserIdByTokenHash(tokenHash);
+  }
+
+  @Override
+  public Optional<Instant> findLatestCreatedAtByUserId(UUID userId) {
+    return tokens.findLatestCreatedAtByUserId(userId);
+  }
+
+  @Override
+  public void revokeAllUnusedByUserId(UUID userId, Instant revokedAt) {
+    tokens.revokeAllUnusedByUserId(userId, revokedAt);
   }
 
   @Override

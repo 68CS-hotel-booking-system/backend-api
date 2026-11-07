@@ -35,15 +35,21 @@ spring:
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     default-encoding: UTF-8
 
     properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:false}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS_ENABLE:false}
+      "[mail.smtp.starttls.required]": ${MAIL_STARTTLS_REQUIRED:false}
       "[mail.smtp.connectiontimeout]": 5000
       "[mail.smtp.timeout]": 3000
       "[mail.smtp.writetimeout]": 5000
 
 auth:
   verification-ttl: PT24H
+  verification-resend-cooldown: PT1M
   verification-url: ${AUTH_VERIFICATION_URL}
   mail-from: ${AUTH_MAIL_FROM}
 

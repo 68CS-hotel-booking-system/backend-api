@@ -32,10 +32,14 @@ public class IdentityExceptionHandler {
               ROLE_UNAVAILABLE,
               CUSTOMER_ROLE_REMOVAL_FORBIDDEN,
               SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN,
+              STALE_USER_VERSION,
+              LAST_ACTIVE_ADMIN_STATUS_CHANGE_FORBIDDEN,
+              INVALID_USER_STATUS_TRANSITION,
+              EMAIL_ALREADY_VERIFIED,
               LAST_ACTIVE_ADMIN ->
               HttpStatus.CONFLICT;
 
-          case ACCOUNT_LOCKED, ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+          case ACCOUNT_LOCKED, ACCESS_DENIED, SELF_STATUS_CHANGE_FORBIDDEN -> HttpStatus.FORBIDDEN;
 
           case USER_NOT_FOUND -> HttpStatus.NOT_FOUND;
 
@@ -51,6 +55,7 @@ public class IdentityExceptionHandler {
               HttpStatus.valueOf(422);
 
           case RATE_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
+          case NOT_IMPLEMENTED -> HttpStatus.NOT_IMPLEMENTED;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);

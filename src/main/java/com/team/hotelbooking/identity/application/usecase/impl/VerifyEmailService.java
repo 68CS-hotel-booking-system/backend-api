@@ -11,6 +11,7 @@ import com.team.hotelbooking.identity.domain.repository.UserRepository;
 import com.team.hotelbooking.identity.domain.repository.VerificationTokenRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 
 public class VerifyEmailService implements VerifyEmailUseCase {
 
@@ -41,15 +42,25 @@ public class VerifyEmailService implements VerifyEmailUseCase {
       throw new IdentityException(IdentityErrorCode.TOKEN_INVALID);
     }
 
-    VerificationToken token =
+    String tokenHash = opaqueTokens.hash(rawToken);
+    UUID userId =
         tokens
-            .findByHashForUpdate(opaqueTokens.hash(rawToken))
+            .findUserIdByTokenHash(tokenHash)
             .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
 
     User user =
         users
-            .findByIdForUpdate(token.userId())
+            .findByIdForUpdate(userId)
             .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
+
+    // Khóa user trước token để đồng bộ với gửi lại email và thu hồi token cũ.
+    VerificationToken token =
+        tokens
+            .findByHashForUpdate(tokenHash)
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.TOKEN_INVALID));
+    if (!token.userId().equals(user.id())) {
+      throw new IdentityException(IdentityErrorCode.TOKEN_INVALID);
+    }
 
     Instant now = clock.instant();
 

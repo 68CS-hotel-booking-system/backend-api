@@ -10,5 +10,7 @@ public interface RoleRepository {
 
   Optional<Role> findByIdForUpdate(Integer roleId);
 
+  Optional<Role> findByKeyForUpdate(String roleKey);
+
   List<Role> findAllActive();
 }

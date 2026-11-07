@@ -37,8 +37,6 @@ public class RevokeRoleService implements RevokeRoleUseCase {
       throw IdentityException.invalid("ID vai trò phải lớn hơn 0.");
     }
 
-    requireAdmin(command.actorId());
-
     // Khóa vai trò trước tài khoản để tuần tự hóa việc thu hồi, đặc biệt với ADMIN.
     Role role =
         roles
@@ -49,7 +47,7 @@ public class RevokeRoleService implements RevokeRoleUseCase {
       throw new IdentityException(IdentityErrorCode.ROLE_UNAVAILABLE);
     }
 
-    // Quyền admin có thể đã bị thu hồi trong lúc yêu cầu chờ khóa vai trò.
+    // Đọc quyền/trạng thái sau khi có khóa để không dùng dữ liệu trước lúc chờ khóa.
     requireAdmin(command.actorId());
 
     User target =
