@@ -17,6 +17,12 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+      file-size-threshold: 0
+
   jpa:
     open-in-view: false
 
@@ -46,6 +52,21 @@ spring:
       "[mail.smtp.connectiontimeout]": 5000
       "[mail.smtp.timeout]": 3000
       "[mail.smtp.writetimeout]": 5000
+
+storage:
+  r2:
+    enabled: ${R2_ENABLED:false}
+    endpoint: ${R2_ENDPOINT:}
+    access-key-id: ${R2_ACCESS_KEY_ID:}
+    secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+    bucket: ${R2_BUCKET:}
+
+media:
+  upload:
+    max-bytes: 5242880
+    max-pixels: 16000000
+  access:
+    ttl: PT5M
 
 auth:
   cookie:
