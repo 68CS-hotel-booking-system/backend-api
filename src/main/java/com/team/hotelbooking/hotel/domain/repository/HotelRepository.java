@@ -10,6 +10,8 @@ public interface HotelRepository {
 
   Hotel add(Hotel hotel);
 
+  Hotel save(Hotel hotel);
+
   Optional<Hotel> findById(UUID hotelId);
 
   Optional<Hotel> findByIdAndOwnerId(UUID hotelId, UUID ownerId);
@@ -19,4 +21,6 @@ public interface HotelRepository {
   PageResult<Hotel> findAll(PageQuery pagination);
 
   PageResult<Hotel> findByOwnerId(UUID ownerId, PageQuery pagination);
+
+  PageResult<Hotel> findPublicHotels(UUID cityId, String keyword, PageQuery pagination);
 }

@@ -1,7 +1,6 @@
 package com.team.hotelbooking.payment.infrastructure.integration;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.entity.HotelJpaEntity;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
+import com.team.hotelbooking.hotel.HotelDirectory; // Import duy nhất từ hotel
 import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,15 +11,15 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentHotelAdapter implements PaymentHotelPort {
 
-  private final HotelJpaRepository hotelJpaRepository;
+  private final HotelDirectory hotelDirectory;
 
   @Override
   public boolean existsById(UUID hotelId) {
-    return hotelJpaRepository.existsById(hotelId);
+    return hotelDirectory.existsById(hotelId);
   }
 
   @Override
   public Optional<UUID> findOwnerUserId(UUID hotelId) {
-    return hotelJpaRepository.findById(hotelId).map(HotelJpaEntity::getOwnerUserId);
+    return hotelDirectory.findOwnerUserId(hotelId);
   }
 }

@@ -6,6 +6,7 @@ import com.team.hotelbooking.hotel.domain.model.Hotel;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.mapper.HotelPersistenceMapper;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
+import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelSpecs;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
 import com.team.hotelbooking.shared.persistence.PageResultMapper;
@@ -26,12 +27,32 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   private static final Sort MANAGEMENT_SORT =
       Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
+  private static final Sort PUBLIC_SORT =
+      Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
   private final HotelJpaRepository hotelJpaRepository;
 
   @Override
   public Hotel add(Hotel hotel) {
     var entity = HotelPersistenceMapper.toNewEntity(hotel);
 
+    try {
+      var saved = hotelJpaRepository.saveAndFlush(entity);
+      return HotelPersistenceMapper.toDomain(saved);
+    } catch (DataIntegrityViolationException exception) {
+      throw translateConflict(exception);
+    }
+  }
+
+  @Override
+  public Hotel save(Hotel hotel) {
+    var entity =
+        hotelJpaRepository
+            .findById(hotel.id())
+            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+
+    entity.setStatus(HotelPersistenceMapper.toDbStatus(hotel.status()));
+    entity.setUpdatedAt(hotel.updatedAt());
     try {
       var saved = hotelJpaRepository.saveAndFlush(entity);
       return HotelPersistenceMapper.toDomain(saved);
@@ -69,6 +90,15 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   public PageResult<Hotel> findByOwnerId(UUID ownerId, PageQuery pagination) {
     return PageResultMapper.from(
         hotelJpaRepository.findByOwnerId(ownerId, pageable(pagination)),
+        HotelPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public PageResult<Hotel> findPublicHotels(UUID cityId, String keyword, PageQuery pagination) {
+    Pageable pageable = PageRequest.of(pagination.page(), pagination.size(), PUBLIC_SORT);
+
+    return PageResultMapper.from(
+        hotelJpaRepository.findAll(HotelSpecs.publicSearch(cityId, keyword), pageable),
         HotelPersistenceMapper::toDomain);
   }
 

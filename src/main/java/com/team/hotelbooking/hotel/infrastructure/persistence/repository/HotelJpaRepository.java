@@ -6,8 +6,10 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface HotelJpaRepository extends JpaRepository<HotelJpaEntity, UUID> {
+public interface HotelJpaRepository
+    extends JpaRepository<HotelJpaEntity, UUID>, JpaSpecificationExecutor<HotelJpaEntity> {
 
   Optional<HotelJpaEntity> findByIdAndOwnerId(UUID hotelId, UUID ownerId);
 

@@ -46,6 +46,8 @@ public class SecurityConfig {
                         "/api/v1/cities",
                         "/api/v1/amenities",
                         "/api/v1/hotels/*",
+                        "/api/v1/hotels",
+                        "/api/v1/hotels/**",
                         "/api/v1/hotels/*/room-types")
                     .permitAll()
                     .requestMatchers(
@@ -66,8 +68,9 @@ public class SecurityConfig {
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/users/*/roles/*")
                     .hasRole("ADMIN")
-                    .requestMatchers(HttpMethod.POST, "/api/v1/admin/hotels")
-                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        HttpMethod.POST, "/api/v1/admin/hotels", "/api/v1/management/hotels")
+                    .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/management/hotels/*/room-types",

@@ -1,8 +1,6 @@
 package com.team.hotelbooking.inventory.infrastructure.integration;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomTypeJpaEntity;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
+import com.team.hotelbooking.hotel.HotelDirectory; // Import duy nhất từ hotel
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
 import java.util.List;
 import java.util.Optional;
@@ -14,31 +12,27 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class HotelCatalogAdapter implements HotelCatalogPort {
 
-  private final HotelJpaRepository hotelJpaRepository;
-  private final RoomTypeJpaRepository roomTypeJpaRepository;
+  private final HotelDirectory hotelDirectory;
 
   @Override
   public Optional<HotelSummary> findHotelSummary(UUID hotelId) {
-    return hotelJpaRepository
-        .findByIdAndActiveTrue(hotelId)
-        .map(hotel -> new HotelSummary(hotel.getId(), hotel.isActive(), false));
+    return hotelDirectory
+        .findHotelSummary(hotelId)
+        .map(h -> new HotelSummary(h.id(), h.active(), h.verified()));
   }
 
   @Override
   public List<RoomTypeSummary> findActiveRoomTypes(UUID hotelId) {
-    List<RoomTypeJpaEntity> roomTypes =
-        roomTypeJpaRepository.findAllByHotelIdAndActiveTrue(hotelId);
-
-    return roomTypes.stream()
+    return hotelDirectory.findActiveRoomTypes(hotelId).stream()
         .map(
             rt ->
                 new RoomTypeSummary(
-                    rt.getId(),
-                    rt.getName(),
-                    (int) rt.getMaxOccupancy(),
-                    (int) rt.getMaxAdults(),
-                    (int) rt.getMaxChildren(),
-                    rt.getBasePrice()))
+                    rt.id(),
+                    rt.name(),
+                    rt.maxOccupancy(),
+                    rt.maxAdults(),
+                    rt.maxChildren(),
+                    rt.basePrice()))
         .toList();
   }
 }
