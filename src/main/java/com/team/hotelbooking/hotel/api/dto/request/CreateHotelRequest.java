@@ -13,7 +13,7 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 public record CreateHotelRequest(
-    @NotNull(message = "Owner không được để trống.") UUID ownerId,
+    UUID ownerId,
     @NotNull(message = "Thành phố không được để trống.") UUID cityId,
     @NotBlank(message = "Tên khách sạn không được để trống.")
         @Size(max = 255, message = "Tên khách sạn không được vượt quá 255 ký tự.")

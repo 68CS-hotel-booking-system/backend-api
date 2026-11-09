@@ -40,7 +40,8 @@ public class CreateHotelService implements CreateHotelUseCase {
       throw new HotelException(HotelErrorCode.VALIDATION_FAILED);
     }
 
-    if (command.actorId() == null || command.ownerId() == null || command.cityId() == null) {
+    // 1. Chỉ kiểm tra actorId và cityId bắt buộc (ownerId có thể null nếu Owner tự tạo)
+    if (command.actorId() == null || command.cityId() == null) {
       throw new HotelException(HotelErrorCode.VALIDATION_FAILED);
     }
 
@@ -49,23 +50,45 @@ public class CreateHotelService implements CreateHotelUseCase {
             .findById(command.actorId())
             .orElseThrow(() -> new HotelException(HotelErrorCode.ACCESS_DENIED));
 
-    if (!actor.active() || !actor.emailVerified() || !actor.roles().contains("ADMIN")) {
+    // kiểm tra actor phải active và đã xác thực email
+    if (!actor.active() || !actor.emailVerified()) {
       throw new HotelException(HotelErrorCode.ACCESS_DENIED);
     }
 
+    // 2. Xác định targetOwnerId dựa trên quyền và dữ liệu truyền lên
+    UUID targetOwnerId;
+    if (command.ownerId() != null && !command.ownerId().equals(actor.id())) {
+      // Muốn chỉ định owner khác thì BẮT BUỘC actor phải có quyền ADMIN
+      if (!actor.roles().contains("ADMIN")) {
+        throw new HotelException(HotelErrorCode.ACCESS_DENIED);
+      }
+      targetOwnerId = command.ownerId();
+    } else {
+      // Không truyền ownerId thì actor phải là HOTEL_OWNER tự tạo cho chính mình
+      if (!actor.roles().contains("HOTEL_OWNER")) {
+        throw new HotelException(HotelErrorCode.ACCESS_DENIED);
+      }
+      targetOwnerId = actor.id();
+    }
+
+    // 3. Lấy thông tin Owner và kiểm tra tính hợp lệ
     AccountSnapshot owner =
-        accounts
-            .findById(command.ownerId())
-            .orElseThrow(() -> new HotelException(HotelErrorCode.OWNER_NOT_FOUND));
+        targetOwnerId.equals(actor.id())
+            ? actor
+            : accounts
+                .findById(targetOwnerId)
+                .orElseThrow(() -> new HotelException(HotelErrorCode.OWNER_NOT_FOUND));
 
     if (!owner.active() || !owner.emailVerified() || !owner.roles().contains("HOTEL_OWNER")) {
       throw new HotelException(HotelErrorCode.OWNER_NOT_ELIGIBLE);
     }
 
+    // 4. Kiểm tra thành phố
     if (!cities.existsById(command.cityId())) {
       throw new HotelException(HotelErrorCode.CITY_NOT_FOUND);
     }
 
+    // 5. Khởi tạo Draft & Lưu DB
     UUID hotelId = UUID.randomUUID();
     Instant now = clock.instant();
     String slug = generateSlug(command.name(), hotelId);
@@ -73,7 +96,7 @@ public class CreateHotelService implements CreateHotelUseCase {
     Hotel hotel =
         Hotel.createDraft(
             hotelId,
-            command.ownerId(),
+            targetOwnerId,
             command.cityId(),
             command.name(),
             slug,

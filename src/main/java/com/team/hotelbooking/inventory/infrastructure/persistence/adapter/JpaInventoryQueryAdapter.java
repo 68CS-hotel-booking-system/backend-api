@@ -1,6 +1,6 @@
 package com.team.hotelbooking.inventory.infrastructure.persistence.adapter;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpaRepository;
+import com.team.hotelbooking.hotel.HotelDirectory;
 import com.team.hotelbooking.inventory.application.port.InventoryQueryPort;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlockJpaEntity;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.DailyReservationOccupancy;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class JpaInventoryQueryAdapter implements InventoryQueryPort {
 
-  private final RoomJpaRepository roomJpaRepository;
+  private final HotelDirectory hotelDirectory;
   private final RoomBlockJpaRepository roomBlockJpaRepository;
   private final InventoryReservationJpaRepository reservationJpaRepository;
   private final Clock clock;
@@ -31,7 +31,8 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
   public int calculateAvailableQuantity(
       UUID roomTypeId, LocalDate checkInDate, LocalDate checkOutDate) {
 
-    long totalRooms = roomJpaRepository.countByRoomTypeIdAndActiveTrue(roomTypeId);
+    long totalRooms = hotelDirectory.countActiveRoomsByRoomTypeId(roomTypeId);
+
     if (totalRooms <= 0) {
       return 0;
     }
