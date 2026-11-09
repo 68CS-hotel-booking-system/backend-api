@@ -7,10 +7,12 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.UUID;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -29,7 +31,8 @@ public class HotelJpaEntity {
     ACTIVE
   }
 
-  @Id private UUID id;
+  @Id
+  private UUID id;
 
   @Column(name = "owner_user_id", nullable = false)
   private UUID ownerId;
@@ -88,6 +91,6 @@ public class HotelJpaEntity {
   }
 
   public boolean isActive() {
-    return true;
+    return status == DbStatus.ACTIVE;
   }
 }
