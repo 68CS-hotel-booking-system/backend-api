@@ -18,7 +18,12 @@ public enum HotelErrorCode implements ErrorCode {
   OWNER_NOT_ELIGIBLE(
       "Tài khoản chủ khách sạn phải đang hoạt động, đã xác minh email và có quyền HOTEL_OWNER."),
   CITY_NOT_FOUND("Không tìm thấy thành phố."),
-  HOTEL_SLUG_CONFLICT("Đường dẫn khách sạn đã tồn tại.");
+  HOTEL_SLUG_CONFLICT("Đường dẫn khách sạn đã tồn tại."),
+  AMENITY_NOT_FOUND("Không tìm thấy tiện ích."),
+  AMENITY_CATEGORY_MISMATCH("Tiện ích không thuộc nhóm phù hợp."),
+  HOTEL_NOT_READY("Khách sạn chưa đủ điều kiện mở bán."),
+  INVALID_STATUS_TRANSITION("Không thể đổi trạng thái bán từ trạng thái hiện tại của khách sạn."),
+  HOTEL_LOCKED("Khách sạn đang bị quản trị hệ thống khóa bán; chỉ quản trị hệ thống được gỡ khóa.");
 
   private final String message;
 

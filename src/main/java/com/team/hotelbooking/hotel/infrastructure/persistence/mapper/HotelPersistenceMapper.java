@@ -17,6 +17,8 @@ public final class HotelPersistenceMapper {
     entity.setSlug(hotel.slug());
     entity.setDescription(hotel.description());
     entity.setAddress(hotel.address());
+    entity.setContactPhone(hotel.contactPhone());
+    entity.setContactEmail(hotel.contactEmail());
     entity.setLatitude(hotel.latitude());
     entity.setLongitude(hotel.longitude());
     entity.setStarRating(hotel.starRating());
@@ -30,6 +32,22 @@ public final class HotelPersistenceMapper {
     return entity;
   }
 
+  // Chỉ chép các field sửa được; giữ nguyên id, Owner, thành phố, slug, trạng thái, createdAt và
+  // version để @Version tự tăng khi flush.
+  public static void applyDetails(HotelJpaEntity entity, Hotel hotel) {
+    entity.setName(hotel.name());
+    entity.setDescription(hotel.description());
+    entity.setAddress(hotel.address());
+    entity.setContactPhone(hotel.contactPhone());
+    entity.setContactEmail(hotel.contactEmail());
+    entity.setLatitude(hotel.latitude());
+    entity.setLongitude(hotel.longitude());
+    entity.setStarRating(hotel.starRating());
+    entity.setCheckInTime(hotel.checkInTime());
+    entity.setCheckOutTime(hotel.checkOutTime());
+    entity.setUpdatedAt(hotel.updatedAt());
+  }
+
   public static Hotel toDomain(HotelJpaEntity entity) {
     return new Hotel(
         entity.getId(),
@@ -39,6 +57,8 @@ public final class HotelPersistenceMapper {
         entity.getSlug(),
         entity.getDescription(),
         entity.getAddress(),
+        entity.getContactPhone(),
+        entity.getContactEmail(),
         entity.getLatitude(),
         entity.getLongitude(),
         entity.getStarRating(),

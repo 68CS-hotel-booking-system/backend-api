@@ -9,11 +9,16 @@ import com.team.hotelbooking.hotel.application.result.ManagementHotelResult;
 import com.team.hotelbooking.hotel.application.usecase.ApproveHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.shared.web.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -60,6 +65,29 @@ public class AdminHotelController {
         .body(ApiResponse.success("Tạo khách sạn thành công.", response));
   }
 
+  @Operation(
+      summary = "Duyệt công khai khách sạn lần đầu (DRAFT → ACTIVE)",
+      description =
+          "Chỉ ADMIN. Kiểm HT-03: tên, địa chỉ, ít nhất một liên hệ (điện thoại hoặc email) và ít"
+              + " nhất một loại phòng đang bán có sức chứa hợp lệ, có phòng vật lý đang phục vụ."
+              + " Thiếu điều kiện trả 422 HOTEL_NOT_READY, liệt kê từng lý do trong errors.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Đã duyệt, trả trạng thái ACTIVE"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Khách sạn không ở trạng thái DRAFT",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Khách sạn không tồn tại",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "422",
+        description = "Chưa đủ điều kiện mở bán theo HT-03",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+  })
   @PreAuthorize("hasRole('ADMIN')")
   @PatchMapping("/{hotelId}/approve")
   public ResponseEntity<ApiResponse<ManagementHotelResponse>> approveHotel(

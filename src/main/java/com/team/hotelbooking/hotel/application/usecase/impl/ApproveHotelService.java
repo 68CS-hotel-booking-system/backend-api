@@ -8,18 +8,29 @@ import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
+import com.team.hotelbooking.hotel.domain.repository.HotelStatusHistoryRepository;
+import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
+import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 
+// HT-03/HT-09: chỉ ADMIN duyệt công khai lần đầu (DRAFT → ACTIVE), khi đủ điều kiện mở bán.
 public class ApproveHotelService implements ApproveHotelUseCase {
 
-  private final HotelRepository hotels;
   private final IdentityAccounts accounts;
+  private final HotelSalesLifecycle lifecycle;
   private final Clock clock;
 
-  public ApproveHotelService(HotelRepository hotels, IdentityAccounts accounts, Clock clock) {
-    this.hotels = hotels;
+  public ApproveHotelService(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      RoomRepository rooms,
+      HotelStatusHistoryRepository history,
+      IdentityAccounts accounts,
+      Clock clock) {
     this.accounts = accounts;
+    this.lifecycle = new HotelSalesLifecycle(hotels, roomTypes, rooms, history);
     this.clock = clock;
   }
 
@@ -39,18 +50,16 @@ public class ApproveHotelService implements ApproveHotelUseCase {
       throw new HotelException(HotelErrorCode.ACCESS_DENIED);
     }
 
-    // 2. Tìm khách sạn
-    Hotel hotel =
-        hotels
-            .findById(hotelId)
-            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+    // 2. Khóa hàng hotel để duyệt không chạy song song với khóa/sửa trạng thái khác.
+    Hotel hotel = lifecycle.lockForStatusChange(hotelId);
 
-    // 3. Domain Logic: chuyển trạng thái sang ACTIVE (DRAFT -> ACTIVE)
-    Hotel activatedHotel = hotel.activate(clock.instant());
+    // 3. Kiểm trạng thái (DRAFT) trước HT-03 để hotel không còn DRAFT nhận lỗi trạng thái, không
+    // nhận 422; rồi kiểm HT-03 bằng cùng hàm với resume.
+    Instant now = clock.instant();
+    Hotel activatedHotel = hotel.activate(now);
+    lifecycle.requireReadyToSell(activatedHotel, now);
 
-    // 4. Lưu lại vào DB
-    Hotel savedHotel = hotels.save(activatedHotel);
-
-    return ManagementHotelResult.from(savedHotel);
+    // 4. Lưu trạng thái và lịch sử trong cùng transaction.
+    return lifecycle.record(hotel, activatedHotel, null, false, adminActorId);
   }
 }

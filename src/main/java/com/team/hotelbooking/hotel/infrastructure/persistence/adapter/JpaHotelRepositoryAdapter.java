@@ -3,7 +3,9 @@ package com.team.hotelbooking.hotel.infrastructure.persistence.adapter;
 import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
+import com.team.hotelbooking.hotel.domain.model.HotelMemberRole;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
+import com.team.hotelbooking.hotel.infrastructure.persistence.entity.HotelJpaEntity;
 import com.team.hotelbooking.hotel.infrastructure.persistence.mapper.HotelPersistenceMapper;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelSpecs;
@@ -11,13 +13,16 @@ import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
 import com.team.hotelbooking.shared.persistence.PageResultMapper;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -64,6 +69,46 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   @Override
   public Optional<Hotel> findById(UUID hotelId) {
     return hotelJpaRepository.findById(hotelId).map(HotelPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public Optional<Hotel> findByIdForUpdate(UUID hotelId) {
+    return hotelJpaRepository.findByIdForUpdate(hotelId).map(HotelPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public Hotel update(Hotel hotel, long expectedVersion) {
+    HotelJpaEntity entity =
+        hotelJpaRepository
+            .findById(hotel.id())
+            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+
+    // Version client gửi đã cũ: báo cùng lỗi 409 với trường hợp @Version phát hiện lúc flush.
+    if (entity.getVersion() == null || entity.getVersion() != expectedVersion) {
+      throw new ObjectOptimisticLockingFailureException(HotelJpaEntity.class, hotel.id());
+    }
+
+    HotelPersistenceMapper.applyDetails(entity, hotel);
+    return HotelPersistenceMapper.toDomain(hotelJpaRepository.saveAndFlush(entity));
+  }
+
+  @Override
+  public Hotel updateStatus(Hotel hotel) {
+    HotelJpaEntity entity =
+        hotelJpaRepository
+            .findById(hotel.id())
+            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+
+    entity.setStatus(HotelPersistenceMapper.toDbStatus(hotel.status()));
+    entity.setUpdatedAt(hotel.updatedAt());
+    return HotelPersistenceMapper.toDomain(hotelJpaRepository.saveAndFlush(entity));
+  }
+
+  @Override
+  public Set<HotelMemberRole> findActiveMemberRoles(UUID hotelId, UUID userId) {
+    return hotelJpaRepository.findActiveMemberRoles(hotelId, userId).stream()
+        .map(HotelMemberRole::valueOf)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   @Override
