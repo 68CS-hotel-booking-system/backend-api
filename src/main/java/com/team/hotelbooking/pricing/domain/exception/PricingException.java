@@ -36,4 +36,20 @@ public final class PricingException extends RuntimeException {
   public static PricingException invalidAmount(String message) {
     return new PricingException(PricingErrorCode.INVALID_AMOUNT, message);
   }
+
+  public static PricingException maxStayExceeded(String message) {
+    return new PricingException(PricingErrorCode.MAX_STAY_EXCEEDED, message);
+  }
+
+  public static PricingException invalidQuoteRequest(String message) {
+    return new PricingException(PricingErrorCode.INVALID_QUOTE_REQUEST, message);
+  }
+
+  public static PricingException invalidOccupancy(String message) {
+    return new PricingException(PricingErrorCode.INVALID_OCCUPANCY, message);
+  }
+
+  public static PricingException rateNotAvailable(String message) {
+    return new PricingException(PricingErrorCode.RATE_NOT_AVAILABLE, message);
+  }
 }

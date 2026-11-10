@@ -1,10 +1,15 @@
 package com.team.hotelbooking.pricing.infrastructure.config;
 
+import com.team.hotelbooking.pricing.StayQuoteDirectory;
 import com.team.hotelbooking.pricing.application.port.PricingHotelPort;
 import com.team.hotelbooking.pricing.application.service.GetRoomRatesService;
 import com.team.hotelbooking.pricing.application.service.SetRoomRatesService;
+import com.team.hotelbooking.pricing.application.usecase.CalculateStayQuoteUseCase;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
 import com.team.hotelbooking.pricing.application.usecase.SetRoomRatesUseCase;
+import com.team.hotelbooking.pricing.application.usecase.impl.CalculateStayQuoteService;
+import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
+import com.team.hotelbooking.pricing.infrastructure.integration.PricingStayQuoteDirectoryAdapter;
 import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
 import java.time.Clock;
 import java.util.Objects;
@@ -44,5 +49,27 @@ public class PricingConfig {
 
     return command ->
         Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public CalculateStayQuoteUseCase calculateStayQuoteUseCase(
+      PricingHotelPort pricingHotelPort,
+      RoomRateRepository roomRateRepository,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+
+    CalculateStayQuoteService service =
+        new CalculateStayQuoteService(pricingHotelPort, roomRateRepository, clock);
+
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public StayQuoteDirectory stayQuoteDirectory(
+      CalculateStayQuoteUseCase calculateStayQuoteUseCase) {
+    return new PricingStayQuoteDirectoryAdapter(calculateStayQuoteUseCase);
   }
 }

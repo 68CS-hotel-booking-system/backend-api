@@ -1,5 +1,6 @@
 package com.team.hotelbooking.hotel.infrastructure.config;
 
+import com.team.hotelbooking.hotel.HotelDirectory;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.service.UpdateRoomService;
 import com.team.hotelbooking.hotel.application.service.UpdateRoomTypeService;
@@ -32,6 +33,7 @@ import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
+import com.team.hotelbooking.hotel.infrastructure.integration.HotelDirectoryAdapter;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
@@ -214,5 +216,16 @@ public class HotelConfig {
     transaction.setReadOnly(true);
 
     return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public HotelDirectory hotelDirectory(
+      HotelRepository hotels, PlatformTransactionManager transactionManager) {
+    HotelDirectoryAdapter adapter = new HotelDirectoryAdapter(hotels);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return hotelId ->
+        Objects.requireNonNull(transaction.execute(status -> adapter.findById(hotelId)));
   }
 }

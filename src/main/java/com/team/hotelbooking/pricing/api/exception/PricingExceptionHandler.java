@@ -23,8 +23,15 @@ public class PricingExceptionHandler {
   public ResponseEntity<ProblemDetail> handle(PricingException exception, WebRequest request) {
     HttpStatus status =
         switch (exception.code()) {
-          case INVALID_DATE_RANGE, MAX_RANGE_EXCEEDED, INVALID_AMOUNT -> HttpStatus.BAD_REQUEST;
+          case INVALID_DATE_RANGE,
+              MAX_RANGE_EXCEEDED,
+              INVALID_AMOUNT,
+              MAX_STAY_EXCEEDED,
+              INVALID_QUOTE_REQUEST,
+              INVALID_OCCUPANCY ->
+              HttpStatus.BAD_REQUEST;
           case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND -> HttpStatus.NOT_FOUND;
+          case RATE_NOT_AVAILABLE -> HttpStatus.CONFLICT;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);
