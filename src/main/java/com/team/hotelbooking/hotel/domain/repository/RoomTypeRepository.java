@@ -9,7 +9,12 @@ public interface RoomTypeRepository {
 
   RoomType add(RoomType roomType);
 
+  RoomType update(RoomType roomType);
+
   Optional<RoomType> findByIdAndHotelId(UUID roomTypeId, UUID hotelId);
+
+  // Khóa ghi hàng room_type để các lần thay danh sách tiện ích của cùng loại phòng chạy tuần tự.
+  Optional<RoomType> findByIdAndHotelIdForUpdate(UUID roomTypeId, UUID hotelId);
 
   List<RoomType> findActiveByHotelId(UUID hotelId);
 

@@ -6,6 +6,7 @@ import com.team.hotelbooking.payment.application.result.HotelContractResult;
 import com.team.hotelbooking.payment.application.usecase.GetContractsUseCase;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
 import com.team.hotelbooking.shared.persistence.PageResultMapper;
+import com.team.hotelbooking.shared.security.CurrentActor;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import com.team.hotelbooking.shared.web.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +23,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,6 +53,14 @@ public class FinanceContractController {
         description = "Tham số phân trang hoặc lọc không hợp lệ",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa đăng nhập",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không phải ADMIN, Owner hoặc người có quyền tài chính của khách sạn",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
         description = "Không tìm thấy khách sạn",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
@@ -61,10 +71,17 @@ public class FinanceContractController {
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "Lọc theo trạng thái hợp đồng") @RequestParam(required = false)
           HotelContract.ContractStatus status,
-      @PageableDefault(size = 10) Pageable pageable) {
+      @PageableDefault(size = 10) Pageable pageable,
+      Authentication authentication) {
 
     Page<HotelContractResult> pageResult =
-        getContractsUseCase.execute(new GetContractsQuery(hotelId, status, null, true, pageable));
+        getContractsUseCase.execute(
+            new GetContractsQuery(
+                hotelId,
+                status,
+                CurrentActor.userId(authentication),
+                CurrentActor.isAdmin(authentication),
+                pageable));
 
     return ResponseEntity.ok(
         ApiResponse.success(

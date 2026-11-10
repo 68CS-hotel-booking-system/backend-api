@@ -32,8 +32,11 @@ public record SetRoomRatesRequest(
         Long amount,
     @Schema(description = "Đơn vị tiền tệ (mặc định VND)", example = "VND") String currency) {
 
-  public SetRoomRatesCommand toCommand(UUID hotelId, UUID roomTypeId) {
+  public SetRoomRatesCommand toCommand(
+      UUID actorUserId, boolean admin, UUID hotelId, UUID roomTypeId) {
     return new SetRoomRatesCommand(
+        actorUserId,
+        admin,
         hotelId,
         roomTypeId,
         startDate,

@@ -15,6 +15,7 @@ import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCas
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
+import com.team.hotelbooking.shared.security.CurrentActor;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import com.team.hotelbooking.shared.web.PageResponse;
 import com.team.hotelbooking.shared.web.PaginationSupport;
@@ -32,6 +33,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -104,7 +106,7 @@ public class ManagementRoomController {
   @Operation(
       summary = "[HT21] Cập nhật thông tin hoặc ngừng sử dụng phòng vật lý",
       description =
-          "Chỉnh sửa số phòng, tầng, trạng thái buồng phòng (ready, cleaning, maintenance) hoặc ngừng sử dụng phòng (active=false).")
+          "Chỉnh sửa số phòng, tầng, trạng thái buồng phòng (ready, cleaning, maintenance) hoặc ngừng sử dụng phòng (active=false). Chỉ ADMIN, Owner của khách sạn hoặc HOTEL_MANAGER đang hoạt động của đúng khách sạn đó được sửa.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
@@ -114,8 +116,18 @@ public class ManagementRoomController {
         description = "Thông tin phòng không hợp lệ",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa đăng nhập",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Là thành viên khách sạn nhưng không đủ quyền sửa (RECEPTIONIST)",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
-        description = "Không tìm thấy khách sạn hoặc phòng vật lý",
+        description =
+            "Khách sạn không tồn tại, người gọi không thuộc khách sạn, hoặc phòng không thuộc"
+                + " khách sạn",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "409",
@@ -127,9 +139,16 @@ public class ManagementRoomController {
   public ResponseEntity<ApiResponse<RoomResponse>> updateRoom(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID phòng vật lý", required = true) @PathVariable UUID roomId,
-      @Valid @RequestBody UpdateRoomRequest request) {
+      @Valid @RequestBody UpdateRoomRequest request,
+      Authentication authentication) {
 
-    RoomResult result = updateRoomUseCase.execute(request.toCommand(hotelId, roomId));
+    RoomResult result =
+        updateRoomUseCase.execute(
+            request.toCommand(
+                CurrentActor.userId(authentication),
+                CurrentActor.isAdmin(authentication),
+                hotelId,
+                roomId));
 
     return ResponseEntity.ok(
         ApiResponse.success("Cập nhật phòng thành công.", RoomResponse.from(result)));

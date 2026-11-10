@@ -1,14 +1,23 @@
 package com.team.hotelbooking.hotel.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomTypeJpaEntity;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, UUID> {
 
   Optional<RoomTypeJpaEntity> findByIdAndHotelId(UUID roomTypeId, UUID hotelId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select rt from RoomTypeJpaEntity rt where rt.id = :roomTypeId and rt.hotelId = :hotelId")
+  Optional<RoomTypeJpaEntity> findByIdAndHotelIdForUpdate(
+      @Param("roomTypeId") UUID roomTypeId, @Param("hotelId") UUID hotelId);
 
   List<RoomTypeJpaEntity> findAllByHotelIdAndActiveTrue(UUID hotelId);
 

@@ -9,7 +9,11 @@ import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpa
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
 import com.team.hotelbooking.shared.persistence.PageResultMapper;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +37,36 @@ public class JpaRoomRepositoryAdapter implements RoomRepository {
     } catch (DataIntegrityViolationException exception) {
       throw translateConflict(exception);
     }
+  }
+
+  @Override
+  public Optional<Room> findByIdAndHotelId(UUID roomId, UUID hotelId) {
+    return roomJpaRepository
+        .findByIdAndHotelId(roomId, hotelId)
+        .map(RoomPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public boolean existsOtherRoomWithNumber(UUID hotelId, String roomNumber, UUID excludedRoomId) {
+    return roomJpaRepository.existsByHotelIdAndRoomNumberAndIdNot(
+        hotelId, roomNumber, excludedRoomId);
+  }
+
+  @Override
+  public Map<UUID, Long> countOperationalRoomsByRoomType(UUID hotelId, Instant at) {
+    return roomJpaRepository.countOperationalRoomsByRoomType(hotelId, at).stream()
+        .collect(Collectors.toUnmodifiableMap(row -> (UUID) row[0], row -> (Long) row[1]));
+  }
+
+  // Không dịch lỗi unique ở đây để giữ hành vi HT21 cũ khi hai request đổi cùng số phòng.
+  @Override
+  public Room update(Room room) {
+    var entity =
+        roomJpaRepository
+            .findByIdAndHotelId(room.id(), room.hotelId())
+            .orElseThrow(() -> new HotelException(HotelErrorCode.ROOM_NOT_FOUND));
+    RoomPersistenceMapper.applyUpdate(entity, room);
+    return RoomPersistenceMapper.toDomain(roomJpaRepository.saveAndFlush(entity));
   }
 
   @Override

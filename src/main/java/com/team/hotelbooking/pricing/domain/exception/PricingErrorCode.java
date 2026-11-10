@@ -11,7 +11,9 @@ public enum PricingErrorCode implements ErrorCode {
   MAX_STAY_EXCEEDED("Thời gian lưu trú tối đa là 30 đêm."),
   INVALID_QUOTE_REQUEST("Dữ liệu yêu cầu báo giá không hợp lệ."),
   INVALID_OCCUPANCY("Số lượng khách vượt quá sức chứa hoặc không hợp lệ."),
-  RATE_NOT_AVAILABLE("Loại phòng chưa được thiết lập giá bán hợp lệ cho tất cả các đêm lưu trú.");
+  RATE_NOT_AVAILABLE("Loại phòng chưa được thiết lập giá bán hợp lệ cho tất cả các đêm lưu trú."),
+  ACCESS_DENIED("Bạn không có quyền thực hiện thao tác này."),
+  HOTEL_LOCKED("Khách sạn đang bị khóa bán; chưa thể thao tác giá phòng.");
 
   private final String defaultMessage;
 

@@ -21,7 +21,8 @@ public record UpdateRoomRequest(
             example = "true")
         Boolean active) {
 
-  public UpdateRoomCommand toCommand(UUID hotelId, UUID roomId) {
-    return new UpdateRoomCommand(hotelId, roomId, roomNumber, floor, status, active);
+  public UpdateRoomCommand toCommand(UUID actorUserId, boolean admin, UUID hotelId, UUID roomId) {
+    return new UpdateRoomCommand(
+        actorUserId, admin, hotelId, roomId, roomNumber, floor, status, active);
   }
 }

@@ -68,6 +68,8 @@ class ListManagementRoomsServiceTests {
             null,
             null,
             null,
+            null,
+            null,
             LocalTime.of(14, 0),
             LocalTime.of(12, 0),
             Hotel.Status.DRAFT,

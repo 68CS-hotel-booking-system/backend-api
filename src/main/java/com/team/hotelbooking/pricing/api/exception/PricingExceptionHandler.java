@@ -32,6 +32,8 @@ public class PricingExceptionHandler {
               HttpStatus.BAD_REQUEST;
           case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND -> HttpStatus.NOT_FOUND;
           case RATE_NOT_AVAILABLE -> HttpStatus.CONFLICT;
+          case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+          case HOTEL_LOCKED -> HttpStatus.CONFLICT;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);

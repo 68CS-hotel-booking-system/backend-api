@@ -1,5 +1,7 @@
 package com.team.hotelbooking.hotel.infrastructure.persistence.adapter;
 
+import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
+import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.RoomType;
 import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.mapper.RoomTypePersistenceMapper;
@@ -24,9 +26,26 @@ public class JpaRoomTypeRepositoryAdapter implements RoomTypeRepository {
   }
 
   @Override
+  public RoomType update(RoomType roomType) {
+    var entity =
+        roomTypeJpaRepository
+            .findByIdAndHotelId(roomType.id(), roomType.hotelId())
+            .orElseThrow(() -> new HotelException(HotelErrorCode.ROOM_TYPE_NOT_FOUND));
+    RoomTypePersistenceMapper.applyUpdate(entity, roomType);
+    return RoomTypePersistenceMapper.toDomain(roomTypeJpaRepository.saveAndFlush(entity));
+  }
+
+  @Override
   public Optional<RoomType> findByIdAndHotelId(UUID roomTypeId, UUID hotelId) {
     return roomTypeJpaRepository
         .findByIdAndHotelId(roomTypeId, hotelId)
+        .map(RoomTypePersistenceMapper::toDomain);
+  }
+
+  @Override
+  public Optional<RoomType> findByIdAndHotelIdForUpdate(UUID roomTypeId, UUID hotelId) {
+    return roomTypeJpaRepository
+        .findByIdAndHotelIdForUpdate(roomTypeId, hotelId)
         .map(RoomTypePersistenceMapper::toDomain);
   }
 

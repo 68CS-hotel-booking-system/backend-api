@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomJpaEntity;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,18 @@ public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, UUID> {
   Optional<RoomJpaEntity> findByIdAndHotelId(UUID id, UUID hotelId);
 
   boolean existsByHotelIdAndRoomNumberAndIdNot(UUID hotelId, String roomNumber, UUID id);
+
+  // Đang phục vụ: đã tới operationalFrom và chưa tới operationalUntil (nếu có).
+  @Query(
+      """
+      SELECT r.roomTypeId, COUNT(r) FROM RoomJpaEntity r
+      WHERE r.hotelId = :hotelId
+        AND r.operationalFrom <= :at
+        AND (r.operationalUntil IS NULL OR r.operationalUntil > :at)
+      GROUP BY r.roomTypeId
+      """)
+  List<Object[]> countOperationalRoomsByRoomType(
+      @Param("hotelId") UUID hotelId, @Param("at") Instant at);
 
   @Query(
       """

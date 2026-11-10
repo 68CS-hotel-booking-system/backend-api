@@ -26,6 +26,15 @@ public final class RoomPersistenceMapper {
     return entity;
   }
 
+  // Chỉ chép field HT21 được sửa; giữ mốc readiness, operationalFrom, createdAt, version.
+  public static void applyUpdate(RoomJpaEntity entity, Room room) {
+    entity.setRoomNumber(room.roomNumber());
+    entity.setFloor(room.floor());
+    entity.setReadiness(RoomJpaEntity.DbReadiness.valueOf(room.readiness().name()));
+    entity.setOperationalUntil(room.operationalUntil());
+    entity.setUpdatedAt(room.updatedAt());
+  }
+
   public static Room toDomain(RoomJpaEntity entity) {
     return new Room(
         entity.getId(),
