@@ -14,7 +14,9 @@ public enum FinanceErrorCode implements ErrorCode {
       "Chưa có thiết lập phân quyền tài chính cho người dùng tại khách sạn này."),
   CONCURRENT_MODIFICATION_DETECTED(
       "Dữ liệu phân quyền đã được cập nhật bởi một thao tác khác. Vui lòng tải lại và thử lại."),
-  ACCESS_DENIED("Bạn không có quyền xem thông tin tài chính của khách sạn này.");
+  ACCESS_DENIED("Bạn không có quyền xem thông tin tài chính của khách sạn này."),
+  CONTRACT_NOT_FOUND("Không tìm thấy hợp đồng của khách sạn."),
+  INVALID_CONTRACT_STATUS_TRANSITION("Trạng thái hợp đồng không cho phép thao tác này.");
 
   private final String defaultMessage;
 
