@@ -1,6 +1,5 @@
 package com.team.hotelbooking.hotel.infrastructure.config;
 
-import com.team.hotelbooking.hotel.HotelDirectory;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.service.UpdateRoomService;
 import com.team.hotelbooking.hotel.application.service.UpdateRoomTypeService;
@@ -37,7 +36,6 @@ import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
-import com.team.hotelbooking.hotel.infrastructure.integration.HotelDirectoryAdapter;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;

@@ -20,6 +20,21 @@ public class HotelDirectoryAdapter implements HotelDirectory {
   private final RoomJpaRepository roomJpaRepository;
 
   @Override
+  public Optional<HotelInfo> findById(UUID hotelId) {
+    return hotelJpaRepository
+        .findById(hotelId)
+        .map(
+            h ->
+                new HotelInfo(
+                    h.getId(),
+                    h.getOwnerId(),
+                    h.getName(),
+                    h.getCheckInTime(),
+                    h.getCheckOutTime(),
+                    h.isActive()));
+  }
+
+  @Override
   public boolean existsById(UUID hotelId) {
     return hotelJpaRepository.existsById(hotelId);
   }
@@ -59,6 +74,21 @@ public class HotelDirectoryAdapter implements HotelDirectory {
   @Override
   public boolean isRoomTypeActiveInHotel(UUID roomTypeId, UUID hotelId) {
     return roomTypeJpaRepository.findByIdAndHotelIdAndActiveTrue(roomTypeId, hotelId).isPresent();
+  }
+
+  @Override
+  public Optional<RoomTypeSummaryView> findActiveRoomType(UUID roomTypeId, UUID hotelId) {
+    return roomTypeJpaRepository
+        .findByIdAndHotelIdAndActiveTrue(roomTypeId, hotelId)
+        .map(
+            rt ->
+                new RoomTypeSummaryView(
+                    rt.getId(),
+                    rt.getName(),
+                    (int) rt.getMaxOccupancy(),
+                    (int) rt.getMaxAdults(),
+                    (int) rt.getMaxChildren(),
+                    rt.getBasePrice()));
   }
 
   @Override

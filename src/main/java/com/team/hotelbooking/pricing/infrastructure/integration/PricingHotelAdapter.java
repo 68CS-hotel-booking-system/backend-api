@@ -25,24 +25,25 @@ public class PricingHotelAdapter implements PricingHotelPort {
 
   @Override
   public Optional<HotelPricingSnapshot> findActiveHotel(UUID hotelId) {
-    return hotelJpaRepository
-        .findByIdAndActiveTrue(hotelId)
-        .map(h -> new HotelPricingSnapshot(h.getId(), h.getCheckInTime(), h.getCheckOutTime()));
+    return hotelDirectory
+        .findById(hotelId)
+        .filter(HotelDirectory.HotelInfo::active)
+        .map(h -> new HotelPricingSnapshot(h.id(), h.checkInTime(), h.checkOutTime()));
   }
 
   @Override
   public Optional<RoomTypePricingSnapshot> findActiveRoomType(UUID roomTypeId, UUID hotelId) {
-    return roomTypeJpaRepository
-        .findByIdAndHotelIdAndActiveTrue(roomTypeId, hotelId)
+    return hotelDirectory
+        .findActiveRoomType(roomTypeId, hotelId)
         .map(
             rt ->
                 new RoomTypePricingSnapshot(
-                    rt.getId(),
-                    rt.getHotelId(),
-                    rt.getName(),
-                    rt.getMaxAdults(),
-                    rt.getMaxChildren(),
-                    rt.getMaxOccupancy(),
-                    rt.getBasePrice()));
+                    rt.id(),
+                    hotelId,
+                    rt.name(),
+                    rt.maxAdults(),
+                    rt.maxChildren(),
+                    rt.maxOccupancy(),
+                    rt.basePrice()));
   }
 }
