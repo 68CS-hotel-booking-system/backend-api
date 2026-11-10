@@ -32,6 +32,16 @@ public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, UUID> {
       """)
   List<RoomJpaEntity> findAllByRoomTypeIdAndActiveTrue(@Param("roomTypeId") UUID roomTypeId);
 
+  List<RoomJpaEntity> findAllByRoomTypeIdOrderByIdAsc(UUID roomTypeId);
+
+  @Query(
+      """
+      select r from RoomJpaEntity r
+      where r.hotelId = :hotelId
+      order by r.floor asc nulls last, r.roomNumber asc, r.id asc
+      """)
+  List<RoomJpaEntity> findAllByHotelIdOrdered(@Param("hotelId") UUID hotelId);
+
   // Thứ tự nằm trong JPQL với NULLS LAST tường minh; Pageable truyền vào không được mang Sort.
   // floor/room_number là chuỗi nên sắp theo collation ("10" trước "2", "1001" trước "101").
   @Query(
