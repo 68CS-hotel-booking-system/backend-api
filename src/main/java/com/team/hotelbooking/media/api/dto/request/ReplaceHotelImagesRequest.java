@@ -11,5 +11,8 @@ public record ReplaceHotelImagesRequest(
     @NotNull List<@NotNull @Valid Image> images, @NotNull @Min(0) Long expectedVersion) {
 
   public record Image(
-      @NotNull UUID mediaId, @NotNull @Min(0) Integer sortOrder, @NotNull Boolean cover) {}
+      @NotNull UUID mediaId,
+      UUID albumId,
+      @NotNull @Min(0) Integer sortOrder,
+      @NotNull Boolean cover) {}
 }

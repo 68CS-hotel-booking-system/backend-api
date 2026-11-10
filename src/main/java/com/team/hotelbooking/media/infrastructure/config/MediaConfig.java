@@ -12,6 +12,7 @@ import com.team.hotelbooking.media.application.usecase.impl.GetMediaAccessServic
 import com.team.hotelbooking.media.application.usecase.impl.ReplaceHotelImagesService;
 import com.team.hotelbooking.media.application.usecase.impl.UploadHotelImageService;
 import com.team.hotelbooking.media.domain.model.MediaObject;
+import com.team.hotelbooking.media.domain.repository.HotelImageAlbumRepository;
 import com.team.hotelbooking.media.domain.repository.MediaRepository;
 import com.team.hotelbooking.media.infrastructure.persistence.adapter.JpaHotelImageRepositoryAdapter;
 import com.team.hotelbooking.media.infrastructure.persistence.adapter.JpaMediaRepositoryAdapter;
@@ -98,10 +99,12 @@ public class MediaConfig {
   public ReplaceHotelImagesUseCase replaceHotelImagesUseCase(
       HotelImageAccess hotels,
       JpaHotelImageRepositoryAdapter images,
+      HotelImageAlbumRepository albums,
       Clock clock,
       PlatformTransactionManager transactionManager) {
 
-    ReplaceHotelImagesService service = new ReplaceHotelImagesService(hotels, images, clock);
+    ReplaceHotelImagesService service =
+        new ReplaceHotelImagesService(hotels, images, albums, clock);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 

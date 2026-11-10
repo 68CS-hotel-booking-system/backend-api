@@ -7,7 +7,9 @@ import com.team.hotelbooking.pricing.infrastructure.persistence.mapper.RoomRateP
 import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -32,5 +34,19 @@ public class JpaRoomRateRepositoryAdapter implements RoomRateRepository {
   public List<RoomRate> saveAll(List<RoomRate> rates) {
     List<RoomRateJpaEntity> entities = rates.stream().map(mapper::toEntity).toList();
     return roomRateJpaRepository.saveAll(entities).stream().map(mapper::toDomain).toList();
+  }
+
+  @Override
+  public Map<LocalDate, Long> findDailyAmounts(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDate) {
+    List<RoomRateJpaEntity> rates =
+        roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, startDate, endDate);
+
+    return rates.stream()
+        .collect(
+            Collectors.toMap(
+                r -> r.getId().getRateDate(),
+                RoomRateJpaEntity::getAmount,
+                (first, second) -> first));
   }
 }

@@ -41,6 +41,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/hotels/*/availability")
                     .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/hotels/*/quote")
+                    .permitAll()
                     .requestMatchers(
                         HttpMethod.GET,
                         "/api/v1/cities",
@@ -81,7 +83,9 @@ public class SecurityConfig {
                         "/api/v1/management/hotels",
                         "/api/v1/management/hotels/*",
                         "/api/v1/management/hotels/*/room-types",
-                        "/api/v1/management/hotels/*/rooms")
+                        "/api/v1/management/hotels/*/rooms",
+                        "/api/v1/management/hotels/*/bookings",
+                        "/api/v1/management/hotels/*/bookings/*")
                     .hasAnyRole("ADMIN", "HOTEL_OWNER")
                     .requestMatchers(HttpMethod.GET, "/api/v1/media/*/access")
                     .permitAll()
