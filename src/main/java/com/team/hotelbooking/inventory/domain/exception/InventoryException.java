@@ -28,4 +28,8 @@ public final class InventoryException extends RuntimeException {
   public static InventoryException hotelNotFound(String message) {
     return new InventoryException(InventoryErrorCode.HOTEL_NOT_FOUND, message);
   }
+
+  public static InventoryException invalidSearchCriteria(String message) {
+    return new InventoryException(InventoryErrorCode.INVALID_SEARCH_CRITERIA, message);
+  }
 }

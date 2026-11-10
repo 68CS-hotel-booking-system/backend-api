@@ -4,6 +4,8 @@ import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateJpaEntity;
 import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,5 +31,21 @@ public class JpaRoomRateRepositoryAdapter implements RoomRateRepository {
                 r -> r.getId().getRateDate(),
                 RoomRateJpaEntity::getAmount,
                 (first, second) -> first));
+  }
+
+  @Override
+  public Map<UUID, Map<LocalDate, Long>> findDailyAmounts(
+      Collection<UUID> roomTypeIds, LocalDate startDate, LocalDate endDate) {
+    if (roomTypeIds.isEmpty()) {
+      return Map.of();
+    }
+    Map<UUID, Map<LocalDate, Long>> result = new HashMap<>();
+    for (RoomRateJpaEntity rate :
+        roomRateJpaRepository.findRatesByRoomTypeIdsAndDateRange(roomTypeIds, startDate, endDate)) {
+      result
+          .computeIfAbsent(rate.getId().getRoomTypeId(), id -> new HashMap<>())
+          .putIfAbsent(rate.getId().getRateDate(), rate.getAmount());
+    }
+    return result;
   }
 }

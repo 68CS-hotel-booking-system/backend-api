@@ -2,12 +2,24 @@ package com.team.hotelbooking.pricing;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface StayQuoteDirectory {
 
   StayQuoteSnapshot calculateQuote(StayQuoteRequest request);
+
+  /**
+   * Theo lô cho tìm kiếm: giá từng đêm của nhiều loại phòng trong cùng kỳ lưu trú, cùng kiểm ngày
+   * và cùng quy tắc giá với calculateQuote (room_rates nếu có, không thì base_price; giá ≤ 0 là
+   * chưa có giá hợp lệ). Không ném lỗi khi thiếu giá: sellable = false. Loại phòng không đang bán
+   * hoặc thuộc khách sạn không ACTIVE không có trong map. Ngày sai ném
+   * StayQuoteCalculationException.
+   */
+  Map<UUID, NightlyRatesSnapshot> findNightlyRates(
+      Collection<UUID> roomTypeIds, LocalDate checkIn, LocalDate checkOut);
 
   enum FailureReason {
     INVALID_DATE_RANGE,
@@ -79,4 +91,16 @@ public interface StayQuoteDirectory {
       List<NightlyPriceSnapshot> nightlyPrices) {}
 
   record NightlyPriceSnapshot(LocalDate stayDate, long unitPrice) {}
+
+  record NightlyRatesSnapshot(
+      UUID roomTypeId,
+      UUID hotelId,
+      boolean sellable,
+      long totalAmount,
+      List<NightlyPriceSnapshot> nightlyPrices) {
+
+    public NightlyRatesSnapshot {
+      nightlyPrices = List.copyOf(nightlyPrices);
+    }
+  }
 }

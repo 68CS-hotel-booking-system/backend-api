@@ -6,8 +6,10 @@ import com.team.hotelbooking.pricing.application.service.GetRoomRatesService;
 import com.team.hotelbooking.pricing.application.service.SetRoomRatesService;
 import com.team.hotelbooking.pricing.application.usecase.CalculateStayQuoteUseCase;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
+import com.team.hotelbooking.pricing.application.usecase.ListNightlyRatesUseCase;
 import com.team.hotelbooking.pricing.application.usecase.SetRoomRatesUseCase;
 import com.team.hotelbooking.pricing.application.usecase.impl.CalculateStayQuoteService;
+import com.team.hotelbooking.pricing.application.usecase.impl.ListNightlyRatesService;
 import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import com.team.hotelbooking.pricing.infrastructure.integration.PricingStayQuoteDirectoryAdapter;
 import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
@@ -67,9 +69,27 @@ public class PricingConfig {
     return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
   }
 
+  // Tra giá theo lô cho tìm kiếm: chỉ đọc, cùng quy tắc giá với báo giá (NightlyPriceResolver).
+  @Bean
+  public ListNightlyRatesUseCase listNightlyRatesUseCase(
+      PricingHotelPort pricingHotelPort,
+      RoomRateRepository roomRateRepository,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+
+    ListNightlyRatesService service =
+        new ListNightlyRatesService(pricingHotelPort, roomRateRepository, clock);
+
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
   @Bean
   public StayQuoteDirectory stayQuoteDirectory(
-      CalculateStayQuoteUseCase calculateStayQuoteUseCase) {
-    return new PricingStayQuoteDirectoryAdapter(calculateStayQuoteUseCase);
+      CalculateStayQuoteUseCase calculateStayQuoteUseCase,
+      ListNightlyRatesUseCase listNightlyRatesUseCase) {
+    return new PricingStayQuoteDirectoryAdapter(calculateStayQuoteUseCase, listNightlyRatesUseCase);
   }
 }

@@ -23,7 +23,8 @@ public class InventoryExceptionHandler {
   public ResponseEntity<ProblemDetail> handle(InventoryException exception, WebRequest request) {
     HttpStatus status =
         switch (exception.code()) {
-          case INVALID_DATE_RANGE, MAX_STAY_EXCEEDED -> HttpStatus.BAD_REQUEST;
+          case INVALID_DATE_RANGE, MAX_STAY_EXCEEDED, INVALID_SEARCH_CRITERIA ->
+              HttpStatus.BAD_REQUEST;
           case HOTEL_NOT_FOUND -> HttpStatus.NOT_FOUND;
         };
 

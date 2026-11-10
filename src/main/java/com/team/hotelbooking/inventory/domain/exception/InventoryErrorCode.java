@@ -5,7 +5,8 @@ import com.team.hotelbooking.shared.exception.ErrorCode;
 public enum InventoryErrorCode implements ErrorCode {
   INVALID_DATE_RANGE("Khoảng thời gian lưu trú không hợp lệ."),
   MAX_STAY_EXCEEDED("Thời gian lưu trú tối đa không vượt quá 30 đêm."),
-  HOTEL_NOT_FOUND("Không tìm thấy khách sạn hoặc khách sạn chưa mở bán.");
+  HOTEL_NOT_FOUND("Không tìm thấy khách sạn hoặc khách sạn chưa mở bán."),
+  INVALID_SEARCH_CRITERIA("Điều kiện tìm kiếm khách sạn không hợp lệ.");
 
   private final String defaultMessage;
 

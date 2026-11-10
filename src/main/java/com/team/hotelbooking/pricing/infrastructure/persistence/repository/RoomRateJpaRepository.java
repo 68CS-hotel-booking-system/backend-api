@@ -3,6 +3,7 @@ package com.team.hotelbooking.pricing.infrastructure.persistence.repository;
 import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateIdEmbeddable;
 import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateJpaEntity;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,18 @@ public interface RoomRateJpaRepository
       """)
   List<RoomRateJpaEntity> findRatesByRoomTypeIdAndDateRange(
       @Param("roomTypeId") UUID roomTypeId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate);
+
+  @Query(
+      """
+      SELECT rr FROM RoomRateJpaEntity rr
+      WHERE rr.id.roomTypeId IN :roomTypeIds
+        AND rr.id.rateDate >= :startDate
+        AND rr.id.rateDate <= :endDate
+      """)
+  List<RoomRateJpaEntity> findRatesByRoomTypeIdsAndDateRange(
+      @Param("roomTypeIds") Collection<UUID> roomTypeIds,
       @Param("startDate") LocalDate startDate,
       @Param("endDate") LocalDate endDate);
 

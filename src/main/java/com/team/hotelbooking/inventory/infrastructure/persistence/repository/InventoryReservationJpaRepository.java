@@ -4,6 +4,7 @@ import com.team.hotelbooking.inventory.infrastructure.persistence.entity.Invento
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity.DbReservationStatus;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -72,6 +73,38 @@ public interface InventoryReservationJpaRepository
       UUID roomTypeId, LocalDate startDate, LocalDate endDate, Instant now) {
     return sumOccupancyByDateRange(
         roomTypeId,
+        startDate,
+        endDate,
+        now,
+        DbReservationStatus.HELD,
+        DbReservationStatus.CONFIRMED);
+  }
+
+  // Theo lô cho tìm kiếm: cùng điều kiện với sumOccupancyByDateRange, gom theo loại phòng và ngày.
+  @Query(
+      """
+      SELECT ir.roomTypeId AS roomTypeId, ir.stayDate AS stayDate,
+             COALESCE(SUM(ir.quantity), 0) AS totalQuantity
+      FROM InventoryReservationJpaEntity ir
+      WHERE ir.roomTypeId IN :roomTypeIds
+        AND ir.stayDate >= :startDate
+        AND ir.stayDate < :endDate
+        AND ((ir.status = :heldStatus AND ir.expiresAt > :now)
+             OR ir.status = :confirmedStatus)
+      GROUP BY ir.roomTypeId, ir.stayDate
+      """)
+  List<RoomTypeDailyOccupancy> sumOccupancyByRoomTypeAndDate(
+      @Param("roomTypeIds") Collection<UUID> roomTypeIds,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate,
+      @Param("now") Instant now,
+      @Param("heldStatus") DbReservationStatus heldStatus,
+      @Param("confirmedStatus") DbReservationStatus confirmedStatus);
+
+  default List<RoomTypeDailyOccupancy> sumOccupancyByRoomTypeAndDate(
+      Collection<UUID> roomTypeIds, LocalDate startDate, LocalDate endDate, Instant now) {
+    return sumOccupancyByRoomTypeAndDate(
+        roomTypeIds,
         startDate,
         endDate,
         now,
