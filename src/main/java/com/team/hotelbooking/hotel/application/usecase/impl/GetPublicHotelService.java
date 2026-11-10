@@ -5,15 +5,18 @@ import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
+import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import java.util.UUID;
 
 public class GetPublicHotelService implements GetPublicHotelUseCase {
 
   private final HotelRepository hotels;
+  private final AmenityRepository amenities;
 
-  public GetPublicHotelService(HotelRepository hotels) {
+  public GetPublicHotelService(HotelRepository hotels, AmenityRepository amenities) {
     this.hotels = hotels;
+    this.amenities = amenities;
   }
 
   @Override
@@ -29,6 +32,6 @@ public class GetPublicHotelService implements GetPublicHotelUseCase {
             .findByIdAndStatus(hotelId, Hotel.Status.ACTIVE)
             .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
 
-    return GetPublicHotelResult.from(hotel);
+    return GetPublicHotelResult.from(hotel, amenities.findByHotelId(hotel.id()));
   }
 }

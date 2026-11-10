@@ -1,7 +1,7 @@
 package com.team.hotelbooking.hotel.application.usecase.impl;
 
 import com.team.hotelbooking.hotel.application.command.ListPublicHotelsQuery;
-import com.team.hotelbooking.hotel.application.result.GetPublicHotelResult;
+import com.team.hotelbooking.hotel.application.result.ListPublicHotelsResult;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicHotelsUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
@@ -18,7 +18,7 @@ public class ListPublicHotelsService implements ListPublicHotelsUseCase {
   }
 
   @Override
-  public PageResult<GetPublicHotelResult> execute(ListPublicHotelsQuery query) {
+  public PageResult<ListPublicHotelsResult> execute(ListPublicHotelsQuery query) {
     if (query == null || query.pagination() == null) {
       throw HotelException.invalid("Phân trang là bắt buộc.");
     }
@@ -29,6 +29,6 @@ public class ListPublicHotelsService implements ListPublicHotelsUseCase {
     PageResult<Hotel> result =
         hotels.findPublicHotels(query.cityId(), query.keyword(), query.pagination());
 
-    return result.map(GetPublicHotelResult::from);
+    return result.map(ListPublicHotelsResult::from);
   }
 }
