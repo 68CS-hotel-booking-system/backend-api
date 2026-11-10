@@ -2,6 +2,11 @@ spring:
   config:
     import: "optional:file:./.env[.properties]"
 
+  # Chỉ dev: thêm dữ liệu demo (repeatable migration R__seed_demo_data.sql). Test/staging/prod
+  # dùng mặc định classpath:db/migration trong application.yaml nên không có dữ liệu demo.
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
