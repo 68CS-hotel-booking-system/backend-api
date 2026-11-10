@@ -59,7 +59,7 @@ public class ManagementHotelImageController {
             .map(
                 image ->
                     new ReplaceHotelImagesCommand.Image(
-                        image.mediaId(), image.sortOrder(), image.cover()))
+                        image.mediaId(), image.albumId(), image.sortOrder(), image.cover()))
             .toList();
 
     var result =
