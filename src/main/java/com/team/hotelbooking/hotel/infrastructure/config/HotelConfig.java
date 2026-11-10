@@ -4,6 +4,7 @@ import com.team.hotelbooking.hotel.HotelDirectory;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.service.UpdateRoomService;
 import com.team.hotelbooking.hotel.application.service.UpdateRoomTypeService;
+import com.team.hotelbooking.hotel.application.usecase.ApproveHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
@@ -14,9 +15,11 @@ import com.team.hotelbooking.hotel.application.usecase.ListCitiesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementHotelsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ListPublicHotelsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
+import com.team.hotelbooking.hotel.application.usecase.impl.ApproveHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
@@ -27,6 +30,7 @@ import com.team.hotelbooking.hotel.application.usecase.impl.ListCitiesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementHotelsService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomTypesService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomsService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicHotelsService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicRoomTypesService;
 import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.CityRepository;
@@ -219,13 +223,26 @@ public class HotelConfig {
   }
 
   @Bean
-  public HotelDirectory hotelDirectory(
-      HotelRepository hotels, PlatformTransactionManager transactionManager) {
-    HotelDirectoryAdapter adapter = new HotelDirectoryAdapter(hotels);
-    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-    transaction.setReadOnly(true);
+  public ApproveHotelUseCase approveHotelUseCase(
+      HotelRepository hotels,
+      IdentityAccounts accounts,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
 
-    return hotelId ->
-        Objects.requireNonNull(transaction.execute(status -> adapter.findById(hotelId)));
+    ApproveHotelService service = new ApproveHotelService(hotels, accounts, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return (hotelId, adminActorId) ->
+        Objects.requireNonNull(
+            transaction.execute(status -> service.execute(hotelId, adminActorId)));
+  }
+
+  @Bean
+  public ListPublicHotelsUseCase listPublicHotelsUseCase(
+      HotelRepository hotels, PlatformTransactionManager transactionManager) {
+    ListPublicHotelsService service = new ListPublicHotelsService(hotels);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
   }
 }

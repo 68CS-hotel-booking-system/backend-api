@@ -1,6 +1,8 @@
 package com.team.hotelbooking.hotel.api.dto.response;
 
 import com.team.hotelbooking.hotel.application.result.GetPublicHotelResult;
+import com.team.hotelbooking.shared.pagination.PageResult;
+import com.team.hotelbooking.shared.web.PageResponse;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -31,5 +33,16 @@ public record GetPublicHotelResponse(
         result.starRating(),
         result.checkInTime(),
         result.checkOutTime());
+  }
+
+  public static PageResponse<GetPublicHotelResponse> from(PageResult<GetPublicHotelResult> result) {
+    return new PageResponse<>(
+        result.content().stream().map(GetPublicHotelResponse::from).toList(),
+        result.page(),
+        result.size(),
+        result.totalElements(),
+        result.totalPages(),
+        result.first(),
+        result.last());
   }
 }

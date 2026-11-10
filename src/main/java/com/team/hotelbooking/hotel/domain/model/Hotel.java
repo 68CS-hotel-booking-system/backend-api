@@ -84,6 +84,35 @@ public record Hotel(
         0L);
   }
 
+  public Hotel activate(Instant now) {
+    if (now == null) {
+      throw invalid("Thời điểm kích hoạt không được để trống.");
+    }
+
+    if (this.status != Status.DRAFT) {
+      throw invalid("Chỉ khách sạn ở trạng thái DRAFT mới có thể kích hoạt.");
+    }
+
+    // Trả về bản sao mới của record với status là ACTIVE và updatedAt là now
+    return new Hotel(
+        this.id,
+        this.ownerId,
+        this.cityId,
+        this.name,
+        this.slug,
+        this.description,
+        this.address,
+        this.latitude,
+        this.longitude,
+        this.starRating,
+        this.checkInTime,
+        this.checkOutTime,
+        Status.ACTIVE, // <--- Trạng thái mới
+        this.createdAt,
+        now, // <--- Cập nhật thời điểm updatedAt
+        this.version);
+  }
+
   private static String normalizeRequiredText(String value, String fieldName, int maxLength) {
 
     String normalized = value == null ? "" : value.trim();

@@ -88,6 +88,6 @@ public class HotelJpaEntity {
   }
 
   public boolean isActive() {
-    return true;
+    return status == DbStatus.ACTIVE;
   }
 }

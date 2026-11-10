@@ -1,7 +1,6 @@
 package com.team.hotelbooking.pricing.infrastructure.integration;
 
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
+import com.team.hotelbooking.hotel.HotelDirectory; // Import duy nhất từ hotel
 import com.team.hotelbooking.pricing.application.port.PricingHotelPort;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,17 +11,16 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PricingHotelAdapter implements PricingHotelPort {
 
-  private final HotelJpaRepository hotelJpaRepository;
-  private final RoomTypeJpaRepository roomTypeJpaRepository;
+  private final HotelDirectory hotelDirectory;
 
   @Override
   public boolean isHotelActive(UUID hotelId) {
-    return hotelJpaRepository.findByIdAndActiveTrue(hotelId).isPresent();
+    return hotelDirectory.isHotelActive(hotelId);
   }
 
   @Override
   public boolean isRoomTypeActiveInHotel(UUID roomTypeId, UUID hotelId) {
-    return roomTypeJpaRepository.findByIdAndHotelIdAndActiveTrue(roomTypeId, hotelId).isPresent();
+    return hotelDirectory.isRoomTypeActiveInHotel(roomTypeId, hotelId);
   }
 
   @Override
