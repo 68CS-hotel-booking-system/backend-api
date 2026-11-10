@@ -10,7 +10,7 @@ Nhiều cột PK cùng tạo một PK ghép. Không ghi UNIQUE riêng từng c�
 
 **Identity:** [users](#users), [roles](#roles), [permissions](#permissions), [user_roles](#user_roles), [role_permissions](#role_permissions), [refresh_tokens](#refresh_tokens), [password_reset_tokens](#password_reset_tokens), [email_verification_tokens](#email_verification_tokens).
 
-**Hotel:** [hotels](#hotels), [room_types](#room_types), [rooms](#rooms), [hotel_members](#hotel_members), [cities](#cities), [amenities](#amenities), [hotel_amenities](#hotel_amenities), [room_type_amenities](#room_type_amenities).
+**Hotel:** [hotels](#hotels), [room_types](#room_types), [rooms](#rooms), [hotel_members](#hotel_members), [cities](#cities), [amenities](#amenities), [hotel_amenities](#hotel_amenities), [room_type_amenities](#room_type_amenities), [hotel_status_history](#hotel_status_history).
 
 **Inventory:** [room_inventory](#room_inventory), [room_blocks](#room_blocks), [inventory_reservations](#inventory_reservations).
 
@@ -228,6 +228,8 @@ Không có index có tên khai báo riêng. PK/UNIQUE cột vẫn được giữ
 
 **Note nguyên văn nguồn:** CURRENT - Flyway V3. CHECK: star_rating 1..5; latitude -90..90; longitude -180..180
 
+**Bổ sung Flyway V20261110120100000 và V20261110120200000 (ngoài DBML gốc):** enum `hotel_status__t` thêm SUSPENDED (quản lý tạm ngừng bán) và LOCKED (quản trị hệ thống khóa bán), dữ liệu DRAFT/ACTIVE giữ nguyên. Thêm `contact_phone`, `contact_email` (nullable, khách sạn cũ là NULL); HT-03 yêu cầu có ít nhất một liên hệ trước khi approve/resume. Liên hệ chỉ trả qua API quản lý, không trả qua API công khai. Mỗi lần đổi trạng thái bán ghi một dòng vào [hotel_status_history](#hotel_status_history).
+
 #### Cột
 
 | Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
@@ -239,12 +241,14 @@ Không có index có tên khai báo riêng. PK/UNIQUE cột vẫn được giữ
 | **slug** | varchar(255) | not null; unique |  | Chuỗi dùng trong URL; quy tắc sinh và xử lý trùng ở application. |
 | **description** | text | null |  | Mô tả bổ sung, có thể chưa được cung cấp nếu nullable. |
 | **address** | varchar(255) | not null |  | Địa chỉ khách sạn. |
+| **contact_phone** | varchar(20) | null |  | Số điện thoại liên hệ, 8–15 chữ số, có thể có dấu + đầu. Bổ sung so với DBML gốc. |
+| **contact_email** | varchar(255) | null |  | Email liên hệ của khách sạn. Bổ sung so với DBML gốc. |
 | **latitude** | decimal(9,6) | null |  | Vĩ độ; NULL khi chưa có tọa độ. |
 | **longitude** | decimal(9,6) | null |  | Kinh độ; NULL khi chưa có tọa độ. |
 | **star_rating** | smallint | null |  | Số sao khách sạn, khác rating đánh giá của khách. **Ghi chú nguồn:** Từ 1 đến 5 sao |
 | **check_in_time** | time | not null; default: '14:00:00' |  | Giờ nhận phòng theo giờ địa phương của khách sạn. |
 | **check_out_time** | time | not null; default: '12:00:00' |  | Giờ trả phòng theo giờ địa phương của khách sạn. |
-| **status** | hotel_status__t | not null; default: DRAFT |  | Trạng thái theo enum nguồn; xem bảng đầy đủ tại business-rules.md. |
+| **status** | hotel_status__t | not null; default: DRAFT |  | Trạng thái theo enum nguồn; xem bảng đầy đủ tại business-rules.md. Đã triển khai DRAFT, ACTIVE, SUSPENDED, LOCKED; chỉ ACTIVE là đang bán. |
 | **created_at** | timestamptz | not null; default: now() |  | Thời điểm tạo bản ghi. |
 | **updated_at** | timestamptz | not null; default: now() |  | Thời điểm sửa; DEFAULT now() không tự cập nhật khi UPDATE. |
 
@@ -377,47 +381,83 @@ Không có index có tên khai báo riêng. PK/UNIQUE cột vẫn được giữ
 | **name** | varchar(100) | not null |  | Tên nghiệp vụ của đối tượng. |
 | **category** | amenity_category__t | not null; default: ROOM |  | Phân loại tiện ích; xem danh mục enum và nội dung `QUYEN`. |
 
-#### Index có tên trong nguồn
-
-Không có index có tên khai báo riêng. PK/UNIQUE cột vẫn được giữ ở bảng cột trên.
-
-### hotel_amenities
-
-**Mục đích:** Liên kết tiện ích với khách sạn.
-
-**Note nguyên văn nguồn:** CURRENT - Flyway V3
-
-#### Cột
-
-| Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
-| --- | --- | --- | --- | --- |
-| **hotel_id** | uuid | pk; not null | fk_hotel_amenities_hotel | Khách sạn liên quan; phạm vi cụ thể theo bảng. |
-| **amenity_id** | uuid | pk; not null | fk_hotel_amenities_amenity | Tiện ích liên quan, tham chiếu amenities. |
+**Bổ sung Flyway V20261110120000000 (ngoài DBML gốc):** `uq_amenities_id_category` UNIQUE(id, category). `id` đã là PK nên dữ liệu cũ luôn thỏa; ràng buộc này chỉ để `hotel_amenities` và `room_type_amenities` dùng FK ghép kiểm tra đúng nhóm tiện ích.
 
 #### Index có tên trong nguồn
 
 | Tên | Cột theo thứ tự | UNIQUE |
 | --- | --- | --- |
+| `uq_amenities_id_category` | `id`, `category` | Có |
+
+### hotel_amenities
+
+**Mục đích:** Liên kết tiện ích với khách sạn; chỉ nhận tiện ích category HOTEL.
+
+**Note nguyên văn nguồn:** CURRENT - Flyway V3
+
+**Đã triển khai:** Flyway V20261110120000000. CHECK `ck_hotel_amenities_category`: amenity_category = 'HOTEL'. FK ghép `fk_hotel_amenities_amenity` (amenity_id, amenity_category) → amenities(id, category), nên DB từ chối gắn tiện ích ROOM cho khách sạn. Thay danh sách qua API PUT /api/v1/management/hotels/{hotelId}/amenities.
+
+#### Cột
+
+| Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
+| --- | --- | --- | --- | --- |
+| **hotel_id** | uuid | pk; not null | fk_hotel_amenities_hotel | Khách sạn liên quan; xóa hotel thì xóa liên kết (ON DELETE CASCADE). |
+| **amenity_id** | uuid | pk; not null | fk_hotel_amenities_amenity | Tiện ích liên quan, tham chiếu amenities; cột đầu của FK ghép. |
+| **amenity_category** | amenity_category__t | not null; default: HOTEL; check = 'HOTEL' | fk_hotel_amenities_amenity | Cột cố định, ứng dụng không ghi; cột thứ hai của FK ghép tới amenities(id, category). Bổ sung so với DBML gốc. |
+
+#### Index có tên trong nguồn
+
+| Tên | Cột theo thứ tự | UNIQUE |
+| --- | --- | --- |
+| `pk_hotel_amenities` | `hotel_id`, `amenity_id` | Có (PK) |
 | `idx_hotel_amenities_amenity_id` | `amenity_id` | Không |
 
 ### room_type_amenities
 
-**Mục đích:** Liên kết tiện ích với loại phòng.
+**Mục đích:** Liên kết tiện ích với loại phòng; chỉ nhận tiện ích category ROOM.
 
 **Note nguyên văn nguồn:** CURRENT - Flyway V3
+
+**Đã triển khai:** Flyway V20261110120000000. CHECK `ck_room_type_amenities_category`: amenity_category = 'ROOM'. FK ghép `fk_room_type_amenities_amenity` (amenity_id, amenity_category) → amenities(id, category), nên DB từ chối gắn tiện ích HOTEL cho loại phòng. Thay danh sách qua API PUT /api/v1/management/hotels/{hotelId}/room-types/{roomTypeId}/amenities.
 
 #### Cột
 
 | Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
 | --- | --- | --- | --- | --- |
-| **room_type_id** | uuid | pk; not null | fk_room_type_amenities_room_type | Loại phòng liên quan. |
-| **amenity_id** | uuid | pk; not null | fk_room_type_amenities_amenity | Tiện ích liên quan, tham chiếu amenities. |
+| **room_type_id** | uuid | pk; not null | fk_room_type_amenities_room_type | Loại phòng liên quan; xóa room type thì xóa liên kết (ON DELETE CASCADE). |
+| **amenity_id** | uuid | pk; not null | fk_room_type_amenities_amenity | Tiện ích liên quan, tham chiếu amenities; cột đầu của FK ghép. |
+| **amenity_category** | amenity_category__t | not null; default: ROOM; check = 'ROOM' | fk_room_type_amenities_amenity | Cột cố định, ứng dụng không ghi; cột thứ hai của FK ghép tới amenities(id, category). Bổ sung so với DBML gốc. |
 
 #### Index có tên trong nguồn
 
 | Tên | Cột theo thứ tự | UNIQUE |
 | --- | --- | --- |
+| `pk_room_type_amenities` | `room_type_id`, `amenity_id` | Có (PK) |
 | `idx_room_type_amenities_amenity_id` | `amenity_id` | Không |
+
+### hotel_status_history
+
+**Mục đích:** Lịch sử đổi trạng thái bán của khách sạn (approve, suspend, resume, lock, unlock).
+
+**Đã triển khai:** Flyway V20261110120200000, bổ sung so với DBML gốc. Chỉ thêm mới, không sửa/xóa; FK tới hotels không CASCADE để giữ lịch sử (HT-08). CHECK `ck_hotel_status_history_changed`: from_status <> to_status. Lý do bắt buộc khi lock/unlock (kiểm ở API và domain).
+
+#### Cột
+
+| Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
+| --- | --- | --- | --- | --- |
+| **id** | uuid | pk; not null; default: gen_random_uuid() |  | Định danh duy nhất của bản ghi. |
+| **hotel_id** | uuid | not null | fk_hotel_status_history_hotel | Khách sạn đổi trạng thái. |
+| **from_status** | hotel_status__t | not null |  | Trạng thái trước khi đổi. |
+| **to_status** | hotel_status__t | not null |  | Trạng thái sau khi đổi; khác from_status. |
+| **reason** | varchar(500) | null |  | Lý do; bắt buộc khi khóa/gỡ khóa, tùy chọn với suspend/resume; approve ghi NULL. |
+| **changed_by_user_id** | uuid | not null | fk_hotel_status_history_actor | Người thực hiện, lấy từ principal. |
+| **changed_at** | timestamptz | not null |  | Thời điểm đổi, lấy từ Clock của ứng dụng (UTC). |
+
+#### Index có tên trong nguồn
+
+| Tên | Cột theo thứ tự | UNIQUE |
+| --- | --- | --- |
+| `idx_hotel_status_history_hotel_time` | `hotel_id`, `changed_at` | Không |
 
 ## Inventory
 
@@ -634,6 +674,34 @@ Không có index có tên khai báo riêng. PK/UNIQUE cột vẫn được giữ
 | --- | --- | --- |
 | `idx_booking_status_history_booking_time` | `booking_id, created_at` | Không |
 
+### complaints
+
+**Mục đích:** Khiếu nại của khách gắn với booking (BK-21).
+
+**Đã triển khai (tuần 1):** Flyway V20261110140000000, bổ sung so với DBML gốc. Chỉ tiếp nhận: khách gửi (chỉ chủ booking, mọi trạng thái trừ PENDING_PAYMENT), xem danh sách/chi tiết của mình. Chưa có đính kèm bằng chứng (`complaint_attachments`), lịch sử xử lý và API quản trị: để tuần 2. Thêm loại khiếu nại bằng `ALTER TYPE complaint_category__t ADD VALUE`.
+
+#### Cột
+
+| Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
+| --- | --- | --- | --- | --- |
+| **id** | uuid | pk; not null |  | Định danh khiếu nại, sinh ở application. |
+| **booking_id** | uuid | not null | fk_complaints_booking_hotel | Đơn đặt bị khiếu nại. |
+| **customer_id** | uuid | not null | fk_complaints_customer | Chủ booking lúc gửi, lấy từ principal. |
+| **hotel_id** | uuid | not null | fk_complaints_booking_hotel | Chép từ booking; FK ghép (booking_id, hotel_id) bảo đảm khớp booking. |
+| **category** | complaint_category__t | not null |  | ROOM_CONDITION, SERVICE_QUALITY, STAFF_BEHAVIOR, BILLING, CANCELLATION_REFUND, OFF_PLATFORM_PAYMENT, OTHER. |
+| **content** | text | not null; CHECK `ck_complaints_content` 1–2000 ký tự sau btrim |  | Nội dung; OTHER cần tối thiểu 20 ký tự (kiểm ở domain). |
+| **status** | complaint_status__t | not null; default: OPEN |  | OPEN, IN_REVIEW, RESOLVED, REJECTED; tuần 1 chỉ tạo OPEN. |
+| **created_at** | timestamptz | not null |  | Thời điểm gửi (Clock, cắt về micro giây). |
+| **updated_at** | timestamptz | not null |  | Thời điểm sửa gần nhất. |
+| **version** | bigint | not null; default: 0; CHECK >= 0 |  | Optimistic lock cho xử lý ở tuần 2. |
+
+#### Index có tên trong nguồn
+
+| Tên | Cột theo thứ tự | UNIQUE |
+| --- | --- | --- |
+| `uq_complaints_open_per_booking` | `booking_id` WHERE status IN ('OPEN', 'IN_REVIEW') | Có (partial): mỗi booking tối đa một khiếu nại đang xử lý; chèn bằng `ON CONFLICT ... DO NOTHING` nên request đồng thời nhận 409 `COMPLAINT_ALREADY_OPEN` kèm `openComplaintId` |
+| `idx_complaints_customer_created` | `customer_id, created_at DESC, id` | Không |
+
 ### room_assignments
 
 **Mục đích:** Phân công phòng vật lý cho hạng mục booking và lịch sử nhận/trả/giải phóng.
@@ -670,6 +738,36 @@ Không có index có tên khai báo riêng. PK/UNIQUE cột vẫn được giữ
 | `idx_room_assignments_room_period` | `room_id, starts_at, ends_at` | Không |
 
 ## Payment
+
+### hotel_contracts
+
+**Mục đích:** Hợp đồng hoa hồng giữa nền tảng và Owner của một khách sạn (PM-16).
+
+**Đã triển khai:** Flyway V20261104190000000 (bảng) và V20261110130000000 (exclusion constraint, bổ sung so với DBML gốc). Điều khoản không sửa sau khi tạo; đổi điều khoản bằng hợp đồng mới. API chỉ chuyển trạng thái DRAFT → ACTIVE (activate) và DRAFT/ACTIVE → TERMINATED (terminate). Module khác đọc hợp đồng hiệu lực qua `ContractDirectory.findEffective(hotelId, at)`: ACTIVE và `starts_at <= at < ends_at`.
+
+#### Cột
+
+| Cột | Kiểu nguồn | Ràng buộc/default nguồn | Tên FK nguồn | Ý nghĩa và ghi chú |
+| --- | --- | --- | --- | --- |
+| **id** | uuid | pk; not null; default: gen_random_uuid() |  | Định danh hợp đồng. |
+| **contract_code** | varchar(100) | not null; unique (`uq_hotel_contracts_code`) |  | Mã hợp đồng; API giới hạn 50 ký tự. |
+| **hotel_id** | uuid | not null | references hotels(id) ON DELETE CASCADE | Khách sạn áp dụng. |
+| **owner_user_id** | uuid | not null | references users(id) | Owner ký hợp đồng. |
+| **commission_rate** | numeric(5,2) | not null; CHECK 0.00–100.00 |  | Tỷ lệ hoa hồng (%), kiểu chính xác. |
+| **commission_basis** | commission_basis__t | not null |  | BEFORE_DISCOUNT, AFTER_DISCOUNT, AFTER_HOTEL_DISCOUNT. |
+| **starts_at** | timestamptz | not null |  | Bắt đầu hiệu lực (tính cả thời điểm này). |
+| **ends_at** | timestamptz | not null; CHECK ends_at > starts_at |  | Kết thúc hiệu lực (không tính thời điểm này): khoảng `[starts_at, ends_at)`. |
+| **status** | hotel_contract_status__t | not null; default: DRAFT |  | DRAFT, ACTIVE, EXPIRED, TERMINATED; chưa có job tự chuyển EXPIRED. |
+| **created_by_user_id** | uuid | not null | references users(id) | ADMIN tạo, lấy từ principal. |
+| **created_at** | timestamptz | not null; default: now() |  | Thời điểm tạo. |
+| **updated_at** | timestamptz | not null; default: now() |  | Thời điểm đổi trạng thái gần nhất. |
+
+#### Ràng buộc và index
+
+| Tên | Định nghĩa | Ghi chú |
+| --- | --- | --- |
+| `ex_hotel_contracts_active_period` | `EXCLUDE USING gist (hotel_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status = 'ACTIVE')` | Không cho hai hợp đồng ACTIVE cùng khách sạn chồng hiệu lực, kể cả hai giao dịch song song; hai khoảng nối tiếp không bị coi là chồng. Cần extension `btree_gist`. Vi phạm (SQLSTATE 23P01) được đổi thành 409 `ACTIVE_CONTRACT_PERIOD_OVERLAP`. |
+| `idx_hotel_contracts_hotel` | `hotel_id, status` | Không UNIQUE. |
 
 ### payment_attempts
 
