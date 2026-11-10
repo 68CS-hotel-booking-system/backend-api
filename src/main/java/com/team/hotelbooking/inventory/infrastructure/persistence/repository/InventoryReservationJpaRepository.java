@@ -2,11 +2,13 @@ package com.team.hotelbooking.inventory.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity.DbReservationStatus;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -78,4 +80,45 @@ public interface InventoryReservationJpaRepository
         DbReservationStatus.HELD,
         DbReservationStatus.CONFIRMED);
   }
+
+  @Query(
+      """
+      SELECT ir FROM InventoryReservationJpaEntity ir
+      WHERE ir.roomTypeId = :roomTypeId
+        AND ir.stayDate >= :startDate
+        AND ir.stayDate < :endDate
+        AND ((ir.status = :heldStatus AND ir.expiresAt > :now)
+             OR ir.status = :confirmedStatus)
+      ORDER BY ir.bookingItemId ASC NULLS LAST, ir.stayDate ASC
+      """)
+  List<InventoryReservationJpaEntity> findActiveReservationsInRange(
+      @Param("roomTypeId") UUID roomTypeId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate,
+      @Param("now") Instant now,
+      @Param("heldStatus") DbReservationStatus heldStatus,
+      @Param("confirmedStatus") DbReservationStatus confirmedStatus);
+
+  default List<InventoryReservationJpaEntity> findActiveReservationsInRange(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDate, Instant now) {
+    return findActiveReservationsInRange(
+        roomTypeId,
+        startDate,
+        endDate,
+        now,
+        DbReservationStatus.HELD,
+        DbReservationStatus.CONFIRMED);
+  }
+
+  List<InventoryReservationJpaEntity> findAllByBookingIdOrderByStayDateAscIdAsc(UUID bookingId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT ir FROM InventoryReservationJpaEntity ir
+      WHERE ir.bookingId = :bookingId
+      ORDER BY ir.stayDate ASC, ir.id ASC
+      """)
+  List<InventoryReservationJpaEntity> lockAllByBookingIdOrderByStayDateAscIdAsc(
+      @Param("bookingId") UUID bookingId);
 }
