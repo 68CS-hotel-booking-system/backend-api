@@ -6,9 +6,9 @@ import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
 import com.team.hotelbooking.pricing.domain.model.DailyRate;
+import com.team.hotelbooking.pricing.domain.model.RoomRate;
 import com.team.hotelbooking.pricing.domain.model.RoomTypeRates;
-import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateJpaEntity;
-import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
+import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class GetRoomRatesService implements GetRoomRatesUseCase {
 
   private final PricingHotelPort pricingHotelPort;
-  private final RoomRateJpaRepository roomRateJpaRepository;
+  private final RoomRateRepository roomRateRepository;
 
   @Override
   public RoomTypeRatesResult execute(GetRoomRatesQuery query) {
@@ -36,20 +36,21 @@ public class GetRoomRatesService implements GetRoomRatesUseCase {
           "Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn.");
     }
 
-    List<RoomRateJpaEntity> ratesFromDb =
-        roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(
+    List<RoomRate> ratesFromDb =
+        roomRateRepository.findRatesByRoomTypeIdAndDateRange(
             query.roomTypeId(), query.startDate(), query.endDate());
 
-    Map<LocalDate, RoomRateJpaEntity> rateMap =
-        ratesFromDb.stream().collect(Collectors.toMap(r -> r.getId().getRateDate(), r -> r));
+    Map<LocalDate, RoomRate> rateMap =
+        ratesFromDb.stream()
+            .collect(Collectors.toMap(RoomRate::rateDate, r -> r, (first, second) -> first));
 
     List<DailyRate> dailyRates = new ArrayList<>();
     for (LocalDate date = query.startDate();
         !date.isAfter(query.endDate());
         date = date.plusDays(1)) {
-      RoomRateJpaEntity entity = rateMap.get(date);
-      if (entity != null) {
-        dailyRates.add(new DailyRate(date, entity.getAmount(), true, entity.getUpdatedAt()));
+      RoomRate rate = rateMap.get(date);
+      if (rate != null && rate.amount() != null && rate.amount() > 0) {
+        dailyRates.add(new DailyRate(date, rate.amount(), true, rate.updatedAt()));
       } else {
         dailyRates.add(new DailyRate(date, null, false, null));
       }

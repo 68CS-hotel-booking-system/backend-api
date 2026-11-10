@@ -20,6 +20,8 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -92,10 +94,23 @@ public class ManagementRateController {
       @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,
       @Valid @RequestBody SetRoomRatesRequest request) {
 
+    UUID actorUserId = resolveActorUserId();
     RoomTypeRatesResult result =
-        setRoomRatesUseCase.execute(request.toCommand(hotelId, roomTypeId));
+        setRoomRatesUseCase.execute(request.toCommand(hotelId, roomTypeId, actorUserId));
 
     return ResponseEntity.ok(
         ApiResponse.success("Thiết lập giá thành công.", RoomTypeRatesResponse.from(result)));
+  }
+
+  private static UUID resolveActorUserId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || authentication.getName() == null) {
+      return null;
+    }
+    try {
+      return UUID.fromString(authentication.getName());
+    } catch (IllegalArgumentException ex) {
+      return null;
+    }
   }
 }
