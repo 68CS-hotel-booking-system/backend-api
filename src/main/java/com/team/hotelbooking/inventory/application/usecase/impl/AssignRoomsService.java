@@ -16,7 +16,13 @@ import com.team.hotelbooking.inventory.domain.model.RoomAssignment;
 import com.team.hotelbooking.inventory.domain.model.RoomBlock;
 import com.team.hotelbooking.inventory.domain.repository.RoomAssignmentRepository;
 import com.team.hotelbooking.inventory.domain.repository.RoomBlockRepository;
+import com.team.hotelbooking.inventory.domain.service.RoomAllocationPlanner;
 import com.team.hotelbooking.inventory.domain.service.RoomAllocationPlanner.PhysicalRoom;
+import com.team.hotelbooking.inventory.domain.service.RoomAllocationPlanner.StayDemand;
+import com.team.hotelbooking.inventory.infrastructure.persistence.adapter.JpaInventoryQueryAdapter;
+import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity;
+import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomAssignmentJpaEntity;
+import com.team.hotelbooking.inventory.infrastructure.persistence.repository.InventoryReservationJpaRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -35,6 +41,7 @@ public class AssignRoomsService implements AssignRoomsUseCase {
   private final BookingStayPort bookingStayPort;
   private final RoomAssignmentRepository roomAssignmentRepository;
   private final RoomBlockRepository roomBlockRepository;
+  private final InventoryReservationJpaRepository inventoryReservationJpaRepository;
   private final Clock clock;
 
   public AssignRoomsService(
@@ -42,12 +49,29 @@ public class AssignRoomsService implements AssignRoomsUseCase {
       BookingStayPort bookingStayPort,
       RoomAssignmentRepository roomAssignmentRepository,
       RoomBlockRepository roomBlockRepository,
+      InventoryReservationJpaRepository inventoryReservationJpaRepository,
       Clock clock) {
     this.hotelCatalogPort = hotelCatalogPort;
     this.bookingStayPort = bookingStayPort;
     this.roomAssignmentRepository = roomAssignmentRepository;
     this.roomBlockRepository = roomBlockRepository;
+    this.inventoryReservationJpaRepository = inventoryReservationJpaRepository;
     this.clock = clock;
+  }
+
+  public AssignRoomsService(
+      HotelCatalogPort hotelCatalogPort,
+      BookingStayPort bookingStayPort,
+      RoomAssignmentRepository roomAssignmentRepository,
+      RoomBlockRepository roomBlockRepository,
+      Clock clock) {
+    this(
+        hotelCatalogPort,
+        bookingStayPort,
+        roomAssignmentRepository,
+        roomBlockRepository,
+        null,
+        clock);
   }
 
   @Override
@@ -65,6 +89,7 @@ public class AssignRoomsService implements AssignRoomsUseCase {
     hotelCatalogPort
         .findHotelSummary(command.hotelId())
         .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
+    hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
 
     BookingStayInfo booking =
         bookingStayPort
@@ -81,7 +106,7 @@ public class AssignRoomsService implements AssignRoomsUseCase {
 
     List<UUID> roomTypeIds =
         booking.items().stream().map(BookingItemStayInfo::roomTypeId).distinct().sorted().toList();
-    hotelCatalogPort.lockActiveRoomTypesInHotel(command.hotelId(), roomTypeIds);
+    hotelCatalogPort.lockRoomTypesInHotel(command.hotelId(), roomTypeIds);
 
     Instant now = clock.instant();
     LocalDate today = LocalDate.now(clock);
@@ -154,6 +179,14 @@ public class AssignRoomsService implements AssignRoomsUseCase {
                   + " không thuộc đúng loại phòng của hạng mục đặt phòng (BK-15).");
         }
 
+        if (booking.status() == StayStatus.CHECKED_IN
+            && !"READY".equalsIgnoreCase(room.readiness())) {
+          throw InventoryException.roomNotReady(
+              "Phòng vật lý "
+                  + room.roomNumber()
+                  + " chưa ở trạng thái sẵn sàng (READY) để nhận hoặc đổi phòng cho khách đang lưu trú (BK-15).");
+        }
+
         PhysicalRoom probe =
             new PhysicalRoom(room.id(), room.operationalFrom(), room.operationalUntil(), Set.of());
         if (!probe.isAvailableForRange(effectiveStartDate, bookingItem.checkOutDate(), now)) {
@@ -188,6 +221,122 @@ public class AssignRoomsService implements AssignRoomsUseCase {
               "Phòng vật lý "
                   + room.roomNumber()
                   + " đã được phân cho một đơn đặt phòng khác chồng lịch (BK-15).");
+        }
+      }
+    }
+
+    // Bảo vệ các booking HELD/CONFIRMED chưa được gán phòng: đảm bảo sau khi gán,
+    // các đơn khác vẫn còn đủ phương án phân bổ phòng liên tục hợp lệ (BK-15)
+    for (UUID roomTypeId : roomTypeIds) {
+      List<PhysicalRoomSummary> typeRooms =
+          hotelCatalogPort.findPhysicalRoomsByRoomTypeId(roomTypeId);
+      if (typeRooms.isEmpty()) {
+        continue;
+      }
+
+      List<BookingItemStayInfo> itemsOfType =
+          booking.items().stream().filter(i -> roomTypeId.equals(i.roomTypeId())).toList();
+      LocalDate minDate =
+          itemsOfType.stream()
+              .map(BookingItemStayInfo::checkInDate)
+              .min(LocalDate::compareTo)
+              .orElse(today);
+      LocalDate maxDate =
+          itemsOfType.stream()
+              .map(BookingItemStayInfo::checkOutDate)
+              .max(LocalDate::compareTo)
+              .orElse(today.plusDays(1));
+
+      List<RoomBlock> activeBlocks =
+          roomBlockRepository.findActiveBlocksInRange(roomTypeId, minDate, maxDate);
+
+      List<RoomAssignment> otherAssignments =
+          roomAssignmentRepository
+              .findActiveByRoomTypeIdsOverlapping(List.of(roomTypeId), minDate, maxDate)
+              .stream()
+              .filter(a -> !command.bookingId().equals(a.bookingId()))
+              .toList();
+
+      Map<UUID, Set<LocalDate>> prospectiveOccupiedDatesByRoom = new HashMap<>();
+      for (RoomAssignmentItem reqItem : command.assignments()) {
+        BookingItemStayInfo bItem = itemsById.get(reqItem.bookingItemId());
+        if (bItem != null && roomTypeId.equals(bItem.roomTypeId())) {
+          LocalDate itemStart =
+              booking.status() == StayStatus.CHECKED_IN && today.isAfter(bItem.checkInDate())
+                  ? today
+                  : bItem.checkInDate();
+          if (!itemStart.isBefore(bItem.checkOutDate())) {
+            itemStart = bItem.checkInDate();
+          }
+          for (UUID roomId : reqItem.roomIds()) {
+            Set<LocalDate> dates =
+                prospectiveOccupiedDatesByRoom.computeIfAbsent(roomId, k -> new HashSet<>());
+            for (LocalDate d = itemStart; d.isBefore(bItem.checkOutDate()); d = d.plusDays(1)) {
+              dates.add(d);
+            }
+          }
+        }
+      }
+
+      List<PhysicalRoom> plannerRooms = new ArrayList<>();
+      for (PhysicalRoomSummary r : typeRooms) {
+        Set<LocalDate> occupiedDates = new HashSet<>();
+        for (RoomBlock b : activeBlocks) {
+          if (r.id().equals(b.roomId())) {
+            for (LocalDate d = b.startDate(); !d.isAfter(b.endDate()); d = d.plusDays(1)) {
+              occupiedDates.add(d);
+            }
+          }
+        }
+        for (RoomAssignment a : otherAssignments) {
+          if (r.id().equals(a.roomId())) {
+            for (LocalDate d = a.startDate(); d.isBefore(a.endDate()); d = d.plusDays(1)) {
+              occupiedDates.add(d);
+            }
+          }
+        }
+        Set<LocalDate> currentAssigned = prospectiveOccupiedDatesByRoom.get(r.id());
+        if (currentAssigned != null) {
+          occupiedDates.addAll(currentAssigned);
+        }
+
+        plannerRooms.add(
+            new PhysicalRoom(r.id(), r.operationalFrom(), r.operationalUntil(), occupiedDates));
+      }
+
+      if (inventoryReservationJpaRepository != null) {
+        List<InventoryReservationJpaEntity> allReservations =
+            inventoryReservationJpaRepository.findActiveReservationsInRange(
+                roomTypeId, minDate, maxDate, now);
+        List<InventoryReservationJpaEntity> otherReservations =
+            allReservations.stream()
+                .filter(res -> !command.bookingId().equals(res.getBookingId()))
+                .toList();
+
+        List<RoomAssignmentJpaEntity> otherAssignEntities =
+            otherAssignments.stream()
+                .map(
+                    a -> {
+                      RoomAssignmentJpaEntity ent = new RoomAssignmentJpaEntity();
+                      ent.setBookingItemId(a.bookingItemId());
+                      ent.setRoomId(a.roomId());
+                      ent.setStartDate(a.startDate());
+                      ent.setEndDate(a.endDate());
+                      return ent;
+                    })
+                .toList();
+
+        List<StayDemand> unassignedDemands =
+            JpaInventoryQueryAdapter.buildStayDemandsFromReservations(
+                otherReservations, otherAssignEntities);
+
+        if (!unassignedDemands.isEmpty()) {
+          boolean canAllocateOthers =
+              RoomAllocationPlanner.canAllocate(plannerRooms, unassignedDemands, now);
+          if (!canAllocateOthers) {
+            throw InventoryException.roomAssignmentConflict(
+                "Không thể gán phòng vật lý đã chọn vì làm mất khả năng phân bổ phòng liên tục cho các đơn đặt phòng khác đang chờ nhận phòng (BK-15).");
+          }
         }
       }
     }
@@ -244,6 +393,10 @@ public class AssignRoomsService implements AssignRoomsUseCase {
                 command.actorId(),
                 now,
                 releaseReason));
+        if (existing.status() == RoomAssignment.Status.CHECKED_IN) {
+          hotelCatalogPort.updateRoomReadiness(
+              existing.roomId(), existing.hotelId(), "DIRTY", command.actorId(), now);
+        }
       }
     }
 

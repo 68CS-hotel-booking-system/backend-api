@@ -1,5 +1,6 @@
 package com.team.hotelbooking.inventory.infrastructure.integration;
 
+import com.team.hotelbooking.booking.BookingCheckoutDirectory;
 import com.team.hotelbooking.inventory.application.port.BookingStayPort;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
@@ -13,13 +14,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -32,6 +33,7 @@ public class BookingStayAdapter implements BookingStayPort {
   private final InventoryReservationJpaRepository inventoryReservationJpaRepository;
   private final BookingStayOperationJpaRepository bookingStayOperationJpaRepository;
   private final HotelCatalogPort hotelCatalogPort;
+  private final BookingCheckoutDirectory bookingCheckoutDirectory;
 
   @Override
   public Optional<BookingStayInfo> findBookingForStayOperation(UUID hotelId, UUID bookingId) {
@@ -51,10 +53,7 @@ public class BookingStayAdapter implements BookingStayPort {
       return Optional.empty();
     }
 
-    Set<UUID> hotelRoomTypeIds =
-        hotelCatalogPort.findActiveRoomTypes(hotelId).stream()
-            .map(HotelCatalogPort.RoomTypeSummary::id)
-            .collect(Collectors.toSet());
+    Set<UUID> hotelRoomTypeIds = new HashSet<>(hotelCatalogPort.findRoomTypeIdsByHotelId(hotelId));
     boolean belongsToHotel =
         reservations.stream().allMatch(r -> hotelRoomTypeIds.contains(r.getRoomTypeId()));
     if (!belongsToHotel) {
@@ -135,6 +134,10 @@ public class BookingStayAdapter implements BookingStayPort {
     entity.setUpdatedAt(checkedInAt);
     BookingStayOperationJpaEntity saved = bookingStayOperationJpaRepository.save(entity);
 
+    if (bookingCheckoutDirectory != null) {
+      bookingCheckoutDirectory.updateStayStatus(bookingId, "CHECKED_IN", checkedInAt);
+    }
+
     return new BookingStayInfo(
         current.bookingId(),
         current.hotelId(),
@@ -172,6 +175,10 @@ public class BookingStayAdapter implements BookingStayPort {
     entity.setCheckedOutAt(checkedOutAt);
     entity.setUpdatedAt(checkedOutAt);
     BookingStayOperationJpaEntity saved = bookingStayOperationJpaRepository.save(entity);
+
+    if (bookingCheckoutDirectory != null) {
+      bookingCheckoutDirectory.updateStayStatus(bookingId, "CHECKED_OUT", checkedOutAt);
+    }
 
     return new BookingStayInfo(
         current.bookingId(),
@@ -211,6 +218,10 @@ public class BookingStayAdapter implements BookingStayPort {
     entity.setNoShowMarkedAt(markedAt);
     entity.setUpdatedAt(markedAt);
     BookingStayOperationJpaEntity saved = bookingStayOperationJpaRepository.save(entity);
+
+    if (bookingCheckoutDirectory != null) {
+      bookingCheckoutDirectory.updateStayStatus(bookingId, "NO_SHOW", markedAt);
+    }
 
     return new BookingStayInfo(
         current.bookingId(),

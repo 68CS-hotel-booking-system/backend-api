@@ -2,12 +2,16 @@ package com.team.hotelbooking.inventory.infrastructure.integration;
 
 import com.team.hotelbooking.hotel.HotelDirectory; // Import duy nhất từ hotel
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
+import com.team.hotelbooking.inventory.domain.exception.InventoryErrorCode;
+import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,6 +19,34 @@ import org.springframework.stereotype.Component;
 public class HotelCatalogAdapter implements HotelCatalogPort {
 
   private final HotelDirectory hotelDirectory;
+
+  @Override
+  public boolean hasManagementAccess(UUID actorId, UUID hotelId) {
+    return hotelDirectory.hasManagementAccess(actorId, hotelId);
+  }
+
+  @Override
+  public void requireManagementAccess(UUID actorId, UUID hotelId) {
+    if (!hotelDirectory.existsById(hotelId)) {
+      throw InventoryException.hotelNotFound("Không tìm thấy khách sạn.");
+    }
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth != null
+        && auth.getAuthorities().stream()
+            .anyMatch(
+                a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ADMIN".equals(a.getAuthority()))) {
+      return;
+    }
+    if (!hotelDirectory.hasManagementAccess(actorId, hotelId)) {
+      throw new InventoryException(
+          InventoryErrorCode.ACCESS_DENIED, "Bạn không có quyền quản lý khách sạn này.");
+    }
+  }
+
+  @Override
+  public List<UUID> findRoomTypeIdsByHotelId(UUID hotelId) {
+    return hotelDirectory.findRoomTypeIdsByHotelId(hotelId);
+  }
 
   @Override
   public Optional<HotelSummary> findHotelSummary(UUID hotelId) {
@@ -42,6 +74,21 @@ public class HotelCatalogAdapter implements HotelCatalogPort {
   public List<RoomTypeSummary> lockActiveRoomTypesInHotel(
       UUID hotelId, Collection<UUID> roomTypeIds) {
     return hotelDirectory.lockActiveRoomTypesInHotel(hotelId, roomTypeIds).stream()
+        .map(
+            rt ->
+                new RoomTypeSummary(
+                    rt.id(),
+                    rt.name(),
+                    rt.maxOccupancy(),
+                    rt.maxAdults(),
+                    rt.maxChildren(),
+                    rt.basePrice()))
+        .toList();
+  }
+
+  @Override
+  public List<RoomTypeSummary> lockRoomTypesInHotel(UUID hotelId, Collection<UUID> roomTypeIds) {
+    return hotelDirectory.lockRoomTypesInHotel(hotelId, roomTypeIds).stream()
         .map(
             rt ->
                 new RoomTypeSummary(

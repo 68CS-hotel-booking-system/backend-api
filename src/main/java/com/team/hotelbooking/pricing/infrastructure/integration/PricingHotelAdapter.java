@@ -2,9 +2,13 @@ package com.team.hotelbooking.pricing.infrastructure.integration;
 
 import com.team.hotelbooking.hotel.HotelDirectory; // Import duy nhất từ hotel
 import com.team.hotelbooking.pricing.application.port.PricingHotelPort;
+import com.team.hotelbooking.pricing.domain.exception.PricingErrorCode;
+import com.team.hotelbooking.pricing.domain.exception.PricingException;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -12,6 +16,28 @@ import org.springframework.stereotype.Component;
 public class PricingHotelAdapter implements PricingHotelPort {
 
   private final HotelDirectory hotelDirectory;
+
+  @Override
+  public boolean hasManagementAccess(UUID actorId, UUID hotelId) {
+    return hotelDirectory.hasManagementAccess(actorId, hotelId);
+  }
+
+  @Override
+  public void requireManagementAccess(UUID actorId, UUID hotelId) {
+    if (!hotelDirectory.existsById(hotelId)) {
+      throw new PricingException(PricingErrorCode.HOTEL_NOT_FOUND);
+    }
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth != null
+        && auth.getAuthorities().stream()
+            .anyMatch(
+                a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ADMIN".equals(a.getAuthority()))) {
+      return;
+    }
+    if (!hotelDirectory.hasManagementAccess(actorId, hotelId)) {
+      throw new PricingException(PricingErrorCode.ACCESS_DENIED);
+    }
+  }
 
   @Override
   public boolean isHotelActive(UUID hotelId) {

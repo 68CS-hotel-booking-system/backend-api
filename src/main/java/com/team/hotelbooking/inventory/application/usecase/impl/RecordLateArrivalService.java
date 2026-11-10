@@ -51,6 +51,7 @@ public class RecordLateArrivalService implements RecordLateArrivalUseCase {
     hotelCatalogPort
         .findHotelSummary(command.hotelId())
         .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
+    hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
 
     BookingStayInfo booking =
         bookingStayPort
@@ -67,7 +68,7 @@ public class RecordLateArrivalService implements RecordLateArrivalUseCase {
 
     List<UUID> roomTypeIds =
         booking.items().stream().map(BookingItemStayInfo::roomTypeId).distinct().sorted().toList();
-    hotelCatalogPort.lockActiveRoomTypesInHotel(command.hotelId(), roomTypeIds);
+    hotelCatalogPort.lockRoomTypesInHotel(command.hotelId(), roomTypeIds);
 
     Instant now = clock.instant();
     if (!command.expectedArrivalAt().isAfter(now)) {

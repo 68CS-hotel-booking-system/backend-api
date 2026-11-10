@@ -57,7 +57,9 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
       throw PricingException.invalidDateRange("Không thể đặt giá cho ngày trong quá khứ.");
     }
 
-    if (!pricingHotelPort.isHotelActive(command.hotelId())) {
+    if (command.updatedByUserId() != null) {
+      pricingHotelPort.requireManagementAccess(command.updatedByUserId(), command.hotelId());
+    } else if (!pricingHotelPort.isHotelActive(command.hotelId())) {
       throw PricingException.hotelNotFound("Không tìm thấy khách sạn.");
     }
 

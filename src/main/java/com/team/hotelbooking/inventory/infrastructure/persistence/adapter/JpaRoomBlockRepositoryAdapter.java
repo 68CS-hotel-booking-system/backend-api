@@ -46,6 +46,16 @@ public class JpaRoomBlockRepositoryAdapter implements RoomBlockRepository {
   }
 
   @Override
+  public List<RoomBlock> findActiveBlocksInRange(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDate) {
+    return roomBlockJpaRepository
+        .findActiveBlocksInRange(roomTypeId, startDate, endDate.plusDays(1))
+        .stream()
+        .map(RoomBlockPersistenceMapper::toDomain)
+        .toList();
+  }
+
+  @Override
   public List<RoomBlock> findManagementBlocks(
       UUID hotelId, UUID roomTypeId, UUID roomId, LocalDate startDate, LocalDate endDate) {
     return roomBlockJpaRepository.findByHotelIdOrderByStartDateAscEndDateAscIdAsc(hotelId).stream()

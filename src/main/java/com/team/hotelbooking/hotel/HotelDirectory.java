@@ -24,12 +24,19 @@ public interface HotelDirectory {
 
   Optional<RoomTypeSummaryView> findActiveRoomType(UUID roomTypeId, UUID hotelId);
 
+  // Phục vụ module inventory & pricing: kiểm tra quyền quản lý khách sạn
+  boolean hasManagementAccess(UUID actorId, UUID hotelId);
+
   // Phục vụ module inventory
   Optional<HotelSummaryView> findHotelSummary(UUID hotelId);
+
+  List<UUID> findRoomTypeIdsByHotelId(UUID hotelId);
 
   List<RoomTypeSummaryView> findActiveRoomTypes(UUID hotelId);
 
   List<RoomTypeSummaryView> lockActiveRoomTypesInHotel(UUID hotelId, Collection<UUID> roomTypeIds);
+
+  List<RoomTypeSummaryView> lockRoomTypesInHotel(UUID hotelId, Collection<UUID> roomTypeIds);
 
   long countActiveRoomsByRoomTypeId(UUID roomTypeId);
 

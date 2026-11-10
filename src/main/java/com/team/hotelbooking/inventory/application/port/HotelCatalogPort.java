@@ -37,9 +37,17 @@ public interface HotelCatalogPort {
 
   Optional<HotelSummary> findHotelSummary(UUID hotelId);
 
+  boolean hasManagementAccess(UUID actorId, UUID hotelId);
+
+  void requireManagementAccess(UUID actorId, UUID hotelId);
+
+  List<UUID> findRoomTypeIdsByHotelId(UUID hotelId);
+
   List<RoomTypeSummary> findActiveRoomTypes(UUID hotelId);
 
   List<RoomTypeSummary> lockActiveRoomTypesInHotel(UUID hotelId, Collection<UUID> roomTypeIds);
+
+  List<RoomTypeSummary> lockRoomTypesInHotel(UUID hotelId, Collection<UUID> roomTypeIds);
 
   long countActiveRoomsByRoomTypeId(UUID roomTypeId);
 

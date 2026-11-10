@@ -57,13 +57,15 @@ public class ManagementRateController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @GetMapping("/{hotelId}/room-types/{roomTypeId}/rates")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER')")
   public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> getRoomRates(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,
       @ParameterObject @Valid GetRoomRatesRequest request) {
 
-    RoomTypeRatesResult result = getRoomRatesUseCase.execute(request.toQuery(hotelId, roomTypeId));
+    UUID actorUserId = resolveActorUserId();
+    RoomTypeRatesResult result =
+        getRoomRatesUseCase.execute(request.toQuery(actorUserId, hotelId, roomTypeId));
 
     return ResponseEntity.ok(
         ApiResponse.success("Thành công.", RoomTypeRatesResponse.from(result)));
@@ -88,7 +90,7 @@ public class ManagementRateController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @PutMapping("/{hotelId}/room-types/{roomTypeId}/rates")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER')")
   public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> setRoomRates(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,

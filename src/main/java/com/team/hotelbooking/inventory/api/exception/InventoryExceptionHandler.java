@@ -25,6 +25,7 @@ public class InventoryExceptionHandler {
         switch (exception.code()) {
           case INVALID_DATE_RANGE, MAX_STAY_EXCEEDED, INVALID_STAY_OPERATION ->
               HttpStatus.BAD_REQUEST;
+          case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
           case HOTEL_NOT_FOUND,
               ROOM_TYPE_INACTIVE,
               ROOM_NOT_FOUND,

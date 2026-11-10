@@ -34,4 +34,15 @@ public interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, 
       """)
   List<RoomTypeJpaEntity> lockActiveByHotelIdAndIdInOrderByIdAsc(
       @Param("hotelId") UUID hotelId, @Param("ids") Collection<UUID> ids);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT rt FROM RoomTypeJpaEntity rt
+      WHERE rt.hotelId = :hotelId
+        AND rt.id IN :ids
+      ORDER BY rt.id ASC
+      """)
+  List<RoomTypeJpaEntity> lockByHotelIdAndIdInOrderByIdAsc(
+      @Param("hotelId") UUID hotelId, @Param("ids") Collection<UUID> ids);
 }

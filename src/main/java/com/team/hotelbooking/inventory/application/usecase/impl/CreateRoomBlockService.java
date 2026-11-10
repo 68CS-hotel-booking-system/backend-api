@@ -57,6 +57,8 @@ public class CreateRoomBlockService implements CreateRoomBlockUseCase {
             .findHotelSummary(command.hotelId())
             .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
 
+    hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
+
     if (!hotel.isActive() || hotel.isSuspended()) {
       throw InventoryException.hotelNotFound("Khách sạn hiện đang tạm ngừng kinh doanh.");
     }

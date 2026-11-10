@@ -3,9 +3,11 @@ package com.team.hotelbooking.hotel.infrastructure.integration;
 import com.team.hotelbooking.hotel.HotelDirectory;
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.HotelJpaEntity;
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomJpaEntity;
+import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomTypeJpaEntity;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpaRepository;
 import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
+import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -21,6 +23,34 @@ public class HotelDirectoryAdapter implements HotelDirectory {
   private final HotelJpaRepository hotelJpaRepository;
   private final RoomTypeJpaRepository roomTypeJpaRepository;
   private final RoomJpaRepository roomJpaRepository;
+  private final EntityManager entityManager;
+
+  @Override
+  public boolean hasManagementAccess(UUID actorId, UUID hotelId) {
+    if (actorId == null || hotelId == null) {
+      return false;
+    }
+    Optional<HotelJpaEntity> hotel = hotelJpaRepository.findById(hotelId);
+    if (hotel.isEmpty()) {
+      return false;
+    }
+    if (actorId.equals(hotel.get().getOwnerUserId())) {
+      return true;
+    }
+    try {
+      Number count =
+          (Number)
+              entityManager
+                  .createNativeQuery(
+                      "SELECT COUNT(*) FROM hotel_members WHERE hotel_id = :hotelId AND user_id = :userId AND is_active = true")
+                  .setParameter("hotelId", hotelId)
+                  .setParameter("userId", actorId)
+                  .getSingleResult();
+      return count != null && count.longValue() > 0;
+    } catch (Exception ex) {
+      return false;
+    }
+  }
 
   @Override
   public Optional<HotelInfo> findById(UUID hotelId) {
@@ -60,6 +90,13 @@ public class HotelDirectoryAdapter implements HotelDirectory {
   }
 
   @Override
+  public List<UUID> findRoomTypeIdsByHotelId(UUID hotelId) {
+    return roomTypeJpaRepository.findAllByHotelIdOrderByNameAscIdAsc(hotelId).stream()
+        .map(RoomTypeJpaEntity::getId)
+        .toList();
+  }
+
+  @Override
   public List<RoomTypeSummaryView> findActiveRoomTypes(UUID hotelId) {
     return roomTypeJpaRepository.findAllByHotelIdAndActiveTrue(hotelId).stream()
         .map(
@@ -83,6 +120,25 @@ public class HotelDirectoryAdapter implements HotelDirectory {
     return roomTypeJpaRepository
         .lockActiveByHotelIdAndIdInOrderByIdAsc(hotelId, roomTypeIds)
         .stream()
+        .map(
+            rt ->
+                new RoomTypeSummaryView(
+                    rt.getId(),
+                    rt.getName(),
+                    (int) rt.getMaxOccupancy(),
+                    (int) rt.getMaxAdults(),
+                    (int) rt.getMaxChildren(),
+                    rt.getBasePrice()))
+        .toList();
+  }
+
+  @Override
+  public List<RoomTypeSummaryView> lockRoomTypesInHotel(
+      UUID hotelId, Collection<UUID> roomTypeIds) {
+    if (roomTypeIds == null || roomTypeIds.isEmpty()) {
+      return List.of();
+    }
+    return roomTypeJpaRepository.lockByHotelIdAndIdInOrderByIdAsc(hotelId, roomTypeIds).stream()
         .map(
             rt ->
                 new RoomTypeSummaryView(

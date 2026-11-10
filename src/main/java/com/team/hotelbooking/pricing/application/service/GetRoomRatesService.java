@@ -30,6 +30,9 @@ public class GetRoomRatesService implements GetRoomRatesUseCase {
     if (!pricingHotelPort.isHotelActive(query.hotelId())) {
       throw PricingException.hotelNotFound("Không tìm thấy khách sạn.");
     }
+    if (query.actorId() != null) {
+      pricingHotelPort.requireManagementAccess(query.actorId(), query.hotelId());
+    }
 
     if (!pricingHotelPort.isRoomTypeActiveInHotel(query.roomTypeId(), query.hotelId())) {
       throw PricingException.roomTypeNotFound(

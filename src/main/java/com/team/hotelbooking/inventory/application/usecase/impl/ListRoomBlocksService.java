@@ -34,6 +34,9 @@ public class ListRoomBlocksService implements ListRoomBlocksUseCase {
     hotelCatalogPort
         .findHotelSummary(query.hotelId())
         .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
+    if (query.actorId() != null) {
+      hotelCatalogPort.requireManagementAccess(query.actorId(), query.hotelId());
+    }
 
     return roomBlockRepository
         .findManagementBlocks(

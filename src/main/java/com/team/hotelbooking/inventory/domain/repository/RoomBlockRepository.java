@@ -15,6 +15,8 @@ public interface RoomBlockRepository {
   List<RoomBlock> findActiveBlocksByRoomIdInRange(
       UUID roomTypeId, UUID roomId, LocalDate startDate, LocalDate endDate);
 
+  List<RoomBlock> findActiveBlocksInRange(UUID roomTypeId, LocalDate startDate, LocalDate endDate);
+
   List<RoomBlock> findManagementBlocks(
       UUID hotelId, UUID roomTypeId, UUID roomId, LocalDate startDate, LocalDate endDate);
 }

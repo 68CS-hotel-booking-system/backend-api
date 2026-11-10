@@ -82,6 +82,9 @@ public class GetRoomCalendarService implements GetRoomCalendarUseCase {
     hotelCatalogPort
         .findHotelSummary(query.hotelId())
         .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
+    if (query.actorId() != null) {
+      hotelCatalogPort.requireManagementAccess(query.actorId(), query.hotelId());
+    }
 
     List<HotelCatalogPort.RoomTypeSummary> roomTypes =
         hotelCatalogPort.findActiveRoomTypes(query.hotelId());

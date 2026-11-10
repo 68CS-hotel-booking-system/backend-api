@@ -31,11 +31,12 @@ public final class RoomAllocationPlanner {
         return false;
       }
       if (operationalUntil != null) {
-        if (!operationalUntil.isAfter(now)) {
-          return false;
-        }
         Instant nightStart = date.atStartOfDay(ZoneOffset.UTC).toInstant();
         if (!operationalUntil.isAfter(nightStart)) {
+          return false;
+        }
+        LocalDate dateOfNow = now.atZone(ZoneOffset.UTC).toLocalDate();
+        if (!date.isBefore(dateOfNow) && !operationalUntil.isAfter(now)) {
           return false;
         }
       }

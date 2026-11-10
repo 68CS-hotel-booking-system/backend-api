@@ -41,6 +41,7 @@ public class UpdateRoomReadinessService implements UpdateRoomReadinessUseCase {
     hotelCatalogPort
         .findHotelSummary(command.hotelId())
         .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
+    hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
 
     Instant now = clock.instant();
     PhysicalRoomSummary updated =

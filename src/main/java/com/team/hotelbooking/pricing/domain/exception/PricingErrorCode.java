@@ -5,6 +5,7 @@ import com.team.hotelbooking.shared.exception.ErrorCode;
 public enum PricingErrorCode implements ErrorCode {
   INVALID_DATE_RANGE("Khoảng thời gian tra cứu giá không hợp lệ."),
   MAX_RANGE_EXCEEDED("Khoảng thời gian tra cứu giá tối đa là 90 ngày."),
+  ACCESS_DENIED("Bạn không có quyền quản lý giá của khách sạn này."),
   HOTEL_NOT_FOUND("Không tìm thấy khách sạn."),
   ROOM_TYPE_NOT_FOUND("Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn."),
   INVALID_AMOUNT("Giá phòng phải lớn hơn 0."),

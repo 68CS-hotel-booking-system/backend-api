@@ -98,10 +98,12 @@ public class ManagementRoomBlockController {
           LocalDate startDate,
       @RequestParam(name = "endDate", required = false)
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate endDate) {
+          LocalDate endDate,
+      Principal principal) {
+    UUID actorId = principal != null ? UUID.fromString(principal.getName()) : null;
     List<RoomBlockResult> result =
         listRoomBlocksUseCase.execute(
-            new ListRoomBlocksQuery(hotelId, roomTypeId, roomId, startDate, endDate));
+            new ListRoomBlocksQuery(actorId, hotelId, roomTypeId, roomId, startDate, endDate));
     List<RoomBlockResponse> response = RoomBlockResponse.from(result);
     return ResponseEntity.ok()
         .header("Cache-Control", "no-store")
@@ -116,10 +118,12 @@ public class ManagementRoomBlockController {
       @RequestParam(name = "startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate startDate,
       @RequestParam(name = "endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          LocalDate endDate) {
+          LocalDate endDate,
+      Principal principal) {
+    UUID actorId = principal != null ? UUID.fromString(principal.getName()) : null;
     RoomCalendarResult result =
         getRoomCalendarUseCase.execute(
-            new GetRoomCalendarQuery(hotelId, roomTypeId, startDate, endDate));
+            new GetRoomCalendarQuery(actorId, hotelId, roomTypeId, startDate, endDate));
     RoomCalendarResponse response = RoomCalendarResponse.from(result);
     return ResponseEntity.ok()
         .header("Cache-Control", "no-store")

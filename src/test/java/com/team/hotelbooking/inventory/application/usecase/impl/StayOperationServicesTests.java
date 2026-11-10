@@ -174,7 +174,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(hotelCatalogPort.findPhysicalRoomsByHotelId(hotelId))
           .willReturn(List.of(room301, room302));
@@ -273,7 +273,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(hotelCatalogPort.findPhysicalRoomsByHotelId(hotelId)).willReturn(List.of(room301));
       given(
@@ -347,7 +347,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(roomAssignmentRepository.findActiveByBookingId(bookingId))
           .willReturn(List.of(assignment));
@@ -419,7 +419,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(checkedInBooking));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(roomAssignmentRepository.findActiveByBookingId(bookingId))
           .willReturn(List.of(activeAssignment));
@@ -497,7 +497,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(roomAssignmentRepository.findActiveByBookingId(bookingId))
           .willReturn(List.of(assigned));
@@ -551,7 +551,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(alreadyNoShow));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(roomAssignmentRepository.findAllByBookingId(bookingId)).willReturn(List.of());
 
@@ -584,7 +584,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(bookingWithLateArrival));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
 
       assertThatThrownBy(
@@ -620,7 +620,7 @@ class StayOperationServicesTests {
           .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
-      given(hotelCatalogPort.lockActiveRoomTypesInHotel(hotelId, List.of(roomTypeId)))
+      given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
           .willReturn(List.of(new RoomTypeSummary(roomTypeId, "Deluxe", 2, 2, 0, 1_000_000L)));
       given(
               bookingStayPort.recordLateArrival(

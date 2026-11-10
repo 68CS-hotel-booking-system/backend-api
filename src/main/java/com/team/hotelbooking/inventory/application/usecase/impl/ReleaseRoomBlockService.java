@@ -1,6 +1,7 @@
 package com.team.hotelbooking.inventory.application.usecase.impl;
 
 import com.team.hotelbooking.inventory.application.command.ReleaseRoomBlockCommand;
+import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
 import com.team.hotelbooking.inventory.application.result.RoomBlockResult;
 import com.team.hotelbooking.inventory.application.usecase.ReleaseRoomBlockUseCase;
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
@@ -12,11 +13,18 @@ import java.time.Instant;
 public class ReleaseRoomBlockService implements ReleaseRoomBlockUseCase {
 
   private final RoomBlockRepository roomBlockRepository;
+  private final HotelCatalogPort hotelCatalogPort;
   private final Clock clock;
 
-  public ReleaseRoomBlockService(RoomBlockRepository roomBlockRepository, Clock clock) {
+  public ReleaseRoomBlockService(
+      RoomBlockRepository roomBlockRepository, HotelCatalogPort hotelCatalogPort, Clock clock) {
     this.roomBlockRepository = roomBlockRepository;
+    this.hotelCatalogPort = hotelCatalogPort;
     this.clock = clock;
+  }
+
+  public ReleaseRoomBlockService(RoomBlockRepository roomBlockRepository, Clock clock) {
+    this(roomBlockRepository, null, clock);
   }
 
   @Override
@@ -27,6 +35,10 @@ public class ReleaseRoomBlockService implements ReleaseRoomBlockUseCase {
         || command.blockId() == null) {
       throw InventoryException.invalidDateRange(
           "Thông tin người thực hiện và mã lịch chặn không được để trống.");
+    }
+
+    if (hotelCatalogPort != null) {
+      hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
     }
 
     if (command.reason() == null || command.reason().trim().isEmpty()) {
