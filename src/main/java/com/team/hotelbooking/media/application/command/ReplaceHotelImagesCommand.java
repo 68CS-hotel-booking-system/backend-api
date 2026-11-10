@@ -11,5 +11,5 @@ public record ReplaceHotelImagesCommand(
     images = List.copyOf(images);
   }
 
-  public record Image(UUID mediaId, int sortOrder, boolean cover) {}
+  public record Image(UUID mediaId, UUID albumId, int sortOrder, boolean cover) {}
 }

@@ -8,6 +8,7 @@ import com.team.hotelbooking.media.domain.exception.MediaErrorCode;
 import com.team.hotelbooking.media.domain.exception.MediaException;
 import com.team.hotelbooking.media.domain.model.HotelImage;
 import com.team.hotelbooking.media.domain.model.MediaObject;
+import com.team.hotelbooking.media.domain.repository.HotelImageAlbumRepository;
 import com.team.hotelbooking.media.domain.repository.HotelImageRepository;
 import java.time.Clock;
 import java.util.Comparator;
@@ -20,13 +21,18 @@ public final class ReplaceHotelImagesService implements ReplaceHotelImagesUseCas
 
   private final HotelImageAccess hotels;
   private final HotelImageRepository images;
+  private final HotelImageAlbumRepository albums;
   private final Clock clock;
 
   public ReplaceHotelImagesService(
-      HotelImageAccess hotels, HotelImageRepository images, Clock clock) {
+      HotelImageAccess hotels,
+      HotelImageRepository images,
+      HotelImageAlbumRepository albums,
+      Clock clock) {
 
     this.hotels = hotels;
     this.images = images;
+    this.albums = albums;
     this.clock = clock;
   }
 
@@ -58,6 +64,18 @@ public final class ReplaceHotelImagesService implements ReplaceHotelImagesUseCas
 
     hotels.lockForUpdate(command.actorId(), command.hotelId(), command.expectedVersion());
 
+    Set<UUID> allowedAlbumIds =
+        albums.findByHotelId(command.hotelId()).stream()
+            .map(album -> album.id())
+            .collect(java.util.stream.Collectors.toSet());
+
+    for (var image : command.images()) {
+      if (image.albumId() != null && !allowedAlbumIds.contains(image.albumId())) {
+        throw new MediaException(
+            MediaErrorCode.ACCESS_DENIED, "Album không thuộc khách sạn đang quản lý.");
+      }
+    }
+
     List<MediaObject> selected = images.lockMedia(ids.stream().sorted().toList());
 
     if (selected.size() != ids.size()) {
@@ -77,7 +95,10 @@ public final class ReplaceHotelImagesService implements ReplaceHotelImagesUseCas
 
     List<HotelImage> replacement =
         command.images().stream()
-            .map(image -> new HotelImage(image.mediaId(), image.sortOrder(), image.cover()))
+            .map(
+                image ->
+                    new HotelImage(
+                        image.mediaId(), image.albumId(), image.sortOrder(), image.cover()))
             .sorted(Comparator.comparingInt(HotelImage::sortOrder))
             .toList();
 

@@ -37,7 +37,10 @@ public class JpaHotelImageRepositoryAdapter implements HotelImageRepository {
         .map(
             image ->
                 new HotelImage(
-                    image.getId().getMediaId(), image.getDisplayOrder(), image.isCover()))
+                    image.getId().getMediaId(),
+                    image.getAlbumId(),
+                    image.getDisplayOrder(),
+                    image.isCover()))
         .toList();
   }
 
@@ -99,6 +102,7 @@ public class JpaHotelImageRepositoryAdapter implements HotelImageRepository {
       HotelImageJpaEntity entity = new HotelImageJpaEntity();
 
       entity.setId(new HotelImageId(hotelId, image.mediaId()));
+      entity.setAlbumId(image.albumId());
       entity.setDisplayOrder(image.sortOrder());
       entity.setCover(image.cover());
       entity.setCreatedAt(createdAt);
