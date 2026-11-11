@@ -64,7 +64,6 @@ class SetRoomRatesServiceTests {
           new SetRoomRatesCommand(
               hotelId, roomTypeId, start, endExclusive, 1_500_000L, "VND", actorUserId);
 
-      given(pricingHotelPort.isHotelActive(hotelId)).willReturn(true);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
       given(
               roomRateRepository.findRatesByRoomTypeIdAndDateRange(
@@ -83,6 +82,7 @@ class SetRoomRatesServiceTests {
       assertThat(result.rates()).hasSize(3);
       assertThat(result.rates().get(0).price()).isEqualTo(1_500_000L);
 
+      then(pricingHotelPort).should().requireManagementAccess(actorUserId, hotelId);
       @SuppressWarnings("unchecked")
       ArgumentCaptor<List<RoomRate>> captor = ArgumentCaptor.forClass(List.class);
       then(roomRateRepository).should().saveAll(captor.capture());
