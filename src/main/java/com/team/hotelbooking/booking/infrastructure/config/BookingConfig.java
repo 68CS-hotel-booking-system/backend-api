@@ -19,7 +19,10 @@ import com.team.hotelbooking.booking.infrastructure.integration.BookingCheckoutD
 import com.team.hotelbooking.shared.config.PaginationProperties;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -105,10 +108,22 @@ public class BookingConfig {
   public BookingCheckoutDirectory bookingCheckoutDirectory(
       BookingRepository bookings, PlatformTransactionManager transactionManager) {
     BookingCheckoutDirectoryAdapter adapter = new BookingCheckoutDirectoryAdapter(bookings);
-    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-    transaction.setReadOnly(true);
+    TransactionTemplate readOnlyTx = new TransactionTemplate(transactionManager);
+    readOnlyTx.setReadOnly(true);
+    TransactionTemplate writeTx = new TransactionTemplate(transactionManager);
 
-    return bookingId ->
-        Objects.requireNonNull(transaction.execute(status -> adapter.findById(bookingId)));
+    return new BookingCheckoutDirectory() {
+      @Override
+      public Optional<BookingCheckoutSnapshot> findById(UUID bookingId) {
+        return Objects.requireNonNull(readOnlyTx.execute(status -> adapter.findById(bookingId)));
+      }
+
+      @Override
+      public boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt) {
+        Boolean result =
+            writeTx.execute(txStatus -> adapter.updateStayStatus(bookingId, status, updatedAt));
+        return Boolean.TRUE.equals(result);
+      }
+    };
   }
 }

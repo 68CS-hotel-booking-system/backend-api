@@ -3,6 +3,7 @@ package com.team.hotelbooking.booking.domain.repository;
 import com.team.hotelbooking.booking.domain.model.Booking;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,4 +21,6 @@ public interface BookingRepository {
       UUID customerId, Booking.Status status, PageQuery pagination);
 
   PageResult<Booking> findByHotelId(UUID hotelId, Booking.Status status, PageQuery pagination);
+
+  boolean updateStatus(UUID bookingId, Booking.Status status, Instant updatedAt);
 }

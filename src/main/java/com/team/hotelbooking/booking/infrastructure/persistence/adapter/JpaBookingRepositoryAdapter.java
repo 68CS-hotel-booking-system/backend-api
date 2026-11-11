@@ -15,6 +15,7 @@ import com.team.hotelbooking.booking.infrastructure.persistence.repository.Booki
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
 import com.team.hotelbooking.shared.persistence.PageResultMapper;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -128,5 +129,43 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
     Map<UUID, List<BookingNightPriceJpaEntity>> nightlyByItemId =
         nights.stream().collect(Collectors.groupingBy(n -> n.getId().getBookingItemId()));
     return mapper.toDomain(entity, items, nightlyByItemId);
+  }
+
+  @Override
+  public boolean updateStatus(UUID bookingId, Booking.Status status, Instant updatedAt) {
+    Optional<BookingJpaEntity> entityOpt = bookingJpaRepository.findById(bookingId);
+    if (entityOpt.isEmpty()) {
+      return false;
+    }
+    BookingJpaEntity entity = entityOpt.get();
+    BookingJpaEntity.DbStatus fromStatus = entity.getStatus();
+    BookingJpaEntity.DbStatus toStatus = BookingJpaEntity.DbStatus.valueOf(status.name());
+    if (fromStatus == toStatus) {
+      return true;
+    }
+    boolean allowed =
+        (toStatus == BookingJpaEntity.DbStatus.CHECKED_IN
+                && fromStatus == BookingJpaEntity.DbStatus.CONFIRMED)
+            || (toStatus == BookingJpaEntity.DbStatus.CHECKED_OUT
+                && fromStatus == BookingJpaEntity.DbStatus.CHECKED_IN)
+            || (toStatus == BookingJpaEntity.DbStatus.NO_SHOW
+                && fromStatus == BookingJpaEntity.DbStatus.CONFIRMED);
+    if (!allowed) {
+      return false;
+    }
+    entity.setStatus(toStatus);
+    entity.setUpdatedAt(updatedAt);
+    bookingJpaRepository.saveAndFlush(entity);
+
+    BookingStatusHistoryJpaEntity history = new BookingStatusHistoryJpaEntity();
+    history.setId(UUID.randomUUID());
+    history.setBookingId(bookingId);
+    history.setFromStatus(fromStatus);
+    history.setToStatus(toStatus);
+    history.setChangedByUserId(null);
+    history.setReason("Cập nhật trạng thái lưu trú: " + status.name());
+    history.setCreatedAt(updatedAt != null ? updatedAt : Instant.now());
+    bookingStatusHistoryJpaRepository.saveAndFlush(history);
+    return true;
   }
 }

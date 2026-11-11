@@ -168,5 +168,43 @@ class CheckAvailabilityServiceTests {
       assertThat(roomTypeRes.totalEstimatedPrice()).isEqualTo(2_200_000L); // 1.2M + 1.0M
       assertThat(roomTypeRes.pricePerNight()).isEqualTo(1_100_000L);
     }
+
+    @Test
+    @DisplayName(
+        "Đánh dấu không khả dụng và không bán khi có đêm thiếu giá hợp lệ và basePrice bằng 0 (PR-01, PR-02, HT-03)")
+    void shouldMarkRoomTypeUnavailableWhenAnyNightLacksValidPositiveRate() {
+      // Given
+      UUID hotelId = UUID.randomUUID();
+      UUID roomTypeId = UUID.randomUUID();
+      LocalDate today = LocalDate.now(clock);
+      LocalDate checkIn = today.plusDays(10);
+      LocalDate checkOut = today.plusDays(12); // 2 đêm
+
+      given(hotelCatalogPort.findHotelSummary(hotelId))
+          .willReturn(Optional.of(new HotelCatalogPort.HotelSummary(hotelId, true, false)));
+
+      HotelCatalogPort.RoomTypeSummary rt =
+          new HotelCatalogPort.RoomTypeSummary(roomTypeId, "Standard Room", 2, 2, 0, 0L);
+      given(hotelCatalogPort.findActiveRoomTypes(hotelId)).willReturn(List.of(rt));
+
+      given(inventoryQueryPort.calculateAvailableQuantity(roomTypeId, checkIn, checkOut))
+          .willReturn(3);
+
+      // Chỉ có giá đêm đầu, đêm thứ hai rơi về basePrice = 0 -> không hợp lệ
+      given(roomPricingPort.getDailyRates(roomTypeId, checkIn, checkOut.minusDays(1)))
+          .willReturn(Map.of(checkIn, 800_000L));
+
+      // When
+      CheckAvailabilityResult result =
+          service.execute(new CheckAvailabilityQuery(hotelId, checkIn, checkOut, 2, 0, 1));
+
+      // Then
+      assertThat(result.roomTypes()).hasSize(1);
+      var roomTypeRes = result.roomTypes().get(0);
+      assertThat(roomTypeRes.isAvailable()).isFalse();
+      assertThat(roomTypeRes.availableQuantity()).isZero();
+      assertThat(roomTypeRes.pricePerNight()).isNull();
+      assertThat(roomTypeRes.totalEstimatedPrice()).isNull();
+    }
   }
 }

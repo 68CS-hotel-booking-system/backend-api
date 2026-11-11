@@ -6,10 +6,9 @@ import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.application.usecase.SetRoomRatesUseCase;
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
 import com.team.hotelbooking.pricing.domain.model.DailyRate;
+import com.team.hotelbooking.pricing.domain.model.RoomRate;
 import com.team.hotelbooking.pricing.domain.model.RoomTypeRates;
-import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateIdEmbeddable;
-import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateJpaEntity;
-import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
+import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -24,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class SetRoomRatesService implements SetRoomRatesUseCase {
 
   private final PricingHotelPort pricingHotelPort;
-  private final RoomRateJpaRepository roomRateJpaRepository;
+  private final RoomRateRepository roomRateRepository;
   private final Clock clock;
 
   @Override
@@ -58,7 +57,9 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
       throw PricingException.invalidDateRange("Không thể đặt giá cho ngày trong quá khứ.");
     }
 
-    if (!pricingHotelPort.isHotelActive(command.hotelId())) {
+    if (command.updatedByUserId() != null) {
+      pricingHotelPort.requireManagementAccess(command.updatedByUserId(), command.hotelId());
+    } else if (!pricingHotelPort.isHotelActive(command.hotelId())) {
       throw PricingException.hotelNotFound("Không tìm thấy khách sạn.");
     }
 
@@ -67,43 +68,45 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
           "Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn.");
     }
 
-    List<RoomRateJpaEntity> existingRates =
-        roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(
+    List<RoomRate> existingRates =
+        roomRateRepository.findRatesByRoomTypeIdAndDateRange(
             command.roomTypeId(), startDate, resolvedEndDate);
 
-    Map<LocalDate, RoomRateJpaEntity> rateMap =
-        existingRates.stream().collect(Collectors.toMap(r -> r.getId().getRateDate(), r -> r));
+    Map<LocalDate, RoomRate> rateMap =
+        existingRates.stream()
+            .collect(Collectors.toMap(RoomRate::rateDate, r -> r, (first, second) -> first));
 
     Instant now = clock.instant();
-    List<RoomRateJpaEntity> entitiesToSave = new ArrayList<>();
+    String currency =
+        command.currency() == null || command.currency().isBlank()
+            ? "VND"
+            : command.currency().trim().toUpperCase();
+    List<RoomRate> ratesToSave = new ArrayList<>();
     List<DailyRate> dailyRates = new ArrayList<>();
 
     for (LocalDate date = startDate; !date.isAfter(resolvedEndDate); date = date.plusDays(1)) {
-      RoomRateJpaEntity entity = rateMap.get(date);
-      if (entity != null) {
-        entity.setAmount(command.amount());
-        entity.setCurrency(command.currency());
-        entity.setUpdatedAt(now);
-        entitiesToSave.add(entity);
-      } else {
-        RoomRateJpaEntity newEntity = new RoomRateJpaEntity();
-        newEntity.setId(new RoomRateIdEmbeddable(command.roomTypeId(), date));
-        newEntity.setAmount(command.amount());
-        newEntity.setCurrency(command.currency());
-        newEntity.setCreatedAt(now);
-        newEntity.setUpdatedAt(now);
-        entitiesToSave.add(newEntity);
-      }
+      RoomRate existing = rateMap.get(date);
+      Instant createdAt =
+          existing != null && existing.createdAt() != null ? existing.createdAt() : now;
+      ratesToSave.add(
+          new RoomRate(
+              command.roomTypeId(),
+              date,
+              command.amount(),
+              currency,
+              command.updatedByUserId(),
+              createdAt,
+              now));
       dailyRates.add(new DailyRate(date, command.amount(), true, now));
     }
 
-    roomRateJpaRepository.saveAll(entitiesToSave);
+    roomRateRepository.saveAll(ratesToSave);
 
     RoomTypeRates domain =
         new RoomTypeRates(
             command.hotelId(),
             command.roomTypeId(),
-            command.currency(),
+            currency,
             startDate,
             resolvedEndDate,
             dailyRates);

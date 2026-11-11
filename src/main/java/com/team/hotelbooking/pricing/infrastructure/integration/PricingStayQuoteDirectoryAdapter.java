@@ -43,7 +43,7 @@ public class PricingStayQuoteDirectoryAdapter implements StayQuoteDirectory {
             case INVALID_DATE_RANGE -> FailureReason.INVALID_DATE_RANGE;
             case MAX_STAY_EXCEEDED, MAX_RANGE_EXCEEDED -> FailureReason.MAX_STAY_EXCEEDED;
             case INVALID_QUOTE_REQUEST, INVALID_AMOUNT -> FailureReason.INVALID_QUOTE_REQUEST;
-            case HOTEL_NOT_FOUND -> FailureReason.HOTEL_NOT_FOUND;
+            case HOTEL_NOT_FOUND, ACCESS_DENIED -> FailureReason.HOTEL_NOT_FOUND;
             case ROOM_TYPE_NOT_FOUND -> FailureReason.ROOM_TYPE_NOT_FOUND;
             case INVALID_OCCUPANCY -> FailureReason.INVALID_OCCUPANCY;
             case RATE_NOT_AVAILABLE -> FailureReason.RATE_NOT_AVAILABLE;

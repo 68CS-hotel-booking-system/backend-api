@@ -4,7 +4,9 @@ import com.team.hotelbooking.booking.BookingCheckoutDirectory;
 import com.team.hotelbooking.booking.BookingCheckoutDirectory.BookingCheckoutSnapshot.ContactSnapshot;
 import com.team.hotelbooking.booking.BookingCheckoutDirectory.BookingCheckoutSnapshot.ItemSnapshot;
 import com.team.hotelbooking.booking.BookingCheckoutDirectory.BookingCheckoutSnapshot.NightlyPriceSnapshot;
+import com.team.hotelbooking.booking.domain.model.Booking;
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +16,14 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
 
   public BookingCheckoutDirectoryAdapter(BookingRepository bookings) {
     this.bookings = bookings;
+  }
+
+  @Override
+  public boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt) {
+    if (bookingId == null || status == null) {
+      return false;
+    }
+    return bookings.updateStatus(bookingId, Booking.Status.valueOf(status), updatedAt);
   }
 
   @Override

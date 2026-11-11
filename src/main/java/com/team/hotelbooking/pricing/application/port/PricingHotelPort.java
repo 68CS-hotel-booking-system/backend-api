@@ -8,6 +8,10 @@ public interface PricingHotelPort {
 
   boolean isHotelActive(UUID hotelId);
 
+  boolean hasManagementAccess(UUID actorId, UUID hotelId);
+
+  void requireManagementAccess(UUID actorId, UUID hotelId);
+
   boolean isRoomTypeActiveInHotel(UUID roomTypeId, UUID hotelId);
 
   Optional<HotelPricingSnapshot> findActiveHotel(UUID hotelId);

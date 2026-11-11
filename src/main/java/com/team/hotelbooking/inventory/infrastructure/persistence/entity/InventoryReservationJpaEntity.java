@@ -27,6 +27,9 @@ public class InventoryReservationJpaEntity {
   @GeneratedValue(strategy = GenerationType.AUTO)
   private UUID id;
 
+  @Column(name = "booking_id")
+  private UUID bookingId;
+
   @Column(name = "booking_item_id")
   private UUID bookingItemId;
 
@@ -47,9 +50,15 @@ public class InventoryReservationJpaEntity {
   @Column(name = "expires_at")
   private Instant expiresAt;
 
+  @Column(name = "confirmed_at")
+  private Instant confirmedAt;
+
   @Column(name = "created_at", nullable = false)
-  private Instant createdAt = Instant.now();
+  private Instant createdAt;
 
   @Column(name = "released_at")
   private Instant releasedAt;
+
+  @Column(name = "release_reason", length = 50)
+  private String releaseReason;
 }

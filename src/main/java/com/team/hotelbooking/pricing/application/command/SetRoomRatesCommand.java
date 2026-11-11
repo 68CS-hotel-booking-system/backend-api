@@ -9,4 +9,16 @@ public record SetRoomRatesCommand(
     LocalDate startDate,
     LocalDate endDateExclusive,
     Long amount,
-    String currency) {}
+    String currency,
+    UUID updatedByUserId) {
+
+  public SetRoomRatesCommand(
+      UUID hotelId,
+      UUID roomTypeId,
+      LocalDate startDate,
+      LocalDate endDateExclusive,
+      Long amount,
+      String currency) {
+    this(hotelId, roomTypeId, startDate, endDateExclusive, amount, currency, null);
+  }
+}

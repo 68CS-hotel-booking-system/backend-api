@@ -20,6 +20,8 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -55,13 +57,15 @@ public class ManagementRateController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @GetMapping("/{hotelId}/room-types/{roomTypeId}/rates")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER')")
   public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> getRoomRates(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,
       @ParameterObject @Valid GetRoomRatesRequest request) {
 
-    RoomTypeRatesResult result = getRoomRatesUseCase.execute(request.toQuery(hotelId, roomTypeId));
+    UUID actorUserId = resolveActorUserId();
+    RoomTypeRatesResult result =
+        getRoomRatesUseCase.execute(request.toQuery(actorUserId, hotelId, roomTypeId));
 
     return ResponseEntity.ok(
         ApiResponse.success("Thành công.", RoomTypeRatesResponse.from(result)));
@@ -86,16 +90,29 @@ public class ManagementRateController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @PutMapping("/{hotelId}/room-types/{roomTypeId}/rates")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER')")
   public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> setRoomRates(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID loại phòng", required = true) @PathVariable UUID roomTypeId,
       @Valid @RequestBody SetRoomRatesRequest request) {
 
+    UUID actorUserId = resolveActorUserId();
     RoomTypeRatesResult result =
-        setRoomRatesUseCase.execute(request.toCommand(hotelId, roomTypeId));
+        setRoomRatesUseCase.execute(request.toCommand(hotelId, roomTypeId, actorUserId));
 
     return ResponseEntity.ok(
         ApiResponse.success("Thiết lập giá thành công.", RoomTypeRatesResponse.from(result)));
+  }
+
+  private static UUID resolveActorUserId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || authentication.getName() == null) {
+      return null;
+    }
+    try {
+      return UUID.fromString(authentication.getName());
+    } catch (IllegalArgumentException ex) {
+      return null;
+    }
   }
 }

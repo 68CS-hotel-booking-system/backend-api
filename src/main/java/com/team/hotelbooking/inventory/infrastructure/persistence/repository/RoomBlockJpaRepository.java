@@ -1,10 +1,13 @@
 package com.team.hotelbooking.inventory.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlockJpaEntity;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -46,4 +49,16 @@ public interface RoomBlockJpaRepository extends JpaRepository<RoomBlockJpaEntity
     return findActiveBlocksInRange(
         roomTypeId, startDate, endDate, RoomBlockJpaEntity.DbRoomBlockStatus.ACTIVE);
   }
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT rb FROM RoomBlockJpaEntity rb
+      WHERE rb.id = :blockId
+        AND rb.hotelId = :hotelId
+      """)
+  Optional<RoomBlockJpaEntity> lockByIdAndHotelId(
+      @Param("blockId") UUID blockId, @Param("hotelId") UUID hotelId);
+
+  List<RoomBlockJpaEntity> findByHotelIdOrderByStartDateAscEndDateAscIdAsc(UUID hotelId);
 }
