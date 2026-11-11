@@ -48,7 +48,8 @@ public final class HotelPublishReadiness {
         && roomType.maxAdults() >= 1
         && roomType.maxChildren() >= 0
         && roomType.maxOccupancy() >= 1
-        && roomType.maxAdults() <= roomType.maxOccupancy();
+        && roomType.maxAdults() <= roomType.maxOccupancy()
+        && roomType.maxChildren() <= roomType.maxOccupancy();
   }
 
   private static boolean isBlank(String value) {

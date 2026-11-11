@@ -44,8 +44,10 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
 
   @Override
   public Booking add(Booking booking) {
-    BookingJpaEntity savedBooking =
-        bookingJpaRepository.saveAndFlush(mapper.toBookingEntity(booking));
+    BookingJpaEntity newBooking = mapper.toBookingEntity(booking);
+    // UUID đã được cấp ở domain; version null đánh dấu đây là bản ghi mới cho Spring Data JPA.
+    newBooking.setVersion(null);
+    BookingJpaEntity savedBooking = bookingJpaRepository.saveAndFlush(newBooking);
 
     List<BookingItemJpaEntity> itemEntities = new ArrayList<>();
     List<BookingNightPriceJpaEntity> nightEntities = new ArrayList<>();

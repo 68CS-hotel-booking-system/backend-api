@@ -16,6 +16,7 @@ import com.team.hotelbooking.inventory.application.usecase.SearchHotelsUseCase;
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -220,7 +221,7 @@ public final class SearchHotelsService implements SearchHotelsUseCase {
       throw InventoryException.invalidDateRange(
           "Ngày nhận và trả phòng phải được truyền cùng nhau.");
     }
-    if (checkIn.isBefore(LocalDate.now(clock))) {
+    if (checkIn.isBefore(BusinessTime.today(clock))) {
       throw InventoryException.invalidDateRange("Ngày nhận phòng không thể ở trong quá khứ.");
     }
     if (!checkOut.isAfter(checkIn)) {

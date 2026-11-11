@@ -17,6 +17,7 @@ import com.team.hotelbooking.booking.application.port.BookingHotelPort;
 import com.team.hotelbooking.booking.application.port.BookingHotelPort.HotelSnapshot;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort.AccountSnapshot;
+import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.CalculatedItemQuote;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.CalculatedNightlyPrice;
@@ -60,6 +61,7 @@ class BookingServicesTests {
   @Mock private BookingIdentityPort accounts;
   @Mock private BookingHotelPort hotels;
   @Mock private BookingPricingPort pricing;
+  @Mock private BookingInventoryPort inventory;
 
   private Clock clock;
   private CreateBookingService createBookingService;
@@ -72,7 +74,8 @@ class BookingServicesTests {
   void setUp() {
     clock = Clock.fixed(Instant.parse("2026-11-09T02:00:00Z"), ZoneOffset.UTC);
     createBookingService =
-        new CreateBookingService(bookings, accounts, pricing, clock, Duration.ofMinutes(15));
+        new CreateBookingService(
+            bookings, accounts, pricing, inventory, clock, Duration.ofMinutes(15));
     listCustomerBookingsService = new ListCustomerBookingsService(bookings, accounts, 50);
     getCustomerBookingDetailService = new GetCustomerBookingDetailService(bookings, accounts);
     listManagementBookingsService =
@@ -94,13 +97,13 @@ class BookingServicesTests {
         LocalTime.of(12, 0),
         "VND",
         2_000_000L,
-        500_000L,
         0L,
-        200_000L,
-        700_000L,
-        2_700_000L,
         0L,
-        2_700_000L,
+        0L,
+        0L,
+        2_000_000L,
+        0L,
+        2_000_000L,
         List.of(
             new CalculatedItemQuote(
                 ROOM_TYPE_ID,
@@ -108,13 +111,13 @@ class BookingServicesTests {
                 1,
                 2,
                 1,
-                1,
+                0,
                 2_000_000L,
-                500_000L,
                 0L,
-                200_000L,
-                700_000L,
-                2_700_000L,
+                0L,
+                0L,
+                0L,
+                2_000_000L,
                 List.of(
                     new CalculatedNightlyPrice(LocalDate.of(2026, 11, 10), 1_000_000L),
                     new CalculatedNightlyPrice(LocalDate.of(2026, 11, 11), 1_000_000L)))));
@@ -153,7 +156,7 @@ class BookingServicesTests {
               new ContactInput("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
               new ContactInput("Trần Thị Ở", "guest@example.com", "0987654321"),
               List.of(new BookingItemInput(ROOM_TYPE_ID, 1, 2, 1)),
-              2_700_000L);
+              2_000_000L);
 
       // When
       BookingDetailResult result = createBookingService.execute(command);
@@ -172,14 +175,21 @@ class BookingServicesTests {
       assertEquals("guest@example.com", result.guest().email());
       assertEquals("0987654321", result.guest().phone());
       assertEquals(2_000_000L, result.roomSubtotalAmount());
-      assertEquals(700_000L, result.surchargeAmount());
-      assertEquals(2_700_000L, result.subtotalAmount());
-      assertEquals(2_700_000L, result.totalAmount());
+      assertEquals(0L, result.surchargeAmount());
+      assertEquals(2_000_000L, result.subtotalAmount());
+      assertEquals(2_000_000L, result.totalAmount());
       assertEquals("PENDING_PAYMENT", result.status());
       assertEquals(Instant.parse("2026-11-09T02:15:00Z"), result.expiresAt());
       assertNotNull(result.paymentHandoff());
-      assertEquals(2_700_000L, result.paymentHandoff().payableAmount());
+      assertEquals(2_000_000L, result.paymentHandoff().payableAmount());
       assertEquals("VND", result.paymentHandoff().currency());
+      org.mockito.Mockito.verify(inventory)
+          .hold(
+              org.mockito.ArgumentMatchers.argThat(
+                  booking ->
+                      booking.id().equals(result.id())
+                          && booking.items().get(0).nightlyPrices().size() == 2
+                          && booking.totalAmount() == 2_000_000L));
     }
 
     @Test
@@ -218,6 +228,7 @@ class BookingServicesTests {
 
       // Then
       assertEquals(BookingErrorCode.PRICE_CHANGED, error.code());
+      org.mockito.Mockito.verifyNoInteractions(bookings, inventory);
     }
 
     @Test
@@ -290,7 +301,7 @@ class BookingServicesTests {
                   new ContactInput("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
                   new ContactInput("Trần Thị Ở", "guest@example.com", "0987654321"),
                   List.of(new BookingItemInput(ROOM_TYPE_ID, 1, 2, 1)),
-                  2_700_000L));
+                  2_000_000L));
 
       Booking domainBooking =
           Booking.rehydrate(

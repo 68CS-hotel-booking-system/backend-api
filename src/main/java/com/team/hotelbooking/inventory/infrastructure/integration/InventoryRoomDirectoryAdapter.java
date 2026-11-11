@@ -4,6 +4,7 @@ import com.team.hotelbooking.hotel.RoomInventoryDirectory;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
 import com.team.hotelbooking.inventory.application.port.InventoryQueryPort;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.RoomAssignmentJpaRepository;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
@@ -28,7 +29,7 @@ public class InventoryRoomDirectoryAdapter implements RoomInventoryDirectory {
 
   @Override
   public void requireAllocatableAfterDeactivation(UUID roomTypeId, UUID roomId) {
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = BusinessTime.today(clock);
     LocalDate end = LocalDate.of(9999, 12, 31);
     if (!assignments.findActiveByRoomIdOverlapping(roomId, today, end).isEmpty()
         || !inventory.canAllocateAfterAssignment(roomTypeId, today, end)) {

@@ -9,6 +9,7 @@ import com.team.hotelbooking.pricing.domain.model.DailyRate;
 import com.team.hotelbooking.pricing.domain.model.RoomRate;
 import com.team.hotelbooking.pricing.domain.model.RoomTypeRates;
 import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -52,7 +53,7 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
       throw PricingException.maxRangeExceeded("Khoảng thời gian thiết lập giá tối đa là 365 ngày.");
     }
 
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = BusinessTime.today(clock);
     if (startDate.isBefore(today)) {
       throw PricingException.invalidDateRange("Không thể đặt giá cho ngày trong quá khứ.");
     }

@@ -4,6 +4,7 @@ import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort.AccountSnapshot;
+import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.CalculatedStayQuote;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteCriteria;
@@ -35,6 +36,7 @@ public final class CreateBookingService implements CreateBookingUseCase {
   private final BookingRepository bookings;
   private final BookingIdentityPort accounts;
   private final BookingPricingPort pricing;
+  private final BookingInventoryPort inventory;
   private final Clock clock;
   private final Duration holdTtl;
 
@@ -42,6 +44,7 @@ public final class CreateBookingService implements CreateBookingUseCase {
       BookingRepository bookings,
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
+      BookingInventoryPort inventory,
       Clock clock,
       Duration holdTtl) {
 
@@ -52,6 +55,7 @@ public final class CreateBookingService implements CreateBookingUseCase {
     this.bookings = bookings;
     this.accounts = accounts;
     this.pricing = pricing;
+    this.inventory = inventory;
     this.clock = clock;
     this.holdTtl = holdTtl;
   }
@@ -169,6 +173,8 @@ public final class CreateBookingService implements CreateBookingUseCase {
             domainItems);
 
     Booking saved = bookings.add(booking);
+    // Giữ phòng liên tục trong cùng transaction; hết phòng phải rollback cả đơn và giá chốt.
+    inventory.hold(saved);
     return BookingDetailResult.from(saved);
   }
 
