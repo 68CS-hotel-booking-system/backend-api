@@ -1,7 +1,9 @@
 package com.team.hotelbooking.payment.api.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.team.hotelbooking.payment.api.dto.request.UpdateFinancialAccessRequest;
 import com.team.hotelbooking.payment.api.exception.FinanceExceptionHandler;
+import com.team.hotelbooking.payment.application.command.UpdateFinancialAccessCommand;
 import com.team.hotelbooking.payment.application.result.FinancialAccessDetailResult;
 import com.team.hotelbooking.payment.application.result.FinancialAccessHistoryResult;
 import com.team.hotelbooking.payment.application.result.FinancialAccessResult;
@@ -26,15 +29,24 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Controller quản trị phân quyền tài chính")
 class AdminFinancialAccessControllerTests {
+
+  private static final UUID ADMIN_ID = UUID.fromString("3e000000-0000-4000-8000-000000000101");
+  private static final Authentication ADMIN =
+      new UsernamePasswordAuthenticationToken(
+          ADMIN_ID.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
   private MockMvc mvc;
   private ObjectMapper objectMapper;
@@ -60,7 +72,7 @@ class AdminFinancialAccessControllerTests {
   class UpdateFinancialAccessTests {
 
     @Test
-    @DisplayName("Nên cập nhật quyền tài chính thành công")
+    @DisplayName("Nên cập nhật quyền tài chính thành công, người thực hiện lấy từ principal")
     void shouldUpdateFinancialAccessSuccessfully() throws Exception {
       // Given
       UUID hotelId = UUID.randomUUID();
@@ -83,16 +95,25 @@ class AdminFinancialAccessControllerTests {
               1L);
 
       given(updateFinancialAccessUseCase.execute(any())).willReturn(result);
+      ArgumentCaptor<UpdateFinancialAccessCommand> command =
+          ArgumentCaptor.forClass(UpdateFinancialAccessCommand.class);
 
-      // When & Then
+      // When
       mvc.perform(
               put("/api/v1/admin/hotels/{hotelId}/financial-access/{userId}", hotelId, userId)
+                  .principal(ADMIN)
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(request)))
+          // Then
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.message").value("Cập nhật quyền tài chính thành công."))
           .andExpect(jsonPath("$.data.isGranted").value(true))
           .andExpect(jsonPath("$.data.version").value(1));
+
+      then(updateFinancialAccessUseCase).should().execute(command.capture());
+      assertThat(command.getValue().currentAdminUserId()).isEqualTo(ADMIN_ID);
+      assertThat(command.getValue().hotelId()).isEqualTo(hotelId);
+      assertThat(command.getValue().targetUserId()).isEqualTo(userId);
     }
 
     @Test
@@ -113,6 +134,7 @@ class AdminFinancialAccessControllerTests {
       // When & Then
       mvc.perform(
               put("/api/v1/admin/hotels/{hotelId}/financial-access/{userId}", hotelId, userId)
+                  .principal(ADMIN)
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(request)))
           .andExpect(status().isConflict())

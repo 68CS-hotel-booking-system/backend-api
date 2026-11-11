@@ -9,6 +9,7 @@ import com.team.hotelbooking.payment.application.result.FinancialAccessDetailRes
 import com.team.hotelbooking.payment.application.result.FinancialAccessResult;
 import com.team.hotelbooking.payment.application.usecase.GetFinancialAccessUseCase;
 import com.team.hotelbooking.payment.application.usecase.UpdateFinancialAccessUseCase;
+import com.team.hotelbooking.shared.security.CurrentActor;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,6 +33,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/hotels")
+// Chỉ ADMIN cấp/thu hồi và xem quyền tài chính. Không đặt @PreAuthorize ở method: annotation cấp
+// method ghi đè annotation cấp class và sẽ nới quyền lại.
+@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 @Tag(
     name = "Finance - Access Control",
@@ -54,6 +59,14 @@ public class AdminFinancialAccessController {
         description = "Dữ liệu yêu cầu không hợp lệ",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa đăng nhập",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không phải ADMIN",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
         description = "Không tìm thấy khách sạn hoặc người dùng",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
@@ -63,12 +76,12 @@ public class AdminFinancialAccessController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @PutMapping("/{hotelId}/financial-access/{userId}")
-  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<FinancialAccessDto>> updateFinancialAccess(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID người dùng được phân quyền", required = true) @PathVariable
           UUID userId,
-      @Valid @RequestBody UpdateFinancialAccessRequest request) {
+      @Valid @RequestBody UpdateFinancialAccessRequest request,
+      Authentication authentication) {
 
     FinancialAccessResult result =
         updateFinancialAccessUseCase.execute(
@@ -79,7 +92,7 @@ public class AdminFinancialAccessController {
                 request.accessScope(),
                 request.reason(),
                 request.expectedVersion(),
-                null));
+                CurrentActor.userId(authentication)));
 
     FinancialAccessDto dto = FinancialAccessDto.from(result);
 
@@ -95,12 +108,19 @@ public class AdminFinancialAccessController {
         responseCode = "200",
         description = "Lấy dữ liệu thành công"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa đăng nhập",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không phải ADMIN",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
         description = "Không tìm thấy thông tin phân quyền cho người dùng tại khách sạn này",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @GetMapping("/{hotelId}/financial-access/{userId}")
-  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<FinancialAccessDetailResponse>> getFinancialAccess(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID người dùng", required = true) @PathVariable UUID userId) {
