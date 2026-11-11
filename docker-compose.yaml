@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Chua khai bao mat khau PostgreSQL}
 
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:15432:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -30,7 +30,7 @@ services:
     image: axllent/mailpit
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:11025:1025"
       - "127.0.0.1:8025:8025"
 
 volumes:

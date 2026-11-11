@@ -82,14 +82,14 @@ public class ManagementHotelController {
         .body(ApiResponse.success("Lấy thông tin quản lý khách sạn thành công.", response));
   }
 
-  // ADMIN, Owner hoặc HOTEL_MANAGER của đúng hotel; quyền theo hotel kiểm trong use case.
+  // Owner hoặc HOTEL_MANAGER của đúng hotel; quyền theo hotel kiểm trong use case.
   @Operation(
       summary = "Sửa thông tin khách sạn",
       description =
           "Cập nhật một phần: field không gửi hoặc null được giữ nguyên, chưa hỗ trợ xóa giá trị."
               + " Chuỗi rỗng/khoảng trắng trả 400, không coi là xóa. latitude và longitude phải"
               + " gửi cùng nhau, trong miền [-90, 90] và [-180, 180]; starRating từ 1 đến 5."
-              + " Body chỉ có version trả 400 INVALID_REQUEST. Chỉ ADMIN, Owner của khách sạn hoặc"
+              + " Body chỉ có version trả 400 INVALID_REQUEST. Chỉ Owner của khách sạn hoặc"
               + " HOTEL_MANAGER đang hoạt động của đúng khách sạn đó được sửa. Thành viên khách sạn"
               + " không đủ quyền (RECEPTIONIST) nhận 403; người không thuộc khách sạn hoặc khách"
               + " sạn không tồn tại nhận 404. Version lệch trả 409 CONCURRENT_UPDATE.")

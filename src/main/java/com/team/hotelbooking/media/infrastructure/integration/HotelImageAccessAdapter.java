@@ -18,6 +18,11 @@ public class HotelImageAccessAdapter implements HotelImageAccess {
   }
 
   @Override
+  public void requireUpload(UUID actorId, UUID hotelId) {
+    hotels.requireImageUpload(actorId, hotelId);
+  }
+
+  @Override
   public void lockForUpdate(UUID actorId, UUID hotelId, long expectedVersion) {
 
     hotels.lockForImageUpdate(actorId, hotelId, expectedVersion);

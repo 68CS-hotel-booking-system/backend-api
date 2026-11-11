@@ -29,7 +29,7 @@ public final class GetRoomTypeAmenitiesService implements GetRoomTypeAmenitiesUs
         || query.hotelId() == null
         || query.roomTypeId() == null)
       throw HotelException.invalid("Người thực hiện, khách sạn và hạng phòng là bắt buộc.");
-    access.requireEditableHotel(query.actorUserId(), query.admin(), query.hotelId());
+    access.requireManageableHotel(query.actorUserId(), query.admin(), query.hotelId());
     roomTypes
         .findByIdAndHotelId(query.roomTypeId(), query.hotelId())
         .orElseThrow(() -> new HotelException(HotelErrorCode.ROOM_TYPE_NOT_FOUND));

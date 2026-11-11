@@ -81,23 +81,18 @@ class UpdateHotelServiceTests {
   class AuthorizationTests {
 
     @Test
-    void shouldUpdateAnyHotelWithoutMembershipCheckWhenActorIsAdmin() {
-      // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
-      givenUpdateReturnsSavedHotel();
-
-      // When
-      ManagementHotelResult result = execute(command(ADMIN_ID, true).name("Tên mới"));
-
-      // Then
-      assertEquals("Tên mới", result.name());
-      then(hotels).should(never()).findActiveMemberRoles(any(), any());
+    void shouldDenyAdminProfileWrites() {
+      HotelException error =
+          assertThrows(
+              HotelException.class, () -> execute(command(ADMIN_ID, true).name("Admin edit")));
+      assertEquals(HotelErrorCode.ACCESS_DENIED, error.code());
+      then(hotels).shouldHaveNoInteractions();
     }
 
     @Test
     void shouldUpdateOnlyProvidedFieldsWhenActorOwnsHotel() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       givenUpdateReturnsSavedHotel();
 
       // When
@@ -127,7 +122,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldUpdateHotelWhenActorIsActiveManagerOfSameHotel() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(HOTEL_ID, MANAGER_ID))
           .willReturn(Set.of(HotelMemberRole.HOTEL_MANAGER));
       givenUpdateReturnsSavedHotel();
@@ -143,7 +138,7 @@ class UpdateHotelServiceTests {
     void shouldReturnNotFoundWhenActorIsNotMemberOfHotel() {
       // Given
       // Quản lý hotel khác, khách hàng hay Owner hotel khác đều không có vai trò ở hotel này.
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(HOTEL_ID, OTHER_USER_ID)).willReturn(Set.of());
 
       // When
@@ -159,7 +154,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldDenyAccessWhenActorIsReceptionistOfHotel() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(HOTEL_ID, OTHER_USER_ID))
           .willReturn(Set.of(HotelMemberRole.RECEPTIONIST));
 
@@ -176,7 +171,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldUpdateHotelWhenActorHasBothReceptionistAndManagerRoles() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(HOTEL_ID, MANAGER_ID))
           .willReturn(Set.of(HotelMemberRole.RECEPTIONIST, HotelMemberRole.HOTEL_MANAGER));
       givenUpdateReturnsSavedHotel();
@@ -191,7 +186,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldReturnNotFoundWithoutMembershipCheckWhenNonAdminTargetsMissingHotel() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.empty());
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.empty());
 
       // When
       HotelException error =
@@ -204,16 +199,12 @@ class UpdateHotelServiceTests {
     }
 
     @Test
-    void shouldReturnNotFoundWhenAdminTargetsMissingHotel() {
-      // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.empty());
-
-      // When
+    void shouldDenyAdminEvenWhenHotelDoesNotExist() {
       HotelException error =
-          assertThrows(HotelException.class, () -> execute(command(ADMIN_ID, true).name("Tên")));
-
-      // Then
-      assertEquals(HotelErrorCode.HOTEL_NOT_FOUND, error.code());
+          assertThrows(
+              HotelException.class, () -> execute(command(ADMIN_ID, true).name("Admin edit")));
+      assertEquals(HotelErrorCode.ACCESS_DENIED, error.code());
+      then(hotels).shouldHaveNoInteractions();
     }
   }
 
@@ -224,7 +215,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldPassClientVersionToRepositoryWhenVersionIsStale() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.update(any(Hotel.class), eq(2L)))
           .willAnswer(invocation -> invocation.getArgument(0));
 
@@ -252,7 +243,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldRejectRequestWhenNoFieldIsProvided() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
 
       // When
       HotelException error =
@@ -267,7 +258,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldRejectRequestWhenNameIsBlank() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
 
       // When
       HotelException error =
@@ -281,7 +272,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldRejectRequestInsteadOfClearingWhenDescriptionIsBlank() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
 
       // When
       HotelException error =
@@ -298,7 +289,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldRejectRequestWhenOnlyLatitudeIsProvided() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
 
       // When
       HotelException error =
@@ -314,7 +305,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldRejectRequestWhenLongitudeIsOutOfRange() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
 
       // When
       HotelException error =
@@ -333,7 +324,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldUpdateBothCoordinatesWhenPairIsProvided() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       givenUpdateReturnsSavedHotel();
 
       // When
@@ -350,7 +341,7 @@ class UpdateHotelServiceTests {
     @Test
     void shouldRejectRequestWhenStarRatingIsOutOfRange() {
       // Given
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
 
       // When
       HotelException error =

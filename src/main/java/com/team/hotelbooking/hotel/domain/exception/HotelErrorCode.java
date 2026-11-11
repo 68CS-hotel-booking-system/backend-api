@@ -5,6 +5,11 @@ import com.team.hotelbooking.shared.exception.ErrorCode;
 public enum HotelErrorCode implements ErrorCode {
   VALIDATION_FAILED("Dữ liệu khách sạn không hợp lệ."),
   ACCESS_DENIED("Bạn không có quyền thực hiện thao tác này."),
+  REVIEW_NOT_FOUND("Không tìm thấy hồ sơ xét duyệt."),
+  REVIEW_PENDING("Khách sạn đang có hồ sơ chờ xét duyệt; chưa được chỉnh sửa hoặc gửi lại."),
+  REVIEW_REQUIRED("Khách sạn phải có hồ sơ PENDING do Owner gửi trước khi được duyệt."),
+  REVIEW_ALREADY_DECIDED("Hồ sơ đã được xét duyệt."),
+  REVIEW_CONCURRENT_UPDATE("Phiên bản đã thay đổi. Vui lòng tải lại trước khi thực hiện."),
   HOTEL_NOT_FOUND("Không tìm thấy khách sạn."),
   ROOM_TYPE_NOT_FOUND("Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn."),
   ROOM_TYPE_INACTIVE("Loại phòng đã ngừng hoạt động."),

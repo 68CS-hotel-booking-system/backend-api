@@ -62,10 +62,8 @@ public class CreateRoomService implements CreateRoomUseCase {
     }
 
     Hotel hotel =
-        (admin
-                ? hotels.findById(command.hotelId())
-                : hotels.findByIdAndOwnerId(command.hotelId(), actor.id()))
-            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+        new HotelManagementAccess(hotels)
+            .requireEditableHotel(actor.id(), admin, command.hotelId());
 
     RoomType roomType =
         roomTypes

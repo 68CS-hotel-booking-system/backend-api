@@ -19,6 +19,8 @@ public interface HotelRepository {
   // Khóa ghi hàng hotel để các thao tác thay danh sách con của cùng khách sạn chạy tuần tự.
   Optional<Hotel> findByIdForUpdate(UUID hotelId);
 
+  boolean hasPendingReview(UUID hotelId);
+
   // Ghi đè thông tin hotel nếu version hiện tại bằng expectedVersion; lệch thì báo xung đột.
   Hotel update(Hotel hotel, long expectedVersion);
 

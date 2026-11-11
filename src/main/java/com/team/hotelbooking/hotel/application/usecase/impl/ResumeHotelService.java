@@ -36,7 +36,7 @@ public class ResumeHotelService implements ResumeHotelUseCase {
   public ManagementHotelResult execute(ResumeHotelCommand command) {
     Objects.requireNonNull(command, "Command không được null.");
 
-    access.requireEditableHotel(command.actorUserId(), command.admin(), command.hotelId());
+    access.requireManageableHotel(command.actorUserId(), command.admin(), command.hotelId());
     Hotel hotel = lifecycle.lockForStatusChange(command.hotelId());
     Instant now = clock.instant();
     Hotel resumed = hotel.resume(now);

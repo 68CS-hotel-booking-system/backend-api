@@ -34,6 +34,7 @@ public class HotelExceptionHandler {
               HttpStatus.BAD_REQUEST;
           case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
           case OWNER_NOT_FOUND,
+              REVIEW_NOT_FOUND,
               CITY_NOT_FOUND,
               HOTEL_NOT_FOUND,
               ROOM_TYPE_NOT_FOUND,
@@ -41,6 +42,10 @@ public class HotelExceptionHandler {
               AMENITY_NOT_FOUND ->
               HttpStatus.NOT_FOUND;
           case DUPLICATE_CUSTOM_AMENITY,
+              REVIEW_PENDING,
+              REVIEW_REQUIRED,
+              REVIEW_ALREADY_DECIDED,
+              REVIEW_CONCURRENT_UPDATE,
               AMENITY_CONCURRENT_UPDATE,
               OWNER_NOT_ELIGIBLE,
               ROOM_OPERATION_CONFLICT,

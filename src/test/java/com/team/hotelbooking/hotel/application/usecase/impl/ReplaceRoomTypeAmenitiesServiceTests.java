@@ -39,7 +39,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
 
   private static final UUID HOTEL_ID = UUID.fromString("7b4f2c1e-3d5a-4e6b-8c9d-0a1b2c3d4e5f");
   private static final UUID ROOM_TYPE_ID = UUID.fromString("5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b");
-  private static final UUID ADMIN_ID = UUID.fromString("4c5d6e7f-8a9b-4c0d-9e2f-3a4b5c6d7e8f");
+  private static final UUID OWNER_ID = UUID.fromString("1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9");
   private static final Instant NOW = Instant.parse("2026-11-04T00:00:00Z");
   private static final Amenity WIFI =
       new Amenity(
@@ -110,7 +110,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
     @Test
     void shouldReplaceListAfterLockingRoomTypeWhenAmenitiesAreRoomCategory() {
       // Given
-      givenAdminManagesHotel();
+      givenOwnerManagesHotel();
       given(roomTypes.findByIdAndHotelIdForUpdate(ROOM_TYPE_ID, HOTEL_ID))
           .willReturn(Optional.of(roomType));
       given(amenities.findAllByIds(Set.of(WIFI.id()))).willReturn(List.of(WIFI));
@@ -120,7 +120,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
       List<ListAmenitiesResult> result =
           service.execute(
               new ReplaceRoomTypeAmenitiesCommand(
-                  ADMIN_ID, true, HOTEL_ID, ROOM_TYPE_ID, List.of(WIFI.id())));
+                  OWNER_ID, false, HOTEL_ID, ROOM_TYPE_ID, List.of(WIFI.id())));
 
       // Then
       InOrder order = inOrder(roomTypes, amenities);
@@ -134,7 +134,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
     @Test
     void shouldRejectHotelAmenityWithoutWritingWhenCategoryIsWrong() {
       // Given
-      givenAdminManagesHotel();
+      givenOwnerManagesHotel();
       given(roomTypes.findByIdAndHotelIdForUpdate(ROOM_TYPE_ID, HOTEL_ID))
           .willReturn(Optional.of(roomType));
       given(amenities.findAllByIds(Set.of(POOL.id()))).willReturn(List.of(POOL));
@@ -146,7 +146,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
               () ->
                   service.execute(
                       new ReplaceRoomTypeAmenitiesCommand(
-                          ADMIN_ID, true, HOTEL_ID, ROOM_TYPE_ID, List.of(POOL.id()))));
+                          OWNER_ID, false, HOTEL_ID, ROOM_TYPE_ID, List.of(POOL.id()))));
 
       // Then
       assertEquals(HotelErrorCode.AMENITY_CATEGORY_MISMATCH, error.code());
@@ -157,7 +157,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
     @Test
     void shouldReturnRoomTypeNotFoundWhenRoomTypeBelongsToAnotherHotel() {
       // Given
-      givenAdminManagesHotel();
+      givenOwnerManagesHotel();
       given(roomTypes.findByIdAndHotelIdForUpdate(ROOM_TYPE_ID, HOTEL_ID))
           .willReturn(Optional.empty());
 
@@ -168,7 +168,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
               () ->
                   service.execute(
                       new ReplaceRoomTypeAmenitiesCommand(
-                          ADMIN_ID, true, HOTEL_ID, ROOM_TYPE_ID, List.of(WIFI.id()))));
+                          OWNER_ID, false, HOTEL_ID, ROOM_TYPE_ID, List.of(WIFI.id()))));
 
       // Then
       assertEquals(HotelErrorCode.ROOM_TYPE_NOT_FOUND, error.code());
@@ -184,7 +184,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
               () ->
                   service.execute(
                       new ReplaceRoomTypeAmenitiesCommand(
-                          ADMIN_ID, true, HOTEL_ID, null, List.of())));
+                          OWNER_ID, false, HOTEL_ID, null, List.of())));
 
       // Then
       assertEquals(HotelErrorCode.VALIDATION_FAILED, error.code());
@@ -193,7 +193,7 @@ class ReplaceRoomTypeAmenitiesServiceTests {
     }
   }
 
-  private void givenAdminManagesHotel() {
-    given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+  private void givenOwnerManagesHotel() {
+    given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
   }
 }

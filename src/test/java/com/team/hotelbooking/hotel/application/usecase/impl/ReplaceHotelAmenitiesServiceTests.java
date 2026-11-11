@@ -99,7 +99,6 @@ class ReplaceHotelAmenitiesServiceTests {
     @Test
     void shouldReplaceWholeListAfterLockingHotelWhenAmenitiesAreHotelCategory() {
       // Given
-      givenOwnerManagesHotel();
       given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(amenities.findAllByIds(Set.of(POOL.id(), PARKING.id())))
           .willReturn(List.of(POOL, PARKING));
@@ -125,7 +124,6 @@ class ReplaceHotelAmenitiesServiceTests {
     @Test
     void shouldRemoveAllAmenitiesWhenListIsEmpty() {
       // Given
-      givenOwnerManagesHotel();
       given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(amenities.findAllByIds(Set.of())).willReturn(List.of());
       given(amenities.findByHotelId(HOTEL_ID)).willReturn(List.of());
@@ -142,7 +140,6 @@ class ReplaceHotelAmenitiesServiceTests {
     @Test
     void shouldRejectRoomAmenityWithoutWritingWhenCategoryIsWrong() {
       // Given
-      givenOwnerManagesHotel();
       given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(amenities.findAllByIds(Set.of(POOL.id(), WIFI.id()))).willReturn(List.of(POOL, WIFI));
 
@@ -165,7 +162,6 @@ class ReplaceHotelAmenitiesServiceTests {
     void shouldReturnAmenityNotFoundWithoutWritingWhenIdDoesNotExist() {
       // Given
       UUID missingId = UUID.fromString("00000000-0000-4000-8000-000000000001");
-      givenOwnerManagesHotel();
       given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(amenities.findAllByIds(Set.of(POOL.id(), missingId))).willReturn(List.of(POOL));
 
@@ -184,10 +180,10 @@ class ReplaceHotelAmenitiesServiceTests {
     }
 
     @Test
-    void shouldReturnNotFoundWithoutLockingWhenActorIsNotMemberOfHotel() {
+    void shouldReturnNotFoundBeforeWritingWhenActorIsNotMemberOfHotel() {
       // Given
       UUID outsiderId = UUID.fromString("2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c6d");
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(HOTEL_ID, outsiderId)).willReturn(Set.of());
 
       // When
@@ -201,15 +197,15 @@ class ReplaceHotelAmenitiesServiceTests {
 
       // Then
       assertEquals(HotelErrorCode.HOTEL_NOT_FOUND, error.code());
-      then(hotels).should(never()).findByIdForUpdate(any());
+      then(hotels).should().findByIdForUpdate(HOTEL_ID);
       then(amenities).shouldHaveNoInteractions();
     }
 
     @Test
-    void shouldDenyAccessWithoutLockingWhenActorIsReceptionistOfHotel() {
+    void shouldDenyAccessBeforeWritingWhenActorIsReceptionistOfHotel() {
       // Given
       UUID receptionistId = UUID.fromString("5d6e7f8a-9b0c-4d1e-8f2a-3b4c5d6e7f80");
-      given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(HOTEL_ID)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(HOTEL_ID, receptionistId))
           .willReturn(Set.of(HotelMemberRole.RECEPTIONIST));
 
@@ -224,7 +220,7 @@ class ReplaceHotelAmenitiesServiceTests {
 
       // Then
       assertEquals(HotelErrorCode.ACCESS_DENIED, error.code());
-      then(hotels).should(never()).findByIdForUpdate(any());
+      then(hotels).should().findByIdForUpdate(HOTEL_ID);
       then(amenities).shouldHaveNoInteractions();
     }
 
@@ -264,7 +260,4 @@ class ReplaceHotelAmenitiesServiceTests {
   }
 
   // Owner theo hotels.owner_user_id nên không cần tra hotel_members.
-  private void givenOwnerManagesHotel() {
-    given(hotels.findById(HOTEL_ID)).willReturn(Optional.of(hotel));
-  }
 }

@@ -33,7 +33,12 @@ public class UpdateRoomService implements UpdateRoomUseCase {
     Objects.requireNonNull(command, "Command không được null.");
 
     // Kiểm quyền theo hotel trước, rồi mới xét bản ghi con có thuộc hotel hay không.
-    access.requireEditableHotel(command.actorUserId(), command.admin(), command.hotelId());
+    if (command.roomNumber() != null || command.floor() != null || command.active() != null) {
+      access.requireEditableHotel(command.actorUserId(), command.admin(), command.hotelId());
+    } else {
+      // Readiness là trạng thái buồng phòng, không phải nội dung hồ sơ.
+      access.requireManageableHotel(command.actorUserId(), command.admin(), command.hotelId());
+    }
 
     Room room =
         rooms

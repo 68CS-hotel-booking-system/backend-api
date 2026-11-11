@@ -94,7 +94,7 @@ public class ManagementRoomTypeController {
   @Operation(
       summary = "[HT17] Cập nhật thông tin hoặc ngừng bán loại phòng",
       description =
-          "Chỉnh sửa một phần thông tin loại phòng (tên, mô tả, sức chứa, giá cơ bản) hoặc cập nhật trạng thái mở bán (active). Chỉ ADMIN, Owner của khách sạn hoặc HOTEL_MANAGER đang hoạt động của đúng khách sạn đó được sửa.")
+          "Chỉnh sửa một phần thông tin loại phòng (tên, mô tả, sức chứa, giá cơ bản) hoặc cập nhật trạng thái mở bán (active). Chỉ Owner của khách sạn hoặc HOTEL_MANAGER đang hoạt động của đúng khách sạn đó được sửa.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",

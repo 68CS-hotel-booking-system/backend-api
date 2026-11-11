@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
+import com.team.hotelbooking.hotel.application.port.HotelReviewSnapshotPort;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts.AccountSnapshot;
 import com.team.hotelbooking.hotel.application.result.ManagementHotelResult;
@@ -14,7 +16,11 @@ import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
 import com.team.hotelbooking.hotel.domain.model.HotelPublishRequirement;
+import com.team.hotelbooking.hotel.domain.model.HotelReviewRequest;
+import com.team.hotelbooking.hotel.domain.model.HotelReviewSnapshot;
 import com.team.hotelbooking.hotel.domain.model.HotelStatusChange;
+import com.team.hotelbooking.hotel.domain.repository.HotelReviewRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,14 +38,35 @@ class ApproveHotelServiceTests extends HotelStatusServiceFixture {
 
   @Mock private IdentityAccounts accounts;
 
+  @Mock private HotelReviewRepository reviews;
+  @Mock private HotelReviewSnapshotPort snapshots;
   private ApproveHotelService service;
 
   @BeforeEach
   void setUp() {
-    service = new ApproveHotelService(hotels, roomTypes, rooms, history, accounts, clock);
+    service =
+        new ApproveHotelService(
+            new HotelReviewService(
+                hotels, reviews, snapshots, accounts, roomTypes, rooms, history, clock, 100));
   }
 
   private void givenActiveAdmin() {
+    var snapshot =
+        new HotelReviewSnapshot(
+            hotel(Hotel.Status.DRAFT),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of());
+    lenient()
+        .when(reviews.findPendingByHotelId(HOTEL_ID))
+        .thenReturn(Optional.of(HotelReviewRequest.submit(snapshot, OWNER_ID, NOW)));
+    lenient().when(reviews.updateDecision(any())).thenAnswer(call -> call.getArgument(0));
+    lenient()
+        .when(hotels.findById(HOTEL_ID))
+        .thenReturn(Optional.of(hotel(Hotel.Status.DRAFT).activate(NOW)));
     given(accounts.findById(ADMIN_ID))
         .willReturn(Optional.of(new AccountSnapshot(ADMIN_ID, true, true, Set.of("ADMIN"))));
   }
@@ -103,7 +130,8 @@ class ApproveHotelServiceTests extends HotelStatusServiceFixture {
 
       // When & Then
       assertThatThrownBy(() -> service.execute(HOTEL_ID, ADMIN_ID))
-          .satisfies(ex -> assertThat(codeOf(ex)).isEqualTo(HotelErrorCode.VALIDATION_FAILED));
+          .satisfies(
+              ex -> assertThat(codeOf(ex)).isEqualTo(HotelErrorCode.INVALID_STATUS_TRANSITION));
       then(roomTypes).shouldHaveNoInteractions();
       then(history).shouldHaveNoInteractions();
     }

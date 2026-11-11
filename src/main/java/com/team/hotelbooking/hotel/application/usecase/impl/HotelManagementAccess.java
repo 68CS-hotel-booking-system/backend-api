@@ -9,22 +9,10 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Quyền quản lý nội dung khách sạn (HT-09), nguồn duy nhất cho PATCH thông tin hotel, PUT tiện ích,
- * PATCH loại phòng, PATCH phòng và HotelDirectory.findManagementAccess (giá phòng của pricing):
- *
- * <ul>
- *   <li>ADMIN quản lý được mọi hotel; hotel không tồn tại → 404 HOTEL_NOT_FOUND.
- *   <li>Owner của hotel (hotels.owner_user_id) hoặc HOTEL_MANAGER đang hoạt động của đúng hotel đó
- *       được quản lý.
- *   <li>Thành viên đang hoạt động nhưng không đủ quyền (RECEPTIONIST) → 403 ACCESS_DENIED.
- *   <li>Còn lại (không phải Owner/thành viên, hoặc hotel không tồn tại) → 404 HOTEL_NOT_FOUND,
- *       giống GetManagementHotelService/ListManagementRoomsService, để không lộ hotel có tồn tại.
- * </ul>
- *
- * <p>Không đọc lại tài khoản qua IdentityAccounts: actorUserId và cờ admin lấy từ principal do
- * CurrentUserJwtConverter dựng. Converter đã chặn tài khoản BANNED/INACTIVE, kiểm auth_version và
- * nạp role hiện tại từ DB; tài khoản PENDING không đăng nhập được. Nên tại đây chỉ còn kiểm quan hệ
- * của người gọi với đúng hotel.
+ * Quyền theo khách sạn. decide/requireManageableHotel phục vụ đọc, giá và vận hành; giữ quyền
+ * Admin. requireEditableHotel chỉ cho Owner/Manager sửa nội dung, khóa hotel trước bản ghi con và
+ * chặn mọi ghi hồ sơ trong khi có review PENDING. Receptionist nhận 403; người ngoài nhận 404.
+ * Principal đã được CurrentUserJwtConverter kiểm trạng thái tài khoản và role hiện tại.
  */
 public final class HotelManagementAccess {
 
@@ -57,11 +45,32 @@ public final class HotelManagementAccess {
   }
 
   public Hotel requireEditableHotel(UUID actorUserId, boolean admin, UUID hotelId) {
+    if (admin) {
+      throw new HotelException(HotelErrorCode.ACCESS_DENIED);
+    }
+    // Parent trước mọi bản ghi con: gửi duyệt và sửa hồ sơ không thể đọc/ghi xen kẽ.
+    Hotel hotel =
+        hotels
+            .findByIdForUpdate(hotelId)
+            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+    requireAccess(actorUserId, false, hotel);
+    if (hotels.hasPendingReview(hotelId)) {
+      throw new HotelException(HotelErrorCode.REVIEW_PENDING);
+    }
+    return hotel;
+  }
+
+  // Đọc và vận hành lưu trú giữ quyền quản trị cũ, không bị khóa bởi hồ sơ PENDING.
+  public Hotel requireManageableHotel(UUID actorUserId, boolean admin, UUID hotelId) {
     Hotel hotel =
         hotels
             .findById(hotelId)
             .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
 
+    return requireAccess(actorUserId, admin, hotel);
+  }
+
+  private Hotel requireAccess(UUID actorUserId, boolean admin, Hotel hotel) {
     return switch (decide(actorUserId, admin, hotel)) {
       case GRANTED -> hotel;
       case DENIED -> throw new HotelException(HotelErrorCode.ACCESS_DENIED);

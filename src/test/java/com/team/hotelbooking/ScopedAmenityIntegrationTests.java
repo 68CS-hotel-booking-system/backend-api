@@ -374,13 +374,13 @@ class ScopedAmenityIntegrationTests {
     }
 
     @Test
-    void shouldPermitAdminAndActiveHotelManager() throws Exception {
+    void shouldDenyAdminWritesAndPermitActiveHotelManager() throws Exception {
       mvc.perform(
               post(HOTEL_PATH)
                   .with(as(ADMIN, "ADMIN"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"name\":\"Admin tạo\"}"))
-          .andExpect(status().isCreated());
+          .andExpect(status().isForbidden());
       mvc.perform(
               post(ROOM_PATH)
                   .with(as(MANAGER, "CUSTOMER"))

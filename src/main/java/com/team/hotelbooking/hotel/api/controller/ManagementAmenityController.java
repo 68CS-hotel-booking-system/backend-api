@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-// Cùng quy tắc quyền với PATCH thông tin khách sạn: ADMIN, Owner hoặc HOTEL_MANAGER của đúng
+// Cùng quy tắc quyền với PATCH thông tin khách sạn: Owner hoặc HOTEL_MANAGER của đúng
 // hotel; RECEPTIONIST của hotel → 403; người ngoài hoặc hotel không tồn tại → 404.
 @RestController
 @RequestMapping("/api/v1/management/hotels/{hotelId}")
