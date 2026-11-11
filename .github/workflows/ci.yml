@@ -35,8 +35,6 @@ jobs:
       SPRING_DATASOURCE_PASSWORD: test
       # Set true after real Flyway migrations have been added.
       REQUIRE_MIGRATIONS: 'true'
-      # Exported outside target/: Maven clean must not remove the baseline.
-      MIGRATION_BASE_DIR: ${{ runner.temp }}/migration-base
 
     steps:
 
@@ -74,6 +72,10 @@ jobs:
         run: |
           set -euo pipefail
           export LC_ALL=C
+          # Set this on the runner; the runner context is unavailable in job env.
+          # Export outside target/ so Maven clean cannot remove the baseline.
+          export MIGRATION_BASE_DIR="$RUNNER_TEMP/migration-base"
+          printf 'MIGRATION_BASE_DIR=%s\n' "$MIGRATION_BASE_DIR" >> "$GITHUB_ENV"
           migration_dir=src/main/resources/db/migration
           name_pattern='^V([0-9]+([._][0-9]+)*)__([A-Za-z0-9][A-Za-z0-9_-]*)\.sql$'
 
