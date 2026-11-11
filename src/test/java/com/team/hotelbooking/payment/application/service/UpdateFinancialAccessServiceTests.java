@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import com.team.hotelbooking.payment.application.command.UpdateFinancialAccessCommand;
 import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
@@ -12,6 +13,7 @@ import com.team.hotelbooking.payment.application.port.PaymentIdentityPort;
 import com.team.hotelbooking.payment.application.result.FinancialAccessResult;
 import com.team.hotelbooking.payment.domain.exception.FinanceErrorCode;
 import com.team.hotelbooking.payment.domain.exception.FinanceException;
+import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelFinancialAccessHistoryJpaEntity;
 import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelFinancialAccessJpaEntity;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessHistoryJpaRepository;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessJpaRepository;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -55,6 +58,25 @@ class UpdateFinancialAccessServiceTests {
   @Nested
   @DisplayName("UpdateFinancialAccessUseCase.execute")
   class ExecuteTests {
+
+    @Test
+    @DisplayName("Từ chối khi thiếu người thực hiện, không tự sinh định danh và không ghi dữ liệu")
+    void shouldThrowAccessDeniedWhenAdminActorIsMissing() {
+      // Given
+      UpdateFinancialAccessCommand command =
+          new UpdateFinancialAccessCommand(
+              UUID.randomUUID(), UUID.randomUUID(), true, "FINANCE_READ", "Lý do", 0L, null);
+
+      // When
+      FinanceException error = assertThrows(FinanceException.class, () -> service.execute(command));
+
+      // Then
+      assertEquals(FinanceErrorCode.ACCESS_DENIED, error.code());
+      then(paymentHotelPort).shouldHaveNoInteractions();
+      then(paymentIdentityPort).shouldHaveNoInteractions();
+      then(accessJpaRepository).shouldHaveNoInteractions();
+      then(historyJpaRepository).shouldHaveNoInteractions();
+    }
 
     @Test
     @DisplayName("Ném lỗi khi khách sạn hoặc người dùng không tồn tại")
@@ -110,6 +132,10 @@ class UpdateFinancialAccessServiceTests {
       entity.setVersion(0L);
 
       given(accessJpaRepository.save(any())).willReturn(entity);
+      ArgumentCaptor<HotelFinancialAccessJpaEntity> savedAccess =
+          ArgumentCaptor.forClass(HotelFinancialAccessJpaEntity.class);
+      ArgumentCaptor<HotelFinancialAccessHistoryJpaEntity> savedHistory =
+          ArgumentCaptor.forClass(HotelFinancialAccessHistoryJpaEntity.class);
 
       // When
       FinancialAccessResult result = service.execute(command);
@@ -119,6 +145,12 @@ class UpdateFinancialAccessServiceTests {
       assertThat(result.userId()).isEqualTo(userId);
       assertThat(result.granted()).isTrue();
       assertThat(result.accessScope()).isEqualTo("FINANCE_READ");
+      assertThat(result.grantedByUserId()).isEqualTo(adminId);
+
+      then(accessJpaRepository).should().save(savedAccess.capture());
+      assertThat(savedAccess.getValue().getGrantedByUserId()).isEqualTo(adminId);
+      then(historyJpaRepository).should().save(savedHistory.capture());
+      assertThat(savedHistory.getValue().getChangedByUserId()).isEqualTo(adminId);
     }
   }
 }

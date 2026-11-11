@@ -28,6 +28,12 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
 
   @Override
   public FinancialAccessResult execute(UpdateFinancialAccessCommand command) {
+    // Người cấp/thu hồi lấy từ principal ADMIN; không tự sinh định danh thay thế (FK tới users).
+    if (command == null || command.currentAdminUserId() == null) {
+      throw FinanceException.accessDenied("Chỉ quản trị hệ thống được phân quyền tài chính.");
+    }
+    UUID adminId = command.currentAdminUserId();
+
     if (!paymentHotelPort.existsById(command.hotelId())) {
       throw FinanceException.hotelNotFound("Không tìm thấy khách sạn.");
     }
@@ -35,9 +41,6 @@ public class UpdateFinancialAccessService implements UpdateFinancialAccessUseCas
     if (!paymentIdentityPort.existsById(command.targetUserId())) {
       throw FinanceException.userNotFound("Không tìm thấy người dùng được chỉ định.");
     }
-
-    UUID adminId =
-        command.currentAdminUserId() != null ? command.currentAdminUserId() : UUID.randomUUID();
 
     Optional<HotelFinancialAccessJpaEntity> optionalAccess =
         accessJpaRepository.findByHotelIdAndUserId(command.hotelId(), command.targetUserId());
