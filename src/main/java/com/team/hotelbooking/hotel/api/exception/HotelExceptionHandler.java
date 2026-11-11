@@ -40,7 +40,9 @@ public class HotelExceptionHandler {
               ROOM_NOT_FOUND,
               AMENITY_NOT_FOUND ->
               HttpStatus.NOT_FOUND;
-          case OWNER_NOT_ELIGIBLE,
+          case DUPLICATE_CUSTOM_AMENITY,
+              AMENITY_CONCURRENT_UPDATE,
+              OWNER_NOT_ELIGIBLE,
               ROOM_OPERATION_CONFLICT,
               HOTEL_SLUG_CONFLICT,
               ROOM_TYPE_INACTIVE,
