@@ -35,6 +35,8 @@ jobs:
       SPRING_DATASOURCE_PASSWORD: test
       # Set true after real Flyway migrations have been added.
       REQUIRE_MIGRATIONS: 'true'
+      # Exported outside target/: Maven clean must not remove the baseline.
+      MIGRATION_BASE_DIR: ${{ runner.temp }}/migration-base
 
     steps:
 
@@ -62,6 +64,99 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Validate append-only migrations and export upgrade baseline
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          migration_dir=src/main/resources/db/migration
+          name_pattern='^V([0-9]+([._][0-9]+)*)__([A-Za-z0-9][A-Za-z0-9_-]*)\.sql$'
+
+          fail() {
+            printf '::error::%s\n' "$*" >&2
+            exit 1
+          }
+
+          # Normalize numeric components so 01 = 1, 1_2 = 1.2 and 1.0 = 1.
+          # sort -V compares long timestamp versions without integer overflow.
+          normalize_version() {
+            local value="${1//_/.}"
+            value="$(printf '%s\n' "$value" | sed -E 's/(^|\.)0+([0-9])/\1\2/g')"
+            while [[ "$value" == *.0 ]]; do value="${value%.0}"; done
+            printf '%s\n' "$value"
+          }
+
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+          fi
+          [[ "$base_sha" =~ ^[0-9a-f]{40}$ && ! "$base_sha" =~ ^0+$ ]] \
+            || fail 'A valid PR base or pre-push commit is required.'
+          base_ref="$(git rev-parse --verify "${base_sha}^{commit}")"
+
+          # Git baseline is the PR target / pre-push commit, not the live VPS schema.
+          declare -A base_blobs=() candidate_blobs=() seen_versions=()
+          base_max=''
+          while IFS=$'\t' read -r -d '' metadata path; do
+            read -r mode kind blob <<< "$metadata"
+            [[ "$kind" == blob && "$mode" =~ ^100(644|755)$ ]] \
+              || fail "Migration must be a regular file: $path"
+            name="${path##*/}"
+            [[ "$name" =~ $name_pattern ]] || fail "Invalid baseline migration name: $path"
+            version="$(normalize_version "${BASH_REMATCH[1]}")"
+            base_blobs["$path"]="$blob"
+            if [[ -z "$base_max" ]]; then
+              base_max="$version"
+            else
+              base_max="$(printf '%s\n' "$base_max" "$version" | sort -V | tail -n 1)"
+            fi
+          done < <(git ls-tree -r -z "$base_ref" -- "$migration_dir")
+
+          while IFS=$'\t' read -r -d '' metadata path; do
+            read -r mode kind blob <<< "$metadata"
+            [[ "$kind" == blob && "$mode" =~ ^100(644|755)$ ]] \
+              || fail "Migration must be a regular file: $path"
+            name="${path##*/}"
+            [[ "$name" =~ $name_pattern ]] \
+              || fail "Invalid migration name; expected V<version>__<description>.sql: $path"
+            version="$(normalize_version "${BASH_REMATCH[1]}")"
+            [[ -z "${seen_versions[$version]+present}" ]] \
+              || fail "Duplicate Flyway version: ${seen_versions[$version]} and $path"
+            seen_versions["$version"]="$path"
+            candidate_blobs["$path"]="$blob"
+            if [[ -n "${base_blobs[$path]+present}" ]]; then
+              [[ "${base_blobs[$path]}" == "$blob" ]] \
+                || fail "Existing migration was modified: $path"
+            elif [[ -n "$base_max" ]]; then
+              largest="$(printf '%s\n' "$base_max" "$version" | sort -V | tail -n 1)"
+              [[ "$version" != "$base_max" && "$largest" == "$version" ]] \
+                || fail "New migration $path must have a version greater than baseline maximum $base_max."
+            fi
+          done < <(git ls-tree -r -z HEAD -- "$migration_dir")
+
+          (( ${#candidate_blobs[@]} > 0 )) || fail 'No versioned migrations found.'
+          for path in "${!base_blobs[@]}"; do
+            [[ -n "${candidate_blobs[$path]+present}" ]] \
+              || fail "Existing migration was deleted or renamed: $path"
+          done
+
+          # Export exact baseline bytes outside target/ for MigrationUpgradeTests.
+          [[ ! -e "$MIGRATION_BASE_DIR" ]] || fail 'Baseline export directory already exists.'
+          mkdir -p -- "$MIGRATION_BASE_DIR"
+          for path in "${!base_blobs[@]}"; do
+            relative="${path#"$migration_dir"/}"
+            destination="$MIGRATION_BASE_DIR/$relative"
+            mkdir -p -- "$(dirname -- "$destination")"
+            git cat-file blob "${base_blobs[$path]}" > "$destination"
+          done
+          printf 'MIGRATIONS_OK: %s baseline -> %s candidate; base=%s\n' \
+            "${#base_blobs[@]}" "${#candidate_blobs[@]}" "$base_ref"
 
       - name: Set up Java 21
         uses: actions/setup-java@v6.1.0
@@ -139,6 +234,9 @@ jobs:
             --env SPRING_DATASOURCE_USERNAME=ci_user \
             --env SPRING_DATASOURCE_PASSWORD=ci_test_password \
             --env SPRING_FLYWAY_ENABLED=true \
+            --env SPRING_FLYWAY_OUT_OF_ORDER=false \
+            --env SPRING_FLYWAY_VALIDATE_ON_MIGRATE=true \
+            --env SPRING_FLYWAY_VALIDATE_MIGRATION_NAMING=true \
             --env AUTH_JWT_SECRET_BASE64="$ci_jwt_secret" \
             --env AUTH_VERIFICATION_URL=http://localhost:5173/verify-email \
             --env AUTH_PASSWORD_RESET_URL=http://localhost:5173/reset-password \
