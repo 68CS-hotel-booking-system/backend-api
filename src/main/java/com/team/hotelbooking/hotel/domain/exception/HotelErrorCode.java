@@ -20,6 +20,9 @@ public enum HotelErrorCode implements ErrorCode {
       "Tài khoản chủ khách sạn phải đang hoạt động, đã xác minh email và có quyền HOTEL_OWNER."),
   CITY_NOT_FOUND("Không tìm thấy thành phố."),
   HOTEL_SLUG_CONFLICT("Đường dẫn khách sạn đã tồn tại."),
+  DUPLICATE_CUSTOM_AMENITY(
+      "Tên tiện ích riêng đã tồn tại trong phạm vi này. Hãy sửa hoặc gắn lại tiện ích đã có."),
+  AMENITY_CONCURRENT_UPDATE("Tiện ích đã được thay đổi. Vui lòng tải lại trước khi cập nhật."),
   AMENITY_NOT_FOUND("Không tìm thấy tiện ích."),
   AMENITY_CATEGORY_MISMATCH("Tiện ích không thuộc nhóm phù hợp."),
   HOTEL_NOT_READY("Khách sạn chưa đủ điều kiện mở bán."),

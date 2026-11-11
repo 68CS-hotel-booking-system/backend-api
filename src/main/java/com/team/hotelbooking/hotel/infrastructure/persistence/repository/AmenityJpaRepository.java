@@ -23,6 +23,10 @@ public interface AmenityJpaRepository extends JpaRepository<AmenityJpaEntity, UU
       """)
   List<AmenityJpaEntity> findAllByHotelId(@Param("hotelId") UUID hotelId);
 
+  @Query(
+      "select a from AmenityJpaEntity a join RoomAmenityJpaEntity ra on ra.id.amenityId = a.id where ra.id.roomId = :roomId order by a.name, a.id")
+  List<AmenityJpaEntity> findAllByPhysicalRoomId(@Param("roomId") UUID roomId);
+
   // Mỗi dòng là [roomTypeId, AmenityJpaEntity]; sắp theo tên trong DB để cùng collation với
   // danh sách tiện ích của khách sạn.
   @Query(
