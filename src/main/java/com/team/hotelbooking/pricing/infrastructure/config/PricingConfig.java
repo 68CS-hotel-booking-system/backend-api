@@ -12,7 +12,6 @@ import com.team.hotelbooking.pricing.application.usecase.impl.CalculateStayQuote
 import com.team.hotelbooking.pricing.application.usecase.impl.ListNightlyRatesService;
 import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import com.team.hotelbooking.pricing.infrastructure.integration.PricingStayQuoteDirectoryAdapter;
-import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
 import java.time.Clock;
 import java.util.Objects;
 import org.springframework.context.annotation.Bean;
@@ -26,10 +25,10 @@ public class PricingConfig {
   @Bean
   public GetRoomRatesUseCase getRoomRatesUseCase(
       PricingHotelPort pricingHotelPort,
-      RoomRateJpaRepository roomRateJpaRepository,
+      RoomRateRepository roomRateRepository,
       PlatformTransactionManager transactionManager) {
 
-    GetRoomRatesService service = new GetRoomRatesService(pricingHotelPort, roomRateJpaRepository);
+    GetRoomRatesService service = new GetRoomRatesService(pricingHotelPort, roomRateRepository);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
@@ -40,12 +39,12 @@ public class PricingConfig {
   @Bean
   public SetRoomRatesUseCase setRoomRatesUseCase(
       PricingHotelPort pricingHotelPort,
-      RoomRateJpaRepository roomRateJpaRepository,
+      RoomRateRepository roomRateRepository,
       Clock clock,
       PlatformTransactionManager transactionManager) {
 
     SetRoomRatesService service =
-        new SetRoomRatesService(pricingHotelPort, roomRateJpaRepository, clock);
+        new SetRoomRatesService(pricingHotelPort, roomRateRepository, clock);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 

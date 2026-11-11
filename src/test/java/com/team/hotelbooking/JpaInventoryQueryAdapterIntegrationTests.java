@@ -4,7 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
-import com.team.hotelbooking.hotel.HotelDirectory;
+import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
+import com.team.hotelbooking.inventory.application.port.HotelCatalogPort.PhysicalRoomSummary;
 import com.team.hotelbooking.inventory.infrastructure.persistence.adapter.JpaInventoryQueryAdapter;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.InventoryReservationJpaRepository;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.RoomBlockJpaRepository;
@@ -13,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,8 +29,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Tính tồn của JpaInventoryQueryAdapter trên PostgreSQL thật (thay JpaInventoryQueryAdapterTests đã
- * bị xóa ở develop). HotelDirectory được mock để cố định số phòng đang phục vụ; lịch chặn và giữ
- * phòng đọc từ DB qua đúng truy vấn của adapter.
+ * bị xóa ở develop). HotelCatalogPort được mock để cố định phòng vật lý đang phục vụ; lịch chặn và
+ * giữ phòng đọc từ DB qua đúng truy vấn của adapter.
  */
 // Đặt ở package gốc vì TestcontainersConfiguration là package-private.
 @Import(TestcontainersConfiguration.class)
@@ -56,15 +58,15 @@ class JpaInventoryQueryAdapterIntegrationTests {
   @Autowired private RoomBlockJpaRepository roomBlockJpaRepository;
   @Autowired private InventoryReservationJpaRepository reservationJpaRepository;
 
-  private HotelDirectory hotelDirectory;
+  private HotelCatalogPort hotelCatalogPort;
   private JpaInventoryQueryAdapter adapter;
 
   @BeforeEach
   void setUp() {
-    hotelDirectory = mock(HotelDirectory.class);
+    hotelCatalogPort = mock(HotelCatalogPort.class);
     adapter =
         new JpaInventoryQueryAdapter(
-            hotelDirectory, roomBlockJpaRepository, reservationJpaRepository, CLOCK);
+            hotelCatalogPort, roomBlockJpaRepository, reservationJpaRepository, CLOCK);
 
     jdbc.update(
         """
@@ -121,12 +123,29 @@ class JpaInventoryQueryAdapterIntegrationTests {
     insertReservation(NIGHT_3, "HELD", Instant.parse("2027-04-30T00:00:00Z"));
   }
 
+  private void givenPhysicalRooms() {
+    given(hotelCatalogPort.findPhysicalRoomsByRoomTypeId(ROOM_TYPE_ID))
+        .willReturn(
+            List.of(
+                new PhysicalRoomSummary(ROOM_A, HOTEL_ID, ROOM_TYPE_ID, "ITA", null, null, null),
+                new PhysicalRoomSummary(ROOM_B, HOTEL_ID, ROOM_TYPE_ID, "ITB", null, null, null),
+                new PhysicalRoomSummary(ROOM_C, HOTEL_ID, ROOM_TYPE_ID, "ITC", null, null, null)));
+    given(
+            hotelCatalogPort.findPhysicalRoomsByRoomTypeIds(
+                org.mockito.ArgumentMatchers.anyCollection()))
+        .willReturn(
+            List.of(
+                new PhysicalRoomSummary(ROOM_A, HOTEL_ID, ROOM_TYPE_ID, "ITA", null, null, null),
+                new PhysicalRoomSummary(ROOM_B, HOTEL_ID, ROOM_TYPE_ID, "ITB", null, null, null),
+                new PhysicalRoomSummary(ROOM_C, HOTEL_ID, ROOM_TYPE_ID, "ITC", null, null, null)));
+  }
+
   private void insertBlock(UUID roomId, LocalDate start, LocalDate end, String status) {
     jdbc.update(
         """
         INSERT INTO room_blocks
-          (hotel_id, room_type_id, room_id, start_date, end_date, status, created_by_user_id)
-        VALUES (?, ?, ?, ?, ?, CAST(? AS room_block_status__t), ?)
+          (hotel_id, room_type_id, room_id, start_date, end_date, status, created_by_user_id, released_at)
+        VALUES (?, ?, ?, ?, ?, CAST(? AS room_block_status__t), ?, ?)
         """,
         HOTEL_ID,
         ROOM_TYPE_ID,
@@ -134,7 +153,8 @@ class JpaInventoryQueryAdapterIntegrationTests {
         start,
         end,
         status,
-        OWNER_ID);
+        OWNER_ID,
+        "RELEASED".equals(status) ? Timestamp.from(CLOCK.instant()) : null);
   }
 
   private void insertReservation(LocalDate night, String status, Instant expiresAt) {
@@ -156,7 +176,7 @@ class JpaInventoryQueryAdapterIntegrationTests {
     @Test
     @DisplayName("Trả 0 khi loại phòng không có phòng đang phục vụ")
     void shouldReturnZeroWhenNoOperationalRooms() {
-      given(hotelDirectory.countActiveRoomsByRoomTypeId(EMPTY_ROOM_TYPE_ID)).willReturn(0L);
+      given(hotelCatalogPort.countActiveRoomsByRoomTypeId(EMPTY_ROOM_TYPE_ID)).willReturn(0L);
 
       assertThat(adapter.calculateAvailableQuantity(EMPTY_ROOM_TYPE_ID, NIGHT_1, NIGHT_3)).isZero();
     }
@@ -164,7 +184,7 @@ class JpaInventoryQueryAdapterIntegrationTests {
     @Test
     @DisplayName("Đêm 1 còn 1: trừ ROOM_A một lần (hai lịch chồng) và 1 giữ còn hạn")
     void shouldCountOverlappingBlocksOfSameRoomOnceWhenOnlyFirstNight() {
-      given(hotelDirectory.countActiveRoomsByRoomTypeId(ROOM_TYPE_ID)).willReturn(3L);
+      givenPhysicalRooms();
 
       assertThat(adapter.calculateAvailableQuantity(ROOM_TYPE_ID, NIGHT_1, NIGHT_2)).isEqualTo(1);
     }
@@ -172,7 +192,7 @@ class JpaInventoryQueryAdapterIntegrationTests {
     @Test
     @DisplayName("Lấy đêm thấp nhất: đêm 2 hết phòng (ROOM_A, chặn chưa gán, 1 đã xác nhận)")
     void shouldReturnMinimumAcrossNightsWhenSecondNightIsFull() {
-      given(hotelDirectory.countActiveRoomsByRoomTypeId(ROOM_TYPE_ID)).willReturn(3L);
+      givenPhysicalRooms();
 
       assertThat(adapter.calculateAvailableQuantity(ROOM_TYPE_ID, NIGHT_1, NIGHT_3)).isZero();
     }
@@ -180,7 +200,7 @@ class JpaInventoryQueryAdapterIntegrationTests {
     @Test
     @DisplayName("Đêm 3 còn 2: giữ phòng hết hạn và lịch RELEASED không trừ tồn")
     void shouldIgnoreExpiredHoldAndReleasedBlockWhenThirdNight() {
-      given(hotelDirectory.countActiveRoomsByRoomTypeId(ROOM_TYPE_ID)).willReturn(3L);
+      givenPhysicalRooms();
 
       assertThat(adapter.calculateAvailableQuantity(ROOM_TYPE_ID, NIGHT_3, NIGHT_3.plusDays(1)))
           .isEqualTo(2);
@@ -194,6 +214,7 @@ class JpaInventoryQueryAdapterIntegrationTests {
     @Test
     @DisplayName("Cho cùng kết quả với hàm đơn và trả 0 cho loại phòng không có phòng")
     void shouldMatchSingleCalculationWhenBatched() {
+      givenPhysicalRooms();
       // When
       Map<UUID, Integer> oneNight =
           adapter.calculateMinAvailableQuantities(

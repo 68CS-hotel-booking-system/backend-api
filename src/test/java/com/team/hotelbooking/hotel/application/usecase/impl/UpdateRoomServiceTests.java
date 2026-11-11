@@ -42,6 +42,7 @@ class UpdateRoomServiceTests {
 
   @Mock private HotelRepository hotels;
   @Mock private RoomRepository rooms;
+  @Mock private com.team.hotelbooking.hotel.application.port.RoomInventoryPort inventory;
 
   private final Clock clock = Clock.fixed(Instant.parse("2026-11-04T12:00:00Z"), ZoneOffset.UTC);
 
@@ -55,7 +56,7 @@ class UpdateRoomServiceTests {
 
   @BeforeEach
   void setUp() {
-    service = new UpdateRoomService(hotels, rooms, clock);
+    service = new UpdateRoomService(hotels, rooms, clock, inventory);
     hotelId = UUID.randomUUID();
     roomId = UUID.randomUUID();
     roomTypeId = UUID.randomUUID();
@@ -109,6 +110,25 @@ class UpdateRoomServiceTests {
 
   private void givenUpdateReturnsSavedRoom() {
     given(rooms.update(any(Room.class))).willAnswer(invocation -> invocation.getArgument(0));
+  }
+
+  @Test
+  void shouldRejectDeactivationWhenInventoryCannotServeExistingBookings() {
+    givenExistingRoom();
+    givenUpdateReturnsSavedRoom();
+    org.mockito.BDDMockito.willThrow(new HotelException(HotelErrorCode.ROOM_OPERATION_CONFLICT))
+        .given(inventory)
+        .requireAllocatableAfterDeactivation(roomTypeId, roomId);
+    assertThatThrownBy(
+            () ->
+                service.execute(
+                    new UpdateRoomCommand(
+                        OWNER_ID, false, hotelId, roomId, null, null, null, false)))
+        .isInstanceOf(HotelException.class)
+        .extracting(UpdateRoomServiceTests::errorCodeOf)
+        .isEqualTo(HotelErrorCode.ROOM_OPERATION_CONFLICT);
+    then(inventory).should().lockRoomType(hotelId, roomTypeId);
+    then(inventory).should().requireAllocatableAfterDeactivation(roomTypeId, roomId);
   }
 
   private static HotelErrorCode errorCodeOf(Throwable exception) {

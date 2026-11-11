@@ -12,4 +12,14 @@ public interface InventoryQueryPort {
   // nhất qua mọi đêm.
   Map<UUID, Integer> calculateMinAvailableQuantities(
       Map<UUID, Long> operationalRoomsByRoomType, LocalDate checkInDate, LocalDate checkOutDate);
+
+  boolean canAllocateAfterAssignment(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDateExclusive);
+
+  boolean canAllocateWithCandidateBlock(
+      UUID roomTypeId,
+      UUID candidateBlockIdToReplace,
+      UUID roomId,
+      LocalDate blockStartDate,
+      LocalDate blockEndDate);
 }

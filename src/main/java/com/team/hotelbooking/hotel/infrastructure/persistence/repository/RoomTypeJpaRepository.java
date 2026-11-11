@@ -2,6 +2,7 @@ package com.team.hotelbooking.hotel.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomTypeJpaEntity;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,4 +27,27 @@ public interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, 
   List<RoomTypeJpaEntity> findAllByHotelIdAndActiveTrueOrderByNameAscIdAsc(UUID hotelId);
 
   List<RoomTypeJpaEntity> findAllByHotelIdOrderByNameAscIdAsc(UUID hotelId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT rt FROM RoomTypeJpaEntity rt
+      WHERE rt.hotelId = :hotelId
+        AND rt.id IN :ids
+        AND rt.active = true
+      ORDER BY rt.id ASC
+      """)
+  List<RoomTypeJpaEntity> lockActiveByHotelIdAndIdInOrderByIdAsc(
+      @Param("hotelId") UUID hotelId, @Param("ids") Collection<UUID> ids);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT rt FROM RoomTypeJpaEntity rt
+      WHERE rt.hotelId = :hotelId
+        AND rt.id IN :ids
+      ORDER BY rt.id ASC
+      """)
+  List<RoomTypeJpaEntity> lockByHotelIdAndIdInOrderByIdAsc(
+      @Param("hotelId") UUID hotelId, @Param("ids") Collection<UUID> ids);
 }

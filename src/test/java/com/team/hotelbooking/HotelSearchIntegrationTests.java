@@ -70,12 +70,16 @@ class HotelSearchIntegrationTests {
   @Autowired private EntityManagerFactory entityManagerFactory;
 
   // Số câu SQL Hibernate chuẩn bị trong một lần tìm kiếm (thống kê bật tạm cho riêng phép đo).
-  private long statementsFor(MockHttpServletRequestBuilder request) throws Exception {
+  private long statementsFor(MockHttpServletRequestBuilder request, int expectedHotels)
+      throws Exception {
     Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
     statistics.setStatisticsEnabled(true);
     statistics.clear();
     try {
-      search(request).andExpect(status().isOk());
+      search(request)
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.totalElements").value(expectedHotels))
+          .andExpect(jsonPath("$.data.content", hasSize(expectedHotels)));
       return statistics.getPrepareStatementCount();
     } finally {
       statistics.setStatisticsEnabled(false);
@@ -294,16 +298,22 @@ class HotelSearchIntegrationTests {
                   .param("checkIn", "2027-06-01")
                   .param("checkOut", "2027-06-02")
                   .param("guests", "2")
-                  .param("starRating", "5"));
+                  .param("starRating", "5"),
+              1);
       long threeHotels =
           statementsFor(
               get("/api/v1/hotels/search")
                   .param("checkIn", "2027-06-01")
                   .param("checkOut", "2027-06-02")
-                  .param("guests", "2"));
+                  .param("guests", "2"),
+              3);
 
-      // Then: khách sạn, tiện ích, loại phòng, phòng, lịch chặn, giữ phòng, giá (2), ảnh bìa
-      assertThat(threeHotels).isEqualTo(oneHotel).isLessThanOrEqualTo(10);
+      // 11 truy vấn theo lô: khách sạn, tiện ích, loại phòng, đếm phòng đang phục vụ,
+      // phòng vật lý, lịch chặn, giữ/xác nhận phòng, phân công phòng, giá (2), ảnh bìa.
+      assertThat(threeHotels)
+          .as("Số câu SQL phải không đổi khi kết quả tăng từ 1 lên 3 khách sạn")
+          .isEqualTo(oneHotel)
+          .isLessThanOrEqualTo(11);
     }
 
     @Test

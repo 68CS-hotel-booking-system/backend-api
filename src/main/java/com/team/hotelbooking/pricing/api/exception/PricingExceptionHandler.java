@@ -30,9 +30,9 @@ public class PricingExceptionHandler {
               INVALID_QUOTE_REQUEST,
               INVALID_OCCUPANCY ->
               HttpStatus.BAD_REQUEST;
+          case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
           case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND -> HttpStatus.NOT_FOUND;
           case RATE_NOT_AVAILABLE -> HttpStatus.CONFLICT;
-          case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
           case HOTEL_LOCKED -> HttpStatus.CONFLICT;
         };
 

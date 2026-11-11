@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.application.usecase.impl;
 
 import com.team.hotelbooking.hotel.application.command.UpdateRoomCommand;
+import com.team.hotelbooking.hotel.application.port.RoomInventoryPort;
 import com.team.hotelbooking.hotel.application.result.RoomResult;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
@@ -17,11 +18,14 @@ public class UpdateRoomService implements UpdateRoomUseCase {
   private final HotelManagementAccess access;
   private final RoomRepository rooms;
   private final Clock clock;
+  private final RoomInventoryPort inventory;
 
-  public UpdateRoomService(HotelRepository hotels, RoomRepository rooms, Clock clock) {
+  public UpdateRoomService(
+      HotelRepository hotels, RoomRepository rooms, Clock clock, RoomInventoryPort inventory) {
     this.access = new HotelManagementAccess(hotels);
     this.rooms = rooms;
     this.clock = clock;
+    this.inventory = inventory;
   }
 
   @Override
@@ -39,14 +43,29 @@ public class UpdateRoomService implements UpdateRoomUseCase {
                     HotelException.roomNotFound(
                         "Không tìm thấy phòng vật lý hoặc phòng không thuộc khách sạn."));
 
+    if (command.active() != null) {
+      // Cùng khóa room_type với hold/gán phòng; đọc lại sau khi chờ khóa.
+      inventory.lockRoomType(command.hotelId(), room.roomTypeId());
+      room =
+          rooms
+              .findByIdAndHotelId(command.roomId(), command.hotelId())
+              .orElseThrow(() -> HotelException.roomNotFound("Không tìm thấy phòng vật lý."));
+    }
     String roomNumber = changedRoomNumber(command, room);
     String floor = command.floor() == null ? null : String.valueOf(command.floor());
     Room.Readiness readiness = command.status() == null ? null : readinessOf(command.status());
 
     Instant now = clock.instant();
+    if (Boolean.FALSE.equals(command.active()) && !now.isAfter(room.operationalFrom())) {
+      throw HotelException.invalidRequest("Phòng chưa đến thời điểm bắt đầu phục vụ.");
+    }
     Room updated = room.update(roomNumber, floor, readiness, command.active(), now);
-
-    return RoomResult.from(rooms.update(updated), now);
+    Room saved = rooms.update(updated);
+    if (Boolean.FALSE.equals(command.active())) {
+      // Repository flush trước khi kiểm tra; lỗi sẽ rollback cả cập nhật phòng.
+      inventory.requireAllocatableAfterDeactivation(room.roomTypeId(), room.id());
+    }
+    return RoomResult.from(saved, now);
   }
 
   // Chỉ đổi khi khác số hiện tại (không phân biệt hoa thường); trùng phòng khác cùng hotel → lỗi.

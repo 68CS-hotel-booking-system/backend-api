@@ -67,6 +67,7 @@ public class ManagementRateController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @GetMapping("/{hotelId}/room-types/{roomTypeId}/rates")
+  // Vai trò quản lý theo từng hotel được kiểm trong PricingManagementAccess của use case.
   @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<RoomTypeRatesResponse>> getRoomRates(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,

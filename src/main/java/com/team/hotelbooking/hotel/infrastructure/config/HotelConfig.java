@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.infrastructure.config;
 
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
+import com.team.hotelbooking.hotel.application.port.RoomInventoryPort;
 import com.team.hotelbooking.hotel.application.usecase.ApproveHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
@@ -151,9 +152,10 @@ public class HotelConfig {
   public UpdateRoomUseCase updateRoomUseCase(
       HotelRepository hotels,
       RoomRepository rooms,
+      RoomInventoryPort inventory,
       Clock clock,
       PlatformTransactionManager transactionManager) {
-    UpdateRoomService service = new UpdateRoomService(hotels, rooms, clock);
+    UpdateRoomService service = new UpdateRoomService(hotels, rooms, clock, inventory);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
     return command ->

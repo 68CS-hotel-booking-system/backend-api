@@ -2,6 +2,7 @@ package com.team.hotelbooking.hotel.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.hotel.infrastructure.persistence.entity.RoomJpaEntity;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +45,18 @@ public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, UUID> {
         AND (r.operationalUntil IS NULL OR r.operationalUntil > CURRENT_TIMESTAMP)
       """)
   List<RoomJpaEntity> findAllByRoomTypeIdAndActiveTrue(@Param("roomTypeId") UUID roomTypeId);
+
+  List<RoomJpaEntity> findAllByRoomTypeIdOrderByIdAsc(UUID roomTypeId);
+
+  List<RoomJpaEntity> findAllByRoomTypeIdIn(Collection<UUID> roomTypeIds);
+
+  @Query(
+      """
+      select r from RoomJpaEntity r
+      where r.hotelId = :hotelId
+      order by r.floor asc nulls last, r.roomNumber asc, r.id asc
+      """)
+  List<RoomJpaEntity> findAllByHotelIdOrdered(@Param("hotelId") UUID hotelId);
 
   // Thứ tự nằm trong JPQL với NULLS LAST tường minh; Pageable truyền vào không được mang Sort.
   // floor/room_number là chuỗi nên sắp theo collation ("10" trước "2", "1001" trước "101").

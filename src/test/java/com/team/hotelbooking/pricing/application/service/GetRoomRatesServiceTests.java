@@ -17,9 +17,8 @@ import com.team.hotelbooking.pricing.application.port.PricingHotelPort.Level;
 import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.domain.exception.PricingErrorCode;
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
-import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateIdEmbeddable;
-import com.team.hotelbooking.pricing.infrastructure.persistence.entity.RoomRateJpaEntity;
-import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
+import com.team.hotelbooking.pricing.domain.model.RoomRate;
+import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -42,13 +41,13 @@ class GetRoomRatesServiceTests {
   private final UUID roomTypeId = UUID.randomUUID();
 
   @Mock private PricingHotelPort pricingHotelPort;
-  @Mock private RoomRateJpaRepository roomRateJpaRepository;
+  @Mock private RoomRateRepository roomRateRepository;
 
   private GetRoomRatesService service;
 
   @BeforeEach
   void setUp() {
-    service = new GetRoomRatesService(pricingHotelPort, roomRateJpaRepository);
+    service = new GetRoomRatesService(pricingHotelPort, roomRateRepository);
   }
 
   private void givenAccess(UUID hotelId, Level level, HotelStatus status) {
@@ -134,18 +133,16 @@ class GetRoomRatesServiceTests {
       UUID roomTypeId = UUID.randomUUID();
       LocalDate start = LocalDate.of(2026, 11, 1);
       LocalDate end = LocalDate.of(2026, 11, 2);
+      Instant now = Instant.parse("2026-11-01T08:00:00Z");
 
       givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
 
-      RoomRateJpaEntity entity = new RoomRateJpaEntity();
-      RoomRateIdEmbeddable key = new RoomRateIdEmbeddable(roomTypeId, start);
-      entity.setId(key);
-      entity.setAmount(1_500_000L);
-      entity.setUpdatedAt(Instant.now());
+      RoomRate rate =
+          new RoomRate(roomTypeId, start, 1_500_000L, "VND", UUID.randomUUID(), now, now);
 
-      given(roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, end))
-          .willReturn(List.of(entity));
+      given(roomRateRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, end))
+          .willReturn(List.of(rate));
 
       // When
       RoomTypeRatesResult result =
@@ -196,7 +193,7 @@ class GetRoomRatesServiceTests {
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.ACCESS_DENIED));
       then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -224,7 +221,7 @@ class GetRoomRatesServiceTests {
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
       then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -248,7 +245,7 @@ class GetRoomRatesServiceTests {
               ex ->
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -273,7 +270,7 @@ class GetRoomRatesServiceTests {
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_LOCKED));
       then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test

@@ -74,6 +74,19 @@ class SearchHotelsServiceTests {
             catalog, inventory, pricing, covers, Clock.fixed(NOW, ZoneOffset.UTC));
   }
 
+  @Test
+  void shouldReturnEmptyPageWhenOffsetExceedsIntegerRange() {
+    given(catalog.findSearchableHotels(any(), any(), any(), any()))
+        .willReturn(List.of(hotel(HOTEL_OK, "Hotel", 3)));
+    given(catalog.findActiveRoomTypes(anyCollection()))
+        .willReturn(List.of(new CatalogRoomType(RT_OK_CHEAP, HOTEL_OK, 2, 100L)));
+    given(catalog.countOperationalRooms(anyCollection(), any()))
+        .willReturn(Map.of(RT_OK_CHEAP, 1L));
+    var result = service.execute(query(null, null, 1, null, null, null, Integer.MAX_VALUE, 20));
+    assertThat(result.content()).isEmpty();
+    assertThat(result.totalElements()).isEqualTo(1);
+  }
+
   private static UUID id(String suffix) {
     return UUID.fromString("00000000-0000-4000-8000-0000000000" + suffix);
   }

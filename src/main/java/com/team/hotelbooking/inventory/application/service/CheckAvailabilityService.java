@@ -62,27 +62,32 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
           inventoryQueryPort.calculateAvailableQuantity(
               rt.id(), query.checkInDate(), query.checkOutDate());
 
-      boolean isAvailable = availableQty >= requestedQuantity;
-
-      // Tính toán giá cho kỳ nghỉ
+      // Tính toán giá cho kỳ nghỉ (PR-01, PR-02, HT-03: mọi đêm phải có giá hợp lệ > 0)
       LocalDate lastNight = query.checkOutDate().minusDays(1);
       Map<LocalDate, Long> rateMap =
           roomPricingPort.getDailyRates(rt.id(), query.checkInDate(), lastNight);
 
       long totalEstimatedPrice = 0L;
+      boolean hasValidRateForAllNights = true;
       for (LocalDate date = query.checkInDate();
           date.isBefore(query.checkOutDate());
           date = date.plusDays(1)) {
-        Long nightlyAmount = rateMap.get(date);
-        if (nightlyAmount != null) {
-          totalEstimatedPrice += nightlyAmount;
-        } else {
-          totalEstimatedPrice += (rt.basePrice() != null ? rt.basePrice() : 0L);
+        Long nightlyAmount =
+            rateMap != null && rateMap.containsKey(date) ? rateMap.get(date) : rt.basePrice();
+        if (nightlyAmount == null || nightlyAmount <= 0L) {
+          hasValidRateForAllNights = false;
+          break;
         }
+        totalEstimatedPrice += nightlyAmount;
       }
 
-      long pricePerNight =
-          totalNights > 0 ? (totalEstimatedPrice / totalNights) : totalEstimatedPrice;
+      int effectiveAvailableQty = hasValidRateForAllNights ? availableQty : 0;
+      boolean isAvailable = hasValidRateForAllNights && availableQty >= requestedQuantity;
+      Long pricePerNight =
+          hasValidRateForAllNights
+              ? (totalNights > 0 ? (totalEstimatedPrice / totalNights) : totalEstimatedPrice)
+              : null;
+      Long estimatedTotal = hasValidRateForAllNights ? totalEstimatedPrice : null;
 
       availabilityList.add(
           new RoomTypeAvailability(
@@ -91,10 +96,10 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
               rt.maxOccupancy(),
               rt.maxAdults(),
               rt.maxChildren(),
-              availableQty,
+              effectiveAvailableQty,
               isAvailable,
               pricePerNight,
-              totalEstimatedPrice,
+              estimatedTotal,
               "VND"));
     }
 

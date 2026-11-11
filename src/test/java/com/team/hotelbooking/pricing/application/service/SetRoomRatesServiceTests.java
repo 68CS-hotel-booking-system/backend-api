@@ -15,12 +15,14 @@ import com.team.hotelbooking.pricing.application.port.PricingHotelPort.Level;
 import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.domain.exception.PricingErrorCode;
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
-import com.team.hotelbooking.pricing.infrastructure.persistence.repository.RoomRateJpaRepository;
+import com.team.hotelbooking.pricing.domain.model.RoomRate;
+import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,7 +41,7 @@ class SetRoomRatesServiceTests {
   private static final UUID ACTOR_ID = UUID.fromString("1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9");
 
   @Mock private PricingHotelPort pricingHotelPort;
-  @Mock private RoomRateJpaRepository roomRateJpaRepository;
+  @Mock private RoomRateRepository roomRateRepository;
 
   private final Clock fixedClock =
       Clock.fixed(Instant.parse("2026-11-04T10:00:00Z"), ZoneOffset.UTC);
@@ -50,7 +53,7 @@ class SetRoomRatesServiceTests {
 
   @BeforeEach
   void setUp() {
-    service = new SetRoomRatesService(pricingHotelPort, roomRateJpaRepository, fixedClock);
+    service = new SetRoomRatesService(pricingHotelPort, roomRateRepository, fixedClock);
   }
 
   private void givenAccess(UUID hotelId, Level level, HotelStatus status) {
@@ -63,7 +66,7 @@ class SetRoomRatesServiceTests {
   class ExecuteTests {
 
     @Test
-    @DisplayName("Thiết lập giá thành công cho một khoảng ngày")
+    @DisplayName("Thiết lập giá thành công cho một khoảng ngày và ghi nhận người thực hiện (PR-08)")
     void shouldSetRatesSuccessfullyForDateRange() {
       // Given
       LocalDate start = LocalDate.of(2026, 11, 10);
@@ -75,7 +78,7 @@ class SetRoomRatesServiceTests {
       givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
       given(
-              roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(
+              roomRateRepository.findRatesByRoomTypeIdAndDateRange(
                   roomTypeId, start, LocalDate.of(2026, 11, 12)))
           .willReturn(Collections.emptyList());
 
@@ -91,7 +94,13 @@ class SetRoomRatesServiceTests {
       assertThat(result.rates()).hasSize(3);
       assertThat(result.rates().get(0).price()).isEqualTo(1_500_000L);
 
-      then(roomRateJpaRepository).should().saveAll(any());
+      then(pricingHotelPort).should().findManagementAccess(hotelId, ACTOR_ID, false);
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<List<RoomRate>> captor = ArgumentCaptor.forClass(List.class);
+      then(roomRateRepository).should().saveAll(captor.capture());
+      assertThat(captor.getValue())
+          .hasSize(3)
+          .allSatisfy(rate -> assertThat(rate.updatedByUserId()).isEqualTo(ACTOR_ID));
     }
 
     @Test
@@ -105,7 +114,7 @@ class SetRoomRatesServiceTests {
 
       givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
-      given(roomRateJpaRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, start))
+      given(roomRateRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, start))
           .willReturn(Collections.emptyList());
 
       // When
@@ -117,7 +126,7 @@ class SetRoomRatesServiceTests {
       assertThat(result.rates().get(0).date()).isEqualTo(start);
       assertThat(result.rates().get(0).price()).isEqualTo(2_000_000L);
 
-      then(roomRateJpaRepository).should().saveAll(any());
+      then(roomRateRepository).should().saveAll(any());
     }
 
     @Test
@@ -227,7 +236,7 @@ class SetRoomRatesServiceTests {
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.ACCESS_DENIED));
       then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -257,7 +266,7 @@ class SetRoomRatesServiceTests {
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
       then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -283,7 +292,7 @@ class SetRoomRatesServiceTests {
               ex ->
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -310,7 +319,7 @@ class SetRoomRatesServiceTests {
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_LOCKED));
       then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
-      then(roomRateJpaRepository).shouldHaveNoInteractions();
+      then(roomRateRepository).shouldHaveNoInteractions();
     }
 
     @Test

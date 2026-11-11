@@ -38,7 +38,7 @@ import java.util.UUID;
  * </ul>
  *
  * <p>Số truy vấn không phụ thuộc số khách sạn: khách sạn, tiện ích, loại phòng, phòng đang phục vụ,
- * tồn (2), giá (2) và ảnh bìa của trang hiện tại. Lọc/sắp xếp/phân trang làm trong bộ nhớ sau khi
+ * tồn (4), giá (2) và ảnh bìa của trang hiện tại. Lọc/sắp xếp/phân trang làm trong bộ nhớ sau khi
  * lọc tĩnh ở DB.
  */
 public final class SearchHotelsService implements SearchHotelsUseCase {
@@ -108,8 +108,9 @@ public final class SearchHotelsService implements SearchHotelsUseCase {
     candidates.sort(comparator(query.sort()));
 
     PageQuery pagination = query.pagination();
-    int from = Math.min(candidates.size(), pagination.page() * pagination.size());
-    int to = Math.min(candidates.size(), from + pagination.size());
+    long offset = (long) pagination.page() * pagination.size();
+    int from = (int) Math.min(candidates.size(), offset);
+    int to = (int) Math.min(candidates.size(), (long) from + pagination.size());
     List<Candidate> pageItems = candidates.subList(from, to);
 
     // Ảnh bìa chỉ lấy cho khách sạn của trang hiện tại; tất cả đều ACTIVE (MD-06).
