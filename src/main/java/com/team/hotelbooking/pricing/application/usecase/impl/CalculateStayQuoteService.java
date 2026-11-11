@@ -13,6 +13,7 @@ import com.team.hotelbooking.pricing.domain.model.StayQuote.ItemQuote;
 import com.team.hotelbooking.pricing.domain.model.StayQuote.NightlyPrice;
 import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import com.team.hotelbooking.pricing.domain.service.NightlyPriceResolver;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -22,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class CalculateStayQuoteService implements CalculateStayQuoteUseCase {
-
-  private static final long EXTRA_GUEST_SURCHARGE_PERCENT = 10L;
 
   private final PricingHotelPort pricingHotelPort;
   private final RoomRateRepository roomRateRepository;
@@ -65,16 +64,10 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
     LocalTime expectedCheckOut =
         query.expectedCheckOutTime() != null ? query.expectedCheckOutTime() : standardCheckOut;
 
-    int earlyCheckInPercent = resolveEarlyCheckInPercent(expectedCheckIn, standardCheckIn);
-    int lateCheckOutPercent = resolveLateCheckOutPercent(expectedCheckOut, standardCheckOut);
-
     LocalDate lastStayNight = query.checkOut().minusDays(1);
 
     List<ItemQuote> itemQuotes = new ArrayList<>();
     long totalRoomSubtotal = 0L;
-    long totalEarlyCheckInSurcharge = 0L;
-    long totalLateCheckOutSurcharge = 0L;
-    long totalExtraGuestSurcharge = 0L;
 
     for (QuoteItemInput item : query.items()) {
       if (item == null || item.roomTypeId() == null) {
@@ -108,21 +101,6 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
       long singleRoomNightsSum = resolution.totalAmount();
 
       long itemRoomSubtotal = item.quantity() * singleRoomNightsSum;
-      long firstNightRoomAmount = item.quantity() * nightlyPrices.get(0).unitPrice();
-      long lastNightRoomAmount =
-          item.quantity() * nightlyPrices.get(nightlyPrices.size() - 1).unitPrice();
-
-      long itemEarlySurcharge = (firstNightRoomAmount * earlyCheckInPercent) / 100L;
-      long itemLateSurcharge = (lastNightRoomAmount * lateCheckOutPercent) / 100L;
-
-      int standardAdultCapacity = item.quantity() * roomType.maxAdults();
-      int totalGuests = item.adults() + item.children();
-      int extraGuests = Math.max(0, totalGuests - standardAdultCapacity);
-      long itemExtraGuestSurcharge =
-          (extraGuests * singleRoomNightsSum * EXTRA_GUEST_SURCHARGE_PERCENT) / 100L;
-
-      long itemSurcharge = itemEarlySurcharge + itemLateSurcharge + itemExtraGuestSurcharge;
-      long itemSubtotal = itemRoomSubtotal + itemSurcharge;
 
       itemQuotes.add(
           new ItemQuote(
@@ -131,24 +109,19 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
               item.quantity(),
               item.adults(),
               item.children(),
-              extraGuests,
+              0,
               itemRoomSubtotal,
-              itemEarlySurcharge,
-              itemLateSurcharge,
-              itemExtraGuestSurcharge,
-              itemSurcharge,
-              itemSubtotal,
+              0L,
+              0L,
+              0L,
+              0L,
+              itemRoomSubtotal,
               List.copyOf(nightlyPrices)));
 
       totalRoomSubtotal += itemRoomSubtotal;
-      totalEarlyCheckInSurcharge += itemEarlySurcharge;
-      totalLateCheckOutSurcharge += itemLateSurcharge;
-      totalExtraGuestSurcharge += itemExtraGuestSurcharge;
     }
 
-    long totalSurcharge =
-        totalEarlyCheckInSurcharge + totalLateCheckOutSurcharge + totalExtraGuestSurcharge;
-    long subtotalAmount = totalRoomSubtotal + totalSurcharge;
+    long subtotalAmount = totalRoomSubtotal;
     long discountAmount = 0L;
     long totalAmount = subtotalAmount - discountAmount;
 
@@ -165,10 +138,10 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
             expectedCheckOut,
             "VND",
             totalRoomSubtotal,
-            totalEarlyCheckInSurcharge,
-            totalLateCheckOutSurcharge,
-            totalExtraGuestSurcharge,
-            totalSurcharge,
+            0L,
+            0L,
+            0L,
+            0L,
             subtotalAmount,
             discountAmount,
             totalAmount,
@@ -178,7 +151,7 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
   }
 
   private void validateDates(LocalDate checkIn, LocalDate checkOut) {
-    NightlyPriceResolver.validateStay(checkIn, checkOut, LocalDate.now(clock));
+    NightlyPriceResolver.validateStay(checkIn, checkOut, BusinessTime.today(clock));
   }
 
   private static void validateItemOccupancy(QuoteItemInput item, RoomTypePricingSnapshot roomType) {
@@ -191,45 +164,15 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
     if (item.children() < 0) {
       throw PricingException.invalidOccupancy("Số lượng trẻ em không được âm.");
     }
-    int maxAdultsAllowed = item.quantity() * roomType.maxAdults();
-    int maxChildrenAllowed = item.quantity() * roomType.maxChildren();
-    int maxTotalAllowed =
-        item.quantity()
-            * Math.max(roomType.maxOccupancy(), roomType.maxAdults() + roomType.maxChildren());
+    long maxAdultsAllowed = (long) item.quantity() * roomType.maxAdults();
+    long maxChildrenAllowed = (long) item.quantity() * roomType.maxChildren();
+    long maxTotalAllowed = (long) item.quantity() * roomType.maxOccupancy();
 
     if (item.adults() > maxAdultsAllowed
         || item.children() > maxChildrenAllowed
-        || (item.adults() + item.children()) > maxTotalAllowed) {
+        || ((long) item.adults() + item.children()) > maxTotalAllowed) {
       throw PricingException.invalidOccupancy(
           "Số lượng khách vượt quá sức chứa tối đa của loại phòng.");
     }
-  }
-
-  private static int resolveEarlyCheckInPercent(
-      LocalTime expectedCheckIn, LocalTime standardCheckIn) {
-    if (!expectedCheckIn.isBefore(standardCheckIn)) {
-      return 0;
-    }
-    if (expectedCheckIn.isBefore(LocalTime.of(5, 0))) {
-      return 100;
-    }
-    if (expectedCheckIn.isBefore(LocalTime.of(9, 0))) {
-      return 50;
-    }
-    return 30;
-  }
-
-  private static int resolveLateCheckOutPercent(
-      LocalTime expectedCheckOut, LocalTime standardCheckOut) {
-    if (!expectedCheckOut.isAfter(standardCheckOut)) {
-      return 0;
-    }
-    if (!expectedCheckOut.isAfter(LocalTime.of(15, 0))) {
-      return 30;
-    }
-    if (!expectedCheckOut.isAfter(LocalTime.of(18, 0))) {
-      return 50;
-    }
-    return 100;
   }
 }

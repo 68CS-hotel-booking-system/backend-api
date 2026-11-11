@@ -8,6 +8,7 @@ import com.team.hotelbooking.inventory.application.usecase.CreateRoomBlockUseCas
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.inventory.domain.model.RoomBlock;
 import com.team.hotelbooking.inventory.domain.repository.RoomBlockRepository;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -81,7 +82,7 @@ public class CreateRoomBlockService implements CreateRoomBlockUseCase {
 
     // Lấy thời điểm now sau khi đã lấy khóa theo AgentRules §5
     Instant now = clock.instant();
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = BusinessTime.today(clock);
 
     if (command.startDate().isBefore(today)) {
       throw InventoryException.invalidDateRange(

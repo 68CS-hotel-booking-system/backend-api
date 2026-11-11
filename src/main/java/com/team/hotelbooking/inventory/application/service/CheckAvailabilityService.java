@@ -9,6 +9,7 @@ import com.team.hotelbooking.inventory.application.usecase.CheckAvailabilityUseC
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.inventory.domain.model.HotelAvailability;
 import com.team.hotelbooking.inventory.domain.model.RoomTypeAvailability;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -115,7 +116,7 @@ public class CheckAvailabilityService implements CheckAvailabilityUseCase {
       throw InventoryException.invalidDateRange("Ngày nhận và trả phòng không được để trống.");
     }
 
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = BusinessTime.today(clock);
     if (checkInDate.isBefore(today)) {
       throw InventoryException.invalidDateRange("Ngày nhận phòng không thể ở trong quá khứ.");
     }

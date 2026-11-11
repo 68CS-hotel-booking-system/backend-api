@@ -8,6 +8,7 @@ import com.team.hotelbooking.inventory.application.usecase.UpdateRoomBlockUseCas
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.inventory.domain.model.RoomBlock;
 import com.team.hotelbooking.inventory.domain.repository.RoomBlockRepository;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -68,7 +69,7 @@ public class UpdateRoomBlockService implements UpdateRoomBlockUseCase {
     hotelCatalogPort.lockActiveRoomTypesInHotel(command.hotelId(), List.of(existing.roomTypeId()));
 
     Instant now = clock.instant();
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = BusinessTime.today(clock);
 
     // Không cho sửa lịch làm thay đổi tồn lịch sử của các đêm đã qua (BL-04)
     if (existing.startDate().isBefore(today)) {

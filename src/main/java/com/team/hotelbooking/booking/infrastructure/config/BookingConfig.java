@@ -3,6 +3,7 @@ package com.team.hotelbooking.booking.infrastructure.config;
 import com.team.hotelbooking.booking.BookingCheckoutDirectory;
 import com.team.hotelbooking.booking.application.port.BookingHotelPort;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort;
+import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetCustomerBookingDetailUseCase;
@@ -37,11 +38,13 @@ public class BookingConfig {
       BookingRepository bookings,
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
+      BookingInventoryPort inventory,
       Clock clock,
       @Value("${booking.hold-ttl:PT15M}") String holdTtl,
       PlatformTransactionManager transactionManager) {
     CreateBookingService service =
-        new CreateBookingService(bookings, accounts, pricing, clock, Duration.parse(holdTtl));
+        new CreateBookingService(
+            bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl));
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
     return command ->

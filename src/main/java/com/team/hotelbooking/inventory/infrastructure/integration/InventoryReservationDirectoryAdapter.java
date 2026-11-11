@@ -8,6 +8,7 @@ import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity.DbReservationStatus;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.InventoryReservationJpaRepository;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -97,7 +98,7 @@ public class InventoryReservationDirectoryAdapter implements InventoryReservatio
 
               // Lấy thời điểm now sau khi đã lấy khóa theo quy tắc AgentRules §5
               Instant now = clock.instant();
-              LocalDate today = LocalDate.now(clock);
+              LocalDate today = BusinessTime.today(clock);
               if (request.checkInDate().isBefore(today)) {
                 throw InventoryException.invalidDateRange(
                     "Ngày nhận phòng không thể ở trong quá khứ.");

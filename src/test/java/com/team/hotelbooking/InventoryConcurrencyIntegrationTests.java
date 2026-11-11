@@ -5,6 +5,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
+import com.team.hotelbooking.booking.application.command.CreateBookingCommand.BookingItemInput;
+import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
+import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory.HoldItemRequest;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory.HoldRequest;
@@ -101,6 +105,7 @@ class InventoryConcurrencyIntegrationTests {
   @Autowired private UpdateRoomReadinessUseCase updateRoomReadinessUseCase;
   @Autowired private MockMvc mvc;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private CreateBookingUseCase createBookingUseCase;
 
   @BeforeEach
   void setUp() {
@@ -164,6 +169,55 @@ class InventoryConcurrencyIntegrationTests {
     jdbc.update("UPDATE room_types SET is_active = TRUE WHERE hotel_id = ?", HOTEL_ID);
     jdbc.update(
         "UPDATE rooms SET readiness = 'READY'::room_readiness__t WHERE hotel_id = ?", HOTEL_ID);
+  }
+
+  private CreateBookingCommand bookingRequest(LocalDate checkIn, UUID roomTypeId, long amount) {
+    return new CreateBookingCommand(
+        OWNER_ID,
+        HOTEL_ID,
+        checkIn,
+        checkIn.plusDays(2),
+        java.time.LocalTime.of(4, 0),
+        java.time.LocalTime.of(23, 0),
+        new ContactInput("Khách test", "guest@test.local", "+84909998877"),
+        null,
+        List.of(new BookingItemInput(roomTypeId, 1, 2, 0)),
+        amount);
+  }
+
+  @Test
+  @DisplayName("Tạo đơn chốt giá theo đêm và giữ phòng; đơn kế tiếp hết phòng phải rollback")
+  void shouldSaveNightlyPricesAndRollbackSecondBookingWhenLastRoomAlreadyHeld() {
+    jdbc.update("UPDATE users SET email_verified_at = now() WHERE id = ?", OWNER_ID);
+    LocalDate checkIn = LocalDate.now().plusDays(10);
+    var command = bookingRequest(checkIn, SINGLE_ROOM_TYPE_ID, 2_400_000L);
+
+    var result = createBookingUseCase.execute(command);
+
+    assertThat(result.totalAmount()).isEqualTo(2_400_000L);
+    assertThat(result.surchargeAmount()).isZero();
+    assertThat(result.items().getFirst().nightlyPrices()).hasSize(2);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM inventory_reservations WHERE booking_id = ? AND status = 'HELD'",
+                Integer.class,
+                result.id()))
+        .isEqualTo(2);
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> createBookingUseCase.execute(command))
+        .isInstanceOf(InventoryException.class)
+        .extracting(ex -> ((InventoryException) ex).code())
+        .isEqualTo(InventoryErrorCode.INSUFFICIENT_INVENTORY);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM bookings WHERE hotel_id = ?", Integer.class, HOTEL_ID))
+        .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM booking_items WHERE booking_id = ?",
+                Integer.class,
+                result.id()))
+        .isEqualTo(1);
   }
 
   @Test
@@ -272,6 +326,18 @@ class InventoryConcurrencyIntegrationTests {
                     "$.data.roomTypes[?(@.roomTypeId == '%s')].isAvailable",
                     TWO_ROOM_TYPE_ID.toString())
                 .value(false));
+
+    jdbc.update("UPDATE users SET email_verified_at = now() WHERE id = ?", OWNER_ID);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                createBookingUseCase.execute(bookingRequest(night1, TWO_ROOM_TYPE_ID, 3_000_000L)))
+        .isInstanceOf(InventoryException.class)
+        .extracting(ex -> ((InventoryException) ex).code())
+        .isEqualTo(InventoryErrorCode.INSUFFICIENT_INVENTORY);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM bookings WHERE hotel_id = ?", Integer.class, HOTEL_ID))
+        .isZero();
   }
 
   @Test

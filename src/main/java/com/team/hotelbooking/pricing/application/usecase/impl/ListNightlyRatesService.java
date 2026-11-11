@@ -7,6 +7,7 @@ import com.team.hotelbooking.pricing.application.result.RoomTypeNightlyRatesResu
 import com.team.hotelbooking.pricing.application.usecase.ListNightlyRatesUseCase;
 import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
 import com.team.hotelbooking.pricing.domain.service.NightlyPriceResolver;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -34,7 +35,7 @@ public final class ListNightlyRatesService implements ListNightlyRatesUseCase {
 
   @Override
   public List<RoomTypeNightlyRatesResult> execute(ListNightlyRatesQuery query) {
-    NightlyPriceResolver.validateStay(query.checkIn(), query.checkOut(), LocalDate.now(clock));
+    NightlyPriceResolver.validateStay(query.checkIn(), query.checkOut(), BusinessTime.today(clock));
     if (query.roomTypeIds().isEmpty()) {
       return List.of();
     }

@@ -33,7 +33,7 @@ public class PublicQuoteController {
   @Operation(
       summary = "[PR03] Báo giá lưu trú chi tiết trước khi đặt phòng",
       description =
-          "Tính số ngày/đêm, mốc giờ nhận/trả tiêu chuẩn và dự kiến, tiền phòng từng đêm và phụ thu đã chốt.")
+          "Báo giá tạm tính theo từng đêm; giờ dự kiến chỉ là ghi chú, không tính phụ thu. Giá và phòng được kiểm tra lại khi đặt.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",

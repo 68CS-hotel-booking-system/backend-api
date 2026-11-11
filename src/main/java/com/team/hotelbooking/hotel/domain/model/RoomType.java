@@ -53,7 +53,7 @@ public record RoomType(
         description,
         maxAdults,
         maxChildren,
-        DEFAULT_MAX_OCCUPANCY,
+        (short) Math.max(DEFAULT_MAX_OCCUPANCY, Math.max(maxAdults, maxChildren)),
         DEFAULT_BASE_PRICE,
         true,
         now,
@@ -105,6 +105,10 @@ public record RoomType(
               + ") không được vượt quá sức chứa tối đa ("
               + newOccupancy
               + ").");
+    }
+    if (newChildren > newOccupancy) {
+      throw HotelException.invalidOccupancy(
+          "Số trẻ em tối đa không được vượt quá sức chứa tối đa.");
     }
 
     long newBasePrice = this.basePrice;

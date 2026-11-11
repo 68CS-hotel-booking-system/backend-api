@@ -13,6 +13,7 @@ import com.team.hotelbooking.inventory.application.usecase.CheckInBookingUseCase
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
 import com.team.hotelbooking.inventory.domain.model.RoomAssignment;
 import com.team.hotelbooking.inventory.domain.repository.RoomAssignmentRepository;
+import com.team.hotelbooking.shared.time.BusinessTime;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -69,7 +70,7 @@ public class CheckInBookingService implements CheckInBookingUseCase {
     hotelCatalogPort.lockRoomTypesInHotel(command.hotelId(), roomTypeIds);
 
     Instant now = clock.instant();
-    LocalDate today = LocalDate.now(clock);
+    LocalDate today = BusinessTime.today(clock);
 
     if (today.isBefore(booking.checkInDate())) {
       throw InventoryException.invalidStayOperation(
