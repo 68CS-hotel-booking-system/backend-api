@@ -11,6 +11,8 @@ public interface BookingCheckoutDirectory {
 
   Optional<BookingCheckoutSnapshot> findById(UUID bookingId);
 
+  boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt);
+
   record BookingCheckoutSnapshot(
       UUID bookingId,
       String bookingCode,

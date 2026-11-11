@@ -52,12 +52,21 @@ public class RoomBlockJpaEntity {
   @Column(name = "created_by_user_id", nullable = false)
   private UUID createdByUserId;
 
+  @Column(name = "updated_by_user_id")
+  private UUID updatedByUserId;
+
   @Column(name = "released_by_user_id")
   private UUID releasedByUserId;
 
   @Column(name = "created_at", nullable = false)
-  private Instant createdAt = Instant.now();
+  private Instant createdAt;
+
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
   @Column(name = "released_at")
   private Instant releasedAt;
+
+  @Column(name = "release_reason", length = 255)
+  private String releaseReason;
 }

@@ -22,4 +22,16 @@ public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UU
 
   Page<BookingJpaEntity> findByHotelIdAndStatus(
       UUID hotelId, BookingJpaEntity.DbStatus status, Pageable pageable);
+
+  @org.springframework.data.jpa.repository.Modifying
+  @org.springframework.data.jpa.repository.Query(
+      """
+      UPDATE BookingJpaEntity b
+      SET b.status = :status, b.updatedAt = :updatedAt
+      WHERE b.id = :bookingId
+      """)
+  int updateStatus(
+      @org.springframework.data.repository.query.Param("bookingId") UUID bookingId,
+      @org.springframework.data.repository.query.Param("status") BookingJpaEntity.DbStatus status,
+      @org.springframework.data.repository.query.Param("updatedAt") java.time.Instant updatedAt);
 }

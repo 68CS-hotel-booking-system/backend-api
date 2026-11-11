@@ -33,12 +33,17 @@ public record SetRoomRatesRequest(
     @Schema(description = "Đơn vị tiền tệ (mặc định VND)", example = "VND") String currency) {
 
   public SetRoomRatesCommand toCommand(UUID hotelId, UUID roomTypeId) {
+    return toCommand(hotelId, roomTypeId, null);
+  }
+
+  public SetRoomRatesCommand toCommand(UUID hotelId, UUID roomTypeId, UUID updatedByUserId) {
     return new SetRoomRatesCommand(
         hotelId,
         roomTypeId,
         startDate,
         endDateExclusive,
         amount,
-        currency == null || currency.isBlank() ? "VND" : currency.trim().toUpperCase());
+        currency == null || currency.isBlank() ? "VND" : currency.trim().toUpperCase(),
+        updatedByUserId);
   }
 }

@@ -17,6 +17,10 @@ public record GetRoomRatesRequest(
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
         LocalDate endDate) {
 
+  public GetRoomRatesQuery toQuery(UUID actorId, UUID hotelId, UUID roomTypeId) {
+    return new GetRoomRatesQuery(actorId, hotelId, roomTypeId, startDate, endDate);
+  }
+
   public GetRoomRatesQuery toQuery(UUID hotelId, UUID roomTypeId) {
     return new GetRoomRatesQuery(hotelId, roomTypeId, startDate, endDate);
   }
