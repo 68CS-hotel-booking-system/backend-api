@@ -53,6 +53,8 @@ public interface HotelCatalogPort {
 
   List<PhysicalRoomSummary> findPhysicalRoomsByRoomTypeId(UUID roomTypeId);
 
+  List<PhysicalRoomSummary> findPhysicalRoomsByRoomTypeIds(Collection<UUID> roomTypeIds);
+
   List<PhysicalRoomSummary> findPhysicalRoomsByHotelId(UUID hotelId);
 
   Optional<PhysicalRoomSummary> findPhysicalRoomByIdAndHotelId(UUID roomId, UUID hotelId);

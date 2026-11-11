@@ -67,7 +67,18 @@ erDiagram
         uuid owner_user_id FK
         uuid city_id FK
         varchar name
-        hotel_status__t status
+        varchar contact_phone
+        varchar contact_email
+        hotel_status__t status "DRAFT, ACTIVE, SUSPENDED, LOCKED"
+    }
+    hotel_status_history {
+        uuid id PK
+        uuid hotel_id FK
+        hotel_status__t from_status
+        hotel_status__t to_status
+        varchar reason
+        uuid changed_by_user_id FK
+        timestamptz changed_at
     }
     room_types {
         uuid id PK
@@ -94,14 +105,17 @@ erDiagram
     amenities {
         uuid id PK
         varchar name
+        amenity_category__t category UK "UNIQUE(id, category)"
     }
     hotel_amenities {
         uuid hotel_id PK,FK
         uuid amenity_id PK,FK
+        amenity_category__t amenity_category FK "CHECK = HOTEL"
     }
     room_type_amenities {
         uuid room_type_id PK,FK
         uuid amenity_id PK,FK
+        amenity_category__t amenity_category FK "CHECK = ROOM"
     }
     media_objects {
         uuid id PK
@@ -134,6 +148,8 @@ erDiagram
     hotels ||--o{ room_types : room_types_hotel
     hotels ||--o{ hotel_amenities : hotel_amenities_hotel
     amenities ||--o{ hotel_amenities : hotel_amenities_amenity
+    hotels ||--o{ hotel_status_history : hotel_status_history_hotel
+    users ||--o{ hotel_status_history : hotel_status_history_actor
     room_types ||--o{ room_type_amenities : room_type_amenities_room_type
     amenities ||--o{ room_type_amenities : room_type_amenities_amenity
     users ||--o{ media_objects : media_objects_created_by
@@ -432,9 +448,11 @@ Hành vi xóa/cập nhật dưới đây được đọc từ `Ref`, không còn
 | `fk_hotels_city` | `hotels(city_id) → cities(id)` | 1 | 0..N | NO ACTION | NO ACTION |
 | `fk_room_types_hotel` | `room_types(hotel_id) → hotels(id)` | 1 | 0..N | NO ACTION | NO ACTION |
 | `fk_hotel_amenities_hotel` | `hotel_amenities(hotel_id) → hotels(id)` | 1 | 0..N | CASCADE | NO ACTION |
-| `fk_hotel_amenities_amenity` | `hotel_amenities(amenity_id) → amenities(id)` | 1 | 0..N | NO ACTION | NO ACTION |
+| `fk_hotel_amenities_amenity` | `hotel_amenities(amenity_id, amenity_category) → amenities(id, category)` | 1 | 0..N | NO ACTION | NO ACTION |
+| `fk_hotel_status_history_hotel` | `hotel_status_history(hotel_id) → hotels(id)` | 1 | 0..N | NO ACTION | NO ACTION |
+| `fk_hotel_status_history_actor` | `hotel_status_history(changed_by_user_id) → users(id)` | 1 | 0..N | NO ACTION | NO ACTION |
 | `fk_room_type_amenities_room_type` | `room_type_amenities(room_type_id) → room_types(id)` | 1 | 0..N | CASCADE | NO ACTION |
-| `fk_room_type_amenities_amenity` | `room_type_amenities(amenity_id) → amenities(id)` | 1 | 0..N | NO ACTION | NO ACTION |
+| `fk_room_type_amenities_amenity` | `room_type_amenities(amenity_id, amenity_category) → amenities(id, category)` | 1 | 0..N | NO ACTION | NO ACTION |
 | `fk_media_objects_created_by` | `media_objects(created_by_user_id) → users(id)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_hotel_images_hotel` | `hotel_images(hotel_id) → hotels(id)` | 1 | 0..N | CASCADE | NO ACTION |
 | `fk_hotel_images_media` | `hotel_images(media_object_id) → media_objects(id)` | 1 | 0..N | RESTRICT | NO ACTION |
@@ -455,6 +473,8 @@ Hành vi xóa/cập nhật dưới đây được đọc từ `Ref`, không còn
 | `fk_inventory_reservations_booking_item_room_type` | `inventory_reservations(booking_item_id, room_type_id) → booking_items(id, room_type_id)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_inventory_reservations_inventory_row` | `inventory_reservations(room_type_id, stay_date) → room_inventory(room_type_id, inventory_date)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_booking_status_history_booking` | `booking_status_history(booking_id) → bookings(id)` | 1 | 0..N | CASCADE | NO ACTION |
+| `fk_complaints_booking_hotel` | `complaints(booking_id, hotel_id) → bookings(id, hotel_id)` | 1 | 0..N | RESTRICT | NO ACTION |
+| `fk_complaints_customer` | `complaints(customer_id) → users(id)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_booking_status_history_actor` | `booking_status_history(changed_by_user_id) → users(id)` | 0..1 | 0..N | SET NULL | NO ACTION |
 | `fk_reviews_booking` | `reviews(booking_id) → bookings(id)` | 1 | 0..1 | RESTRICT | NO ACTION |
 | `fk_reviews_customer` | `reviews(customer_id) → users(id)` | 1 | 0..N | RESTRICT | NO ACTION |
@@ -480,6 +500,7 @@ Hành vi xóa/cập nhật dưới đây được đọc từ `Ref`, không còn
 | `fk_user_images_media` | `user_images(media_object_id) → media_objects(id)` | 1 | 0..1 | RESTRICT | NO ACTION |
 | `fk_room_blocks_physical_room_type` | `room_blocks(room_id, room_type_id) → rooms(id, room_type_id)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_hotel_contracts_hotel` | `hotel_contracts(hotel_id) → hotels(id)` | 1 | 0..N | RESTRICT | NO ACTION |
+| `ex_hotel_contracts_active_period` (EXCLUDE, không phải FK) | `hotel_contracts(hotel_id =, tstzrange(starts_at, ends_at, '[)') &&) WHERE status = 'ACTIVE'` | — | — | — | — |
 | `fk_hotel_contracts_owner` | `hotel_contracts(owner_user_id) → users(id)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_hotel_contracts_creator` | `hotel_contracts(created_by_user_id) → users(id)` | 1 | 0..N | RESTRICT | NO ACTION |
 | `fk_booking_financials_booking_hotel` | `booking_financials(booking_id, hotel_id) → bookings(id, hotel_id)` | 1 | 0..1 | RESTRICT | NO ACTION |
@@ -492,6 +513,8 @@ Hành vi xóa/cập nhật dưới đây được đọc từ `Ref`, không còn
 
 | Quan hệ | Ý nghĩa |
 | --- | --- |
+| `hotel_amenities.(amenity_id, amenity_category) → amenities.(id, category)` | Khách sạn chỉ gắn tiện ích HOTEL; CHECK amenity_category = 'HOTEL', cha có `uq_amenities_id_category` (Flyway V20261110120000000) |
+| `room_type_amenities.(amenity_id, amenity_category) → amenities.(id, category)` | Loại phòng chỉ gắn tiện ích ROOM; CHECK amenity_category = 'ROOM', cùng UNIQUE(id, category) ở cha |
 | `booking_items.(booking_id, hotel_id) → bookings.(id, hotel_id)` | Hạng mục thuộc đúng hotel của đơn |
 | `booking_items.(room_type_id, hotel_id) → room_types.(id, hotel_id)` | Loại phòng cùng hotel với đơn |
 | `inventory_reservations.(booking_item_id, room_type_id) → booking_items.(id, room_type_id)` | Ledger cùng loại phòng với hạng mục |

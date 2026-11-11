@@ -57,11 +57,9 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
       throw PricingException.invalidDateRange("Không thể đặt giá cho ngày trong quá khứ.");
     }
 
-    if (command.updatedByUserId() != null) {
-      pricingHotelPort.requireManagementAccess(command.updatedByUserId(), command.hotelId());
-    } else if (!pricingHotelPort.isHotelActive(command.hotelId())) {
-      throw PricingException.hotelNotFound("Không tìm thấy khách sạn.");
-    }
+    // Kiểm quyền và trạng thái hotel trước, rồi mới xét loại phòng thuộc hotel.
+    PricingManagementAccess.require(
+        pricingHotelPort, command.hotelId(), command.actorUserId(), command.admin());
 
     if (!pricingHotelPort.isRoomTypeActiveInHotel(command.roomTypeId(), command.hotelId())) {
       throw PricingException.roomTypeNotFound(
@@ -94,7 +92,7 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
               date,
               command.amount(),
               currency,
-              command.updatedByUserId(),
+              command.actorUserId(),
               createdAt,
               now));
       dailyRates.add(new DailyRate(date, command.amount(), true, now));

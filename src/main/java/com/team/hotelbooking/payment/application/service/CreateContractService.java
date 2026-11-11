@@ -7,24 +7,27 @@ import com.team.hotelbooking.payment.application.result.HotelContractResult;
 import com.team.hotelbooking.payment.application.usecase.CreateContractUseCase;
 import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
-import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelContractJpaEntity;
-import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelContractJpaRepository;
+import com.team.hotelbooking.payment.domain.repository.HotelContractRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class CreateContractService implements CreateContractUseCase {
 
-  private final HotelContractJpaRepository contractJpaRepository;
+  private final HotelContractRepository contractRepository;
   private final PaymentHotelPort paymentHotelPort;
   private final PaymentIdentityPort paymentIdentityPort;
   private final Clock clock;
 
   @Override
   public HotelContractResult execute(CreateContractCommand command) {
+    // Người tạo lấy từ principal ADMIN; không tự sinh định danh thay thế (FK tới users).
+    if (command.currentAdminUserId() == null) {
+      throw FinanceException.accessDenied("Chỉ quản trị hệ thống được tạo hợp đồng hoa hồng.");
+    }
+
     if (!paymentHotelPort.existsById(command.hotelId())) {
       throw FinanceException.hotelNotFound("Không tìm thấy khách sạn.");
     }
@@ -38,7 +41,7 @@ public class CreateContractService implements CreateContractUseCase {
     }
 
     String code = command.contractCode().trim();
-    if (contractJpaRepository.existsByContractCode(code)) {
+    if (contractRepository.existsByContractCode(code)) {
       throw FinanceException.contractCodeExists(
           "Mã hợp đồng " + code + " đã tồn tại trên hệ thống.");
     }
@@ -56,59 +59,40 @@ public class CreateContractService implements CreateContractUseCase {
       throw FinanceException.invalidRate("Tỷ lệ hoa hồng phải nằm trong khoảng từ 0% đến 100%.");
     }
 
-    HotelContractJpaEntity.DbContractStatus status =
-        command.status() != null
-            ? HotelContractJpaEntity.DbContractStatus.valueOf(command.status().name())
-            : HotelContractJpaEntity.DbContractStatus.DRAFT;
+    HotelContract.ContractStatus status =
+        command.status() != null ? command.status() : HotelContract.ContractStatus.DRAFT;
 
-    if (status == HotelContractJpaEntity.DbContractStatus.ACTIVE) {
-      long overlaps =
-          contractJpaRepository.countOverlappingActiveContracts(
-              command.hotelId(), command.startsAt(), command.endsAt());
-      if (overlaps > 0) {
-        throw FinanceException.activeContractOverlap(
-            "Khoảng thời gian hiệu lực bị trùng lặp với hợp đồng đang hoạt động khác của khách sạn.");
-      }
+    // Kiểm trước để trả lỗi rõ; hai yêu cầu song song vẫn bị ràng buộc exclusion của DB chặn.
+    if (status == HotelContract.ContractStatus.ACTIVE
+        && contractRepository.hasOverlappingActive(
+            command.hotelId(), command.startsAt(), command.endsAt(), null)) {
+      throw FinanceException.activeContractOverlap(
+          "Khoảng thời gian hiệu lực bị trùng lặp với hợp đồng đang hoạt động khác của khách sạn.");
     }
 
-    HotelContractJpaEntity.DbCommissionBasis commissionBasis =
+    HotelContract.CommissionBasis commissionBasis =
         command.commissionBasis() != null
-            ? HotelContractJpaEntity.DbCommissionBasis.valueOf(command.commissionBasis().name())
-            : HotelContractJpaEntity.DbCommissionBasis.AFTER_DISCOUNT;
+            ? command.commissionBasis()
+            : HotelContract.CommissionBasis.AFTER_DISCOUNT;
 
     Instant now = clock.instant();
 
-    HotelContractJpaEntity entity = new HotelContractJpaEntity();
-    entity.setContractCode(code);
-    entity.setHotelId(command.hotelId());
-    entity.setOwnerUserId(command.ownerUserId());
-    entity.setCommissionRate(command.commissionRate());
-    entity.setCommissionBasis(commissionBasis);
-    entity.setStartsAt(command.startsAt());
-    entity.setEndsAt(command.endsAt());
-    entity.setStatus(status);
-    entity.setCreatedByUserId(
-        command.currentAdminUserId() != null ? command.currentAdminUserId() : UUID.randomUUID());
-    entity.setCreatedAt(now);
-    entity.setUpdatedAt(now);
+    HotelContract saved =
+        contractRepository.add(
+            new HotelContract(
+                null,
+                code,
+                command.hotelId(),
+                command.ownerUserId(),
+                command.commissionRate(),
+                commissionBasis,
+                command.startsAt(),
+                command.endsAt(),
+                status,
+                command.currentAdminUserId(),
+                now,
+                now));
 
-    HotelContractJpaEntity saved = contractJpaRepository.save(entity);
-
-    HotelContract domain =
-        new HotelContract(
-            saved.getId(),
-            saved.getContractCode(),
-            saved.getHotelId(),
-            saved.getOwnerUserId(),
-            saved.getCommissionRate(),
-            HotelContract.CommissionBasis.valueOf(saved.getCommissionBasis().name()),
-            saved.getStartsAt(),
-            saved.getEndsAt(),
-            HotelContract.ContractStatus.valueOf(saved.getStatus().name()),
-            saved.getCreatedByUserId(),
-            saved.getCreatedAt(),
-            saved.getUpdatedAt());
-
-    return HotelContractResult.from(domain);
+    return HotelContractResult.from(saved);
   }
 }

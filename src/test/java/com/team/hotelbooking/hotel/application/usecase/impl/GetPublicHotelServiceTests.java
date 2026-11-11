@@ -6,13 +6,17 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import com.team.hotelbooking.hotel.application.result.GetPublicHotelResult;
+import com.team.hotelbooking.hotel.application.result.ListAmenitiesResult;
 import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
+import com.team.hotelbooking.hotel.domain.model.Amenity;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
+import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,14 +36,23 @@ class GetPublicHotelServiceTests {
   private static final UUID CITY_ID = UUID.fromString("822cafba-73f6-4ec0-bae7-71804535cae3");
   private static final Instant NOW = Instant.parse("2026-11-04T00:00:00Z");
 
+  private static final Amenity POOL =
+      new Amenity(
+          UUID.fromString("c290e20c-7bd7-440b-9b7d-38b0f9c359c3"),
+          "SWIMMING_POOL",
+          "Hồ bơi",
+          Amenity.Category.HOTEL);
+
   @Mock private HotelRepository hotels;
+
+  @Mock private AmenityRepository amenities;
 
   private GetPublicHotelService service;
   private Hotel activeHotel;
 
   @BeforeEach
   void setUp() {
-    service = new GetPublicHotelService(hotels);
+    service = new GetPublicHotelService(hotels, amenities);
     activeHotel =
         new Hotel(
             HOTEL_ID,
@@ -49,6 +62,8 @@ class GetPublicHotelServiceTests {
             "khach-san-bien-xanh-" + HOTEL_ID,
             "Gần biển Mỹ Khê",
             "12 Võ Nguyên Giáp",
+            null,
+            null,
             new BigDecimal("16.061400"),
             new BigDecimal("108.247800"),
             (short) 4,
@@ -69,6 +84,7 @@ class GetPublicHotelServiceTests {
       // Given
       given(hotels.findByIdAndStatus(HOTEL_ID, Hotel.Status.ACTIVE))
           .willReturn(Optional.of(activeHotel));
+      given(amenities.findByHotelId(HOTEL_ID)).willReturn(List.of(POOL));
 
       // When
       GetPublicHotelResult result = service.execute(HOTEL_ID);
@@ -86,8 +102,23 @@ class GetPublicHotelServiceTests {
               new BigDecimal("108.247800"),
               (short) 4,
               LocalTime.of(14, 0),
-              LocalTime.of(12, 0)),
+              LocalTime.of(12, 0),
+              List.of(new ListAmenitiesResult(POOL.id(), "SWIMMING_POOL", "Hồ bơi", "HOTEL"))),
           result);
+    }
+
+    @Test
+    void shouldReturnEmptyAmenitiesWhenHotelHasNoAmenity() {
+      // Given
+      given(hotels.findByIdAndStatus(HOTEL_ID, Hotel.Status.ACTIVE))
+          .willReturn(Optional.of(activeHotel));
+      given(amenities.findByHotelId(HOTEL_ID)).willReturn(List.of());
+
+      // When
+      GetPublicHotelResult result = service.execute(HOTEL_ID);
+
+      // Then
+      assertEquals(List.of(), result.amenities());
     }
 
     @Test
@@ -102,6 +133,7 @@ class GetPublicHotelServiceTests {
       // Then
       assertEquals(HotelErrorCode.HOTEL_NOT_FOUND, error.code());
       assertEquals("Không tìm thấy khách sạn.", error.getMessage());
+      then(amenities).shouldHaveNoInteractions();
     }
 
     @Test

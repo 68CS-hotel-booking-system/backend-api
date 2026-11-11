@@ -12,6 +12,7 @@ import com.team.hotelbooking.pricing.domain.model.StayQuote;
 import com.team.hotelbooking.pricing.domain.model.StayQuote.ItemQuote;
 import com.team.hotelbooking.pricing.domain.model.StayQuote.NightlyPrice;
 import com.team.hotelbooking.pricing.domain.repository.RoomRateRepository;
+import com.team.hotelbooking.pricing.domain.service.NightlyPriceResolver;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -22,7 +23,6 @@ import java.util.Map;
 
 public final class CalculateStayQuoteService implements CalculateStayQuoteUseCase {
 
-  private static final int MAX_STAY_NIGHTS = 30;
   private static final long EXTRA_GUEST_SURCHARGE_PERCENT = 10L;
 
   private final PricingHotelPort pricingHotelPort;
@@ -94,20 +94,18 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
       Map<LocalDate, Long> dailyAmounts =
           roomRateRepository.findDailyAmounts(roomType.id(), query.checkIn(), lastStayNight);
 
-      List<NightlyPrice> nightlyPrices = new ArrayList<>(nights);
-      long singleRoomNightsSum = 0L;
-      for (LocalDate date = query.checkIn();
-          date.isBefore(query.checkOut());
-          date = date.plusDays(1)) {
-        Long customRate = dailyAmounts.get(date);
-        long unitPrice = customRate != null ? customRate : roomType.basePrice();
-        if (unitPrice <= 0L) {
-          throw PricingException.rateNotAvailable(
-              "Loại phòng chưa được thiết lập giá bán hợp lệ cho đêm " + date + ".");
-        }
-        nightlyPrices.add(new NightlyPrice(date, unitPrice));
-        singleRoomNightsSum += unitPrice;
+      // Quy tắc giá từng đêm dùng chung với tra giá theo lô (NightlyPriceResolver).
+      NightlyPriceResolver.Resolution resolution =
+          NightlyPriceResolver.resolve(
+              roomType.basePrice(), dailyAmounts, query.checkIn(), query.checkOut());
+      if (!resolution.sellable()) {
+        throw PricingException.rateNotAvailable(
+            "Loại phòng chưa được thiết lập giá bán hợp lệ cho đêm "
+                + resolution.firstUnpricedNight()
+                + ".");
       }
+      List<NightlyPrice> nightlyPrices = resolution.nightlyPrices();
+      long singleRoomNightsSum = resolution.totalAmount();
 
       long itemRoomSubtotal = item.quantity() * singleRoomNightsSum;
       long firstNightRoomAmount = item.quantity() * nightlyPrices.get(0).unitPrice();
@@ -180,24 +178,7 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
   }
 
   private void validateDates(LocalDate checkIn, LocalDate checkOut) {
-    if (checkIn == null || checkOut == null) {
-      throw PricingException.invalidDateRange("Ngày nhận và trả phòng không được để trống.");
-    }
-
-    LocalDate today = LocalDate.now(clock);
-    if (checkIn.isBefore(today)) {
-      throw PricingException.invalidDateRange("Ngày nhận phòng không được ở trong quá khứ.");
-    }
-
-    if (!checkOut.isAfter(checkIn)) {
-      throw PricingException.invalidDateRange(
-          "Ngày trả phòng phải sau ngày nhận phòng ít nhất 1 đêm.");
-    }
-
-    long stayNights = ChronoUnit.DAYS.between(checkIn, checkOut);
-    if (stayNights > MAX_STAY_NIGHTS) {
-      throw PricingException.maxStayExceeded("Thời gian lưu trú tối đa là 30 đêm.");
-    }
+    NightlyPriceResolver.validateStay(checkIn, checkOut, LocalDate.now(clock));
   }
 
   private static void validateItemOccupancy(QuoteItemInput item, RoomTypePricingSnapshot roomType) {

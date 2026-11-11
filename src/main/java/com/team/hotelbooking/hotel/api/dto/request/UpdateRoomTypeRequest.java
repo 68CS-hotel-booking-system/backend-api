@@ -30,8 +30,11 @@ public record UpdateRoomTypeRequest(
     @Schema(description = "Trạng thái mở bán (true: mở bán, false: ngừng bán)", example = "true")
         Boolean active) {
 
-  public UpdateRoomTypeCommand toCommand(UUID hotelId, UUID roomTypeId) {
+  public UpdateRoomTypeCommand toCommand(
+      UUID actorUserId, boolean admin, UUID hotelId, UUID roomTypeId) {
     return new UpdateRoomTypeCommand(
+        actorUserId,
+        admin,
         hotelId,
         roomTypeId,
         name,

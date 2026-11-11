@@ -6,16 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
+import com.team.hotelbooking.hotel.application.result.ListAmenitiesResult;
 import com.team.hotelbooking.hotel.application.result.ListPublicRoomTypesResult;
 import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
+import com.team.hotelbooking.hotel.domain.model.Amenity;
 import com.team.hotelbooking.hotel.domain.model.Hotel;
 import com.team.hotelbooking.hotel.domain.model.RoomType;
+import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,13 +41,22 @@ class ListPublicRoomTypesServiceTests {
 
   @Mock private RoomTypeRepository roomTypes;
 
+  @Mock private AmenityRepository amenities;
+
+  private static final Amenity WIFI =
+      new Amenity(
+          UUID.fromString("4e10ab03-f280-4717-a8ef-0155f186c41a"),
+          "FREE_WIFI",
+          "Wi-Fi miễn phí",
+          Amenity.Category.ROOM);
+
   private ListPublicRoomTypesService service;
   private Hotel activeHotel;
   private RoomType deluxe;
 
   @BeforeEach
   void setUp() {
-    service = new ListPublicRoomTypesService(hotels, roomTypes);
+    service = new ListPublicRoomTypesService(hotels, roomTypes, amenities);
     activeHotel =
         new Hotel(
             HOTEL_ID,
@@ -53,6 +66,8 @@ class ListPublicRoomTypesServiceTests {
             "khach-san-bien-xanh",
             null,
             "12 Võ Nguyên Giáp",
+            null,
+            null,
             null,
             null,
             null,
@@ -70,6 +85,8 @@ class ListPublicRoomTypesServiceTests {
             "Hướng biển",
             (short) 2,
             (short) 1,
+            (short) 2,
+            0L,
             true,
             NOW,
             NOW,
@@ -86,6 +103,8 @@ class ListPublicRoomTypesServiceTests {
       given(hotels.findByIdAndStatus(HOTEL_ID, Hotel.Status.ACTIVE))
           .willReturn(Optional.of(activeHotel));
       given(roomTypes.findActiveByHotelId(HOTEL_ID)).willReturn(List.of(deluxe));
+      given(amenities.findByRoomTypeIds(List.of(deluxe.id())))
+          .willReturn(Map.of(deluxe.id(), List.of(WIFI)));
 
       // When
       List<ListPublicRoomTypesResult> result = service.execute(HOTEL_ID);
@@ -94,8 +113,30 @@ class ListPublicRoomTypesServiceTests {
       assertEquals(
           List.of(
               new ListPublicRoomTypesResult(
-                  deluxe.id(), "Deluxe King", "Hướng biển", (short) 2, (short) 1)),
+                  deluxe.id(),
+                  "Deluxe King",
+                  "Hướng biển",
+                  (short) 2,
+                  (short) 1,
+                  List.of(
+                      new ListAmenitiesResult(WIFI.id(), "FREE_WIFI", "Wi-Fi miễn phí", "ROOM")))),
           result);
+    }
+
+    @Test
+    void shouldReturnEmptyAmenitiesWhenRoomTypeHasNoAmenity() {
+      // Given
+      given(hotels.findByIdAndStatus(HOTEL_ID, Hotel.Status.ACTIVE))
+          .willReturn(Optional.of(activeHotel));
+      given(roomTypes.findActiveByHotelId(HOTEL_ID)).willReturn(List.of(deluxe));
+      given(amenities.findByRoomTypeIds(List.of(deluxe.id()))).willReturn(Map.of());
+
+      // When
+      List<ListPublicRoomTypesResult> result = service.execute(HOTEL_ID);
+
+      // Then
+      assertEquals(1, result.size());
+      assertEquals(List.of(), result.get(0).amenities());
     }
 
     @Test
@@ -110,6 +151,7 @@ class ListPublicRoomTypesServiceTests {
 
       // Then
       assertTrue(result.isEmpty());
+      then(amenities).shouldHaveNoInteractions();
     }
 
     @Test

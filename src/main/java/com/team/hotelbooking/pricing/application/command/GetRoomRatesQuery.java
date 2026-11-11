@@ -3,10 +3,11 @@ package com.team.hotelbooking.pricing.application.command;
 import java.time.LocalDate;
 import java.util.UUID;
 
+// actorUserId và admin lấy từ principal; quyền theo hotel kiểm trong use case.
 public record GetRoomRatesQuery(
-    UUID actorId, UUID hotelId, UUID roomTypeId, LocalDate startDate, LocalDate endDate) {
-
-  public GetRoomRatesQuery(UUID hotelId, UUID roomTypeId, LocalDate startDate, LocalDate endDate) {
-    this(null, hotelId, roomTypeId, startDate, endDate);
-  }
-}
+    UUID actorUserId,
+    boolean admin,
+    UUID hotelId,
+    UUID roomTypeId,
+    LocalDate startDate,
+    LocalDate endDate) {}

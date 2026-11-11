@@ -52,4 +52,8 @@ public final class FinanceException extends RuntimeException {
   public static FinanceException accessDenied(String message) {
     return new FinanceException(FinanceErrorCode.ACCESS_DENIED, message);
   }
+
+  public static FinanceException contractNotFound(String message) {
+    return new FinanceException(FinanceErrorCode.CONTRACT_NOT_FOUND, message);
+  }
 }

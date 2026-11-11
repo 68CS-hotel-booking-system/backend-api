@@ -3,8 +3,11 @@ package com.team.hotelbooking.inventory.infrastructure.config;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory;
 import com.team.hotelbooking.inventory.application.port.BookingStayPort;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
+import com.team.hotelbooking.inventory.application.port.HotelCoverImagePort;
+import com.team.hotelbooking.inventory.application.port.HotelSearchCatalogPort;
 import com.team.hotelbooking.inventory.application.port.InventoryQueryPort;
 import com.team.hotelbooking.inventory.application.port.RoomPricingPort;
+import com.team.hotelbooking.inventory.application.port.StayPricingPort;
 import com.team.hotelbooking.inventory.application.service.CheckAvailabilityService;
 import com.team.hotelbooking.inventory.application.usecase.AssignRoomsUseCase;
 import com.team.hotelbooking.inventory.application.usecase.CheckAvailabilityUseCase;
@@ -16,6 +19,7 @@ import com.team.hotelbooking.inventory.application.usecase.ListRoomBlocksUseCase
 import com.team.hotelbooking.inventory.application.usecase.MarkNoShowUseCase;
 import com.team.hotelbooking.inventory.application.usecase.RecordLateArrivalUseCase;
 import com.team.hotelbooking.inventory.application.usecase.ReleaseRoomBlockUseCase;
+import com.team.hotelbooking.inventory.application.usecase.SearchHotelsUseCase;
 import com.team.hotelbooking.inventory.application.usecase.UpdateRoomBlockUseCase;
 import com.team.hotelbooking.inventory.application.usecase.UpdateRoomReadinessUseCase;
 import com.team.hotelbooking.inventory.application.usecase.impl.AssignRoomsService;
@@ -27,6 +31,7 @@ import com.team.hotelbooking.inventory.application.usecase.impl.ListRoomBlocksSe
 import com.team.hotelbooking.inventory.application.usecase.impl.MarkNoShowService;
 import com.team.hotelbooking.inventory.application.usecase.impl.RecordLateArrivalService;
 import com.team.hotelbooking.inventory.application.usecase.impl.ReleaseRoomBlockService;
+import com.team.hotelbooking.inventory.application.usecase.impl.SearchHotelsService;
 import com.team.hotelbooking.inventory.application.usecase.impl.UpdateRoomBlockService;
 import com.team.hotelbooking.inventory.application.usecase.impl.UpdateRoomReadinessService;
 import com.team.hotelbooking.inventory.domain.repository.RoomAssignmentRepository;
@@ -51,6 +56,30 @@ public class InventoryConfig {
 
     CheckAvailabilityService service =
         new CheckAvailabilityService(hotelCatalogPort, inventoryQueryPort, roomPricingPort, clock);
+
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  // Chỉ đọc; tồn, giá và ảnh bìa lấy theo lô qua port, tham gia cùng transaction read-only này.
+  @Bean
+  public SearchHotelsUseCase searchHotelsUseCase(
+      HotelSearchCatalogPort hotelSearchCatalogPort,
+      InventoryQueryPort inventoryQueryPort,
+      StayPricingPort stayPricingPort,
+      HotelCoverImagePort hotelCoverImagePort,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+
+    SearchHotelsService service =
+        new SearchHotelsService(
+            hotelSearchCatalogPort,
+            inventoryQueryPort,
+            stayPricingPort,
+            hotelCoverImagePort,
+            clock);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);

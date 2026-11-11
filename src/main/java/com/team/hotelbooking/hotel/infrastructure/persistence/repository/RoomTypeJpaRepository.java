@@ -15,6 +15,11 @@ public interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, 
 
   Optional<RoomTypeJpaEntity> findByIdAndHotelId(UUID roomTypeId, UUID hotelId);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select rt from RoomTypeJpaEntity rt where rt.id = :roomTypeId and rt.hotelId = :hotelId")
+  Optional<RoomTypeJpaEntity> findByIdAndHotelIdForUpdate(
+      @Param("roomTypeId") UUID roomTypeId, @Param("hotelId") UUID hotelId);
+
   List<RoomTypeJpaEntity> findAllByHotelIdAndActiveTrue(UUID hotelId);
 
   Optional<RoomTypeJpaEntity> findByIdAndHotelIdAndActiveTrue(UUID id, UUID hotelId);

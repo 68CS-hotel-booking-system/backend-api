@@ -27,12 +27,9 @@ public class GetRoomRatesService implements GetRoomRatesUseCase {
   public RoomTypeRatesResult execute(GetRoomRatesQuery query) {
     validateDates(query.startDate(), query.endDate());
 
-    if (!pricingHotelPort.isHotelActive(query.hotelId())) {
-      throw PricingException.hotelNotFound("Không tìm thấy khách sạn.");
-    }
-    if (query.actorId() != null) {
-      pricingHotelPort.requireManagementAccess(query.actorId(), query.hotelId());
-    }
+    // Kiểm quyền và trạng thái hotel trước, rồi mới xét loại phòng thuộc hotel.
+    PricingManagementAccess.require(
+        pricingHotelPort, query.hotelId(), query.actorUserId(), query.admin());
 
     if (!pricingHotelPort.isRoomTypeActiveInHotel(query.roomTypeId(), query.hotelId())) {
       throw PricingException.roomTypeNotFound(

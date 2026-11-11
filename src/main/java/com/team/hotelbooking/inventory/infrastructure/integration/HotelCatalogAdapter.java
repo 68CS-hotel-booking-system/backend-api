@@ -114,6 +114,13 @@ public class HotelCatalogAdapter implements HotelCatalogPort {
   }
 
   @Override
+  public List<PhysicalRoomSummary> findPhysicalRoomsByRoomTypeIds(Collection<UUID> roomTypeIds) {
+    return hotelDirectory.findPhysicalRoomsByRoomTypeIds(roomTypeIds).stream()
+        .map(HotelCatalogAdapter::toPhysicalRoomSummary)
+        .toList();
+  }
+
+  @Override
   public List<PhysicalRoomSummary> findPhysicalRoomsByHotelId(UUID hotelId) {
     return hotelDirectory.findPhysicalRoomsByHotelId(hotelId).stream()
         .map(HotelCatalogAdapter::toPhysicalRoomSummary)

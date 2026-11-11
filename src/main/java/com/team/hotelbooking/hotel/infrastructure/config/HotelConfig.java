@@ -1,8 +1,7 @@
 package com.team.hotelbooking.hotel.infrastructure.config;
 
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
-import com.team.hotelbooking.hotel.application.service.UpdateRoomService;
-import com.team.hotelbooking.hotel.application.service.UpdateRoomTypeService;
+import com.team.hotelbooking.hotel.application.port.RoomInventoryPort;
 import com.team.hotelbooking.hotel.application.usecase.ApproveHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
@@ -16,6 +15,13 @@ import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomTypesUs
 import com.team.hotelbooking.hotel.application.usecase.ListManagementRoomsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicHotelsUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicRoomTypesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.LockHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ReplaceHotelAmenitiesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ReplaceRoomTypeAmenitiesUseCase;
+import com.team.hotelbooking.hotel.application.usecase.ResumeHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.SuspendHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.UnlockHotelUseCase;
+import com.team.hotelbooking.hotel.application.usecase.UpdateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.ApproveHotelService;
@@ -31,14 +37,21 @@ import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomTy
 import com.team.hotelbooking.hotel.application.usecase.impl.ListManagementRoomsService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicHotelsService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListPublicRoomTypesService;
+import com.team.hotelbooking.hotel.application.usecase.impl.LockHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ReplaceHotelAmenitiesService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ReplaceRoomTypeAmenitiesService;
+import com.team.hotelbooking.hotel.application.usecase.impl.ResumeHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.SuspendHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.UnlockHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.UpdateHotelService;
+import com.team.hotelbooking.hotel.application.usecase.impl.UpdateRoomService;
+import com.team.hotelbooking.hotel.application.usecase.impl.UpdateRoomTypeService;
 import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
 import com.team.hotelbooking.hotel.domain.repository.CityRepository;
 import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
+import com.team.hotelbooking.hotel.domain.repository.HotelStatusHistoryRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomTypeRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.HotelJpaRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomJpaRepository;
-import com.team.hotelbooking.hotel.infrastructure.persistence.repository.RoomTypeJpaRepository;
 import com.team.hotelbooking.shared.config.PaginationProperties;
 import java.time.Clock;
 import java.util.Objects;
@@ -123,27 +136,30 @@ public class HotelConfig {
 
   @Bean
   public UpdateRoomTypeUseCase updateRoomTypeUseCase(
-      HotelJpaRepository hotelJpaRepository,
-      RoomTypeJpaRepository roomTypeJpaRepository,
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
       Clock clock,
       PlatformTransactionManager transactionManager) {
-    UpdateRoomTypeService service =
-        new UpdateRoomTypeService(hotelJpaRepository, roomTypeJpaRepository, clock);
-    TransactionTemplate tx = new TransactionTemplate(transactionManager);
-    tx.setReadOnly(false);
-    return command -> tx.execute(status -> service.execute(command));
+    UpdateRoomTypeService service = new UpdateRoomTypeService(hotels, roomTypes, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
   }
 
+  // Kiểm trùng số phòng và ghi phòng trong cùng transaction; lỗi ở bước nào cũng rollback.
   @Bean
   public UpdateRoomUseCase updateRoomUseCase(
-      HotelJpaRepository hotelJpaRepository,
-      RoomJpaRepository roomJpaRepository,
+      HotelRepository hotels,
+      RoomRepository rooms,
+      RoomInventoryPort inventory,
       Clock clock,
       PlatformTransactionManager transactionManager) {
-    UpdateRoomService service = new UpdateRoomService(hotelJpaRepository, roomJpaRepository, clock);
-    TransactionTemplate tx = new TransactionTemplate(transactionManager);
-    tx.setReadOnly(false);
-    return command -> tx.execute(status -> service.execute(command));
+    UpdateRoomService service = new UpdateRoomService(hotels, rooms, clock, inventory);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
   }
 
   @Bean
@@ -169,8 +185,10 @@ public class HotelConfig {
 
   @Bean
   public GetPublicHotelUseCase getPublicHotelUseCase(
-      HotelRepository hotels, PlatformTransactionManager transactionManager) {
-    GetPublicHotelService service = new GetPublicHotelService(hotels);
+      HotelRepository hotels,
+      AmenityRepository amenities,
+      PlatformTransactionManager transactionManager) {
+    GetPublicHotelService service = new GetPublicHotelService(hotels, amenities);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -182,8 +200,10 @@ public class HotelConfig {
   public ListPublicRoomTypesUseCase listPublicRoomTypesUseCase(
       HotelRepository hotels,
       RoomTypeRepository roomTypes,
+      AmenityRepository amenities,
       PlatformTransactionManager transactionManager) {
-    ListPublicRoomTypesService service = new ListPublicRoomTypesService(hotels, roomTypes);
+    ListPublicRoomTypesService service =
+        new ListPublicRoomTypesService(hotels, roomTypes, amenities);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -220,14 +240,19 @@ public class HotelConfig {
     return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
   }
 
+  // Duyệt, kiểm HT-03 và ghi lịch sử trong cùng transaction; lỗi ở bước nào cũng rollback.
   @Bean
   public ApproveHotelUseCase approveHotelUseCase(
       HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      RoomRepository rooms,
+      HotelStatusHistoryRepository statusHistory,
       IdentityAccounts accounts,
       Clock clock,
       PlatformTransactionManager transactionManager) {
 
-    ApproveHotelService service = new ApproveHotelService(hotels, accounts, clock);
+    ApproveHotelService service =
+        new ApproveHotelService(hotels, roomTypes, rooms, statusHistory, accounts, clock);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
     return (hotelId, adminActorId) ->
@@ -242,5 +267,106 @@ public class HotelConfig {
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
     return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public UpdateHotelUseCase updateHotelUseCase(
+      HotelRepository hotels, Clock clock, PlatformTransactionManager transactionManager) {
+    UpdateHotelService service = new UpdateHotelService(hotels, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  // Xóa danh sách cũ và ghi danh sách mới trong cùng transaction; lỗi ở bước nào cũng rollback.
+  @Bean
+  public ReplaceHotelAmenitiesUseCase replaceHotelAmenitiesUseCase(
+      HotelRepository hotels,
+      AmenityRepository amenities,
+      PlatformTransactionManager transactionManager) {
+    ReplaceHotelAmenitiesService service = new ReplaceHotelAmenitiesService(hotels, amenities);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public ReplaceRoomTypeAmenitiesUseCase replaceRoomTypeAmenitiesUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      AmenityRepository amenities,
+      PlatformTransactionManager transactionManager) {
+    ReplaceRoomTypeAmenitiesService service =
+        new ReplaceRoomTypeAmenitiesService(hotels, roomTypes, amenities);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  // Đổi trạng thái bán và ghi lịch sử trong cùng transaction; lỗi ở bước nào cũng rollback cả hai.
+  @Bean
+  public SuspendHotelUseCase suspendHotelUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      RoomRepository rooms,
+      HotelStatusHistoryRepository statusHistory,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    SuspendHotelService service =
+        new SuspendHotelService(hotels, roomTypes, rooms, statusHistory, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public ResumeHotelUseCase resumeHotelUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      RoomRepository rooms,
+      HotelStatusHistoryRepository statusHistory,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    ResumeHotelService service =
+        new ResumeHotelService(hotels, roomTypes, rooms, statusHistory, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public LockHotelUseCase lockHotelUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      RoomRepository rooms,
+      HotelStatusHistoryRepository statusHistory,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    LockHotelService service = new LockHotelService(hotels, roomTypes, rooms, statusHistory, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public UnlockHotelUseCase unlockHotelUseCase(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      RoomRepository rooms,
+      HotelStatusHistoryRepository statusHistory,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    UnlockHotelService service =
+        new UnlockHotelService(hotels, roomTypes, rooms, statusHistory, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
   }
 }

@@ -27,12 +27,6 @@ public class RoomJpaEntity {
     DIRTY
   }
 
-  public enum DbRoomStatus {
-    ready,
-    cleaning,
-    maintenance
-  }
-
   @Id private UUID id;
 
   @Column(name = "hotel_id", nullable = false)
@@ -73,28 +67,4 @@ public class RoomJpaEntity {
   @Version
   @Column(nullable = false)
   private Long version = 0L;
-
-  public boolean isActive() {
-    return operationalUntil == null || operationalUntil.isAfter(Instant.now());
-  }
-
-  public void setActive(Boolean active) {
-    if (active != null && !active) {
-      this.operationalUntil = Instant.now();
-    } else if (active != null && active) {
-      this.operationalUntil = null;
-    }
-  }
-
-  public DbRoomStatus getStatus() {
-    return readiness == DbReadiness.READY ? DbRoomStatus.ready : DbRoomStatus.cleaning;
-  }
-
-  public void setStatus(DbRoomStatus status) {
-    if (status == DbRoomStatus.ready) {
-      this.readiness = DbReadiness.READY;
-    } else {
-      this.readiness = DbReadiness.DIRTY;
-    }
-  }
 }

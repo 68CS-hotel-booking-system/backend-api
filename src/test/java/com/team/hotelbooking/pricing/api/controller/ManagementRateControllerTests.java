@@ -2,6 +2,7 @@ package com.team.hotelbooking.pricing.api.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.team.hotelbooking.pricing.api.dto.request.SetRoomRatesRequest;
 import com.team.hotelbooking.pricing.api.exception.PricingExceptionHandler;
+import com.team.hotelbooking.pricing.application.command.GetRoomRatesQuery;
+import com.team.hotelbooking.pricing.application.command.SetRoomRatesCommand;
 import com.team.hotelbooking.pricing.application.result.DailyRateResult;
 import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.application.usecase.GetRoomRatesUseCase;
@@ -29,12 +32,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Controller tra cứu và thiết lập giá phòng theo ngày")
 class ManagementRateControllerTests {
+
+  private static final UUID ACTOR_ID = UUID.fromString("1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9");
+  private static final UUID ADMIN_ID = UUID.fromString("4c5d6e7f-8a9b-4c0d-9e2f-3a4b5c6d7e8f");
+  private static final Authentication OWNER =
+      UsernamePasswordAuthenticationToken.authenticated(
+          ACTOR_ID.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_HOTEL_OWNER")));
+  private static final Authentication ADMIN =
+      UsernamePasswordAuthenticationToken.authenticated(
+          ADMIN_ID.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
   private MockMvc mvc;
   private ObjectMapper objectMapper;
@@ -49,6 +64,7 @@ class ManagementRateControllerTests {
         MockMvcBuilders.standaloneSetup(
                 new ManagementRateController(getRoomRatesUseCase, setRoomRatesUseCase))
             .setControllerAdvice(new PricingExceptionHandler(new ProblemDetailFactory()))
+            .defaultRequest(get("/").principal(OWNER))
             .build();
   }
 
@@ -239,6 +255,65 @@ class ManagementRateControllerTests {
           .andExpect(
               jsonPath("$.detail")
                   .value("Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn."));
+    }
+  }
+
+  @Nested
+  @DisplayName("Người gọi lấy từ principal khi tra cứu và đặt giá")
+  class ActorTests {
+
+    @Test
+    void shouldPassActorAndAdminFlagFromPrincipalWhenReadingRates() throws Exception {
+      // Given
+      UUID hotelId = UUID.randomUUID();
+      UUID roomTypeId = UUID.randomUUID();
+      LocalDate start = LocalDate.of(2026, 11, 1);
+      LocalDate end = LocalDate.of(2026, 11, 2);
+      given(getRoomRatesUseCase.execute(any()))
+          .willReturn(new RoomTypeRatesResult(hotelId, roomTypeId, "VND", start, end, List.of()));
+
+      // When
+      mvc.perform(
+              get(
+                      "/api/v1/management/hotels/{hotelId}/room-types/{roomTypeId}/rates",
+                      hotelId,
+                      roomTypeId)
+                  .principal(ADMIN)
+                  .param("startDate", "2026-11-01")
+                  .param("endDate", "2026-11-02"))
+          .andExpect(status().isOk());
+
+      // Then
+      then(getRoomRatesUseCase)
+          .should()
+          .execute(new GetRoomRatesQuery(ADMIN_ID, true, hotelId, roomTypeId, start, end));
+    }
+
+    @Test
+    void shouldPassNonAdminFlagWhenPrincipalIsHotelOwnerSettingRates() throws Exception {
+      // Given
+      UUID hotelId = UUID.randomUUID();
+      UUID roomTypeId = UUID.randomUUID();
+      LocalDate start = LocalDate.of(2026, 12, 1);
+      given(setRoomRatesUseCase.execute(any()))
+          .willReturn(new RoomTypeRatesResult(hotelId, roomTypeId, "VND", start, start, List.of()));
+
+      // When
+      mvc.perform(
+              put(
+                      "/api/v1/management/hotels/{hotelId}/room-types/{roomTypeId}/rates",
+                      hotelId,
+                      roomTypeId)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"startDate\": \"2026-12-01\", \"amount\": 1500000}"))
+          .andExpect(status().isOk());
+
+      // Then
+      then(setRoomRatesUseCase)
+          .should()
+          .execute(
+              new SetRoomRatesCommand(
+                  ACTOR_ID, false, hotelId, roomTypeId, start, null, 1_500_000L, "VND"));
     }
   }
 }

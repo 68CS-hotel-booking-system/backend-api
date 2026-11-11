@@ -1,9 +1,11 @@
 package com.team.hotelbooking.hotel.api.controller;
 
 import com.team.hotelbooking.hotel.api.dto.response.GetPublicHotelResponse;
+import com.team.hotelbooking.hotel.api.dto.response.ListPublicHotelsResponse;
 import com.team.hotelbooking.hotel.api.dto.response.ListPublicRoomTypesResponse;
 import com.team.hotelbooking.hotel.application.command.ListPublicHotelsQuery;
 import com.team.hotelbooking.hotel.application.result.GetPublicHotelResult;
+import com.team.hotelbooking.hotel.application.result.ListPublicHotelsResult;
 import com.team.hotelbooking.hotel.application.result.ListPublicRoomTypesResult;
 import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListPublicHotelsUseCase;
@@ -56,15 +58,15 @@ public class PublicHotelController {
   }
 
   @GetMapping
-  public ResponseEntity<ApiResponse<PageResponse<GetPublicHotelResponse>>> listHotels(
+  public ResponseEntity<ApiResponse<PageResponse<ListPublicHotelsResponse>>> listHotels(
       @RequestParam(name = "cityId", required = false) UUID cityId,
       @RequestParam(name = "keyword", required = false) String keyword,
       @RequestParam(name = "page", required = false) Integer page,
       @RequestParam(name = "size", required = false) Integer size) {
     PageQuery pagination = paginationSupport.resolve(page, size);
     ListPublicHotelsQuery query = new ListPublicHotelsQuery(cityId, keyword, pagination);
-    PageResult<GetPublicHotelResult> result = listPublicHotelsUseCase.execute(query);
-    PageResponse<GetPublicHotelResponse> response = GetPublicHotelResponse.from(result);
+    PageResult<ListPublicHotelsResult> result = listPublicHotelsUseCase.execute(query);
+    PageResponse<ListPublicHotelsResponse> response = ListPublicHotelsResponse.from(result);
     return ResponseEntity.ok()
         .body(ApiResponse.success("Lấy danh sách khách sạn thành công.", response));
   }

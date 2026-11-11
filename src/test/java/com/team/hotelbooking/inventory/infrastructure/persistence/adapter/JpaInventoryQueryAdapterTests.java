@@ -44,6 +44,37 @@ class JpaInventoryQueryAdapterTests {
             hotelCatalogPort, roomBlockJpaRepository, reservationJpaRepository, clock);
   }
 
+  @Test
+  void shouldReturnZeroInBatchWhenNoRoomIsFreeForWholeStay() {
+    UUID type = UUID.randomUUID(), hotel = UUID.randomUUID();
+    UUID a = UUID.randomUUID(), b = UUID.randomUUID();
+    LocalDate first = LocalDate.of(2027, 1, 1), second = first.plusDays(1);
+    var roomA = new HotelCatalogPort.PhysicalRoomSummary(a, hotel, type, "A", null, null, null);
+    var roomB = new HotelCatalogPort.PhysicalRoomSummary(b, hotel, type, "B", null, null, null);
+    RoomBlockJpaEntity blockA = new RoomBlockJpaEntity();
+    blockA.setRoomTypeId(type);
+    blockA.setRoomId(a);
+    blockA.setStartDate(first);
+    blockA.setEndDate(first);
+    RoomBlockJpaEntity blockB = new RoomBlockJpaEntity();
+    blockB.setRoomTypeId(type);
+    blockB.setRoomId(b);
+    blockB.setStartDate(second);
+    blockB.setEndDate(second);
+    given(
+            hotelCatalogPort.findPhysicalRoomsByRoomTypeIds(
+                org.mockito.ArgumentMatchers.anyCollection()))
+        .willReturn(List.of(roomA, roomB));
+    given(
+            roomBlockJpaRepository.findActiveBlocksInRangeForRoomTypes(
+                org.mockito.ArgumentMatchers.anyCollection(), any(), any()))
+        .willReturn(List.of(blockA, blockB));
+    var result =
+        adapter.calculateMinAvailableQuantities(
+            java.util.Map.of(type, 2L), first, first.plusDays(2));
+    assertEquals(0, result.get(type));
+  }
+
   @Nested
   @DisplayName("JpaInventoryQueryAdapter.calculateAvailableQuantity")
   class CalculateAvailableQuantityTests {

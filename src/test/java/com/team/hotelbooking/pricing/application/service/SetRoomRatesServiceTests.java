@@ -5,9 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.team.hotelbooking.pricing.application.command.SetRoomRatesCommand;
 import com.team.hotelbooking.pricing.application.port.PricingHotelPort;
+import com.team.hotelbooking.pricing.application.port.PricingHotelPort.HotelManagement;
+import com.team.hotelbooking.pricing.application.port.PricingHotelPort.HotelStatus;
+import com.team.hotelbooking.pricing.application.port.PricingHotelPort.Level;
 import com.team.hotelbooking.pricing.application.result.RoomTypeRatesResult;
 import com.team.hotelbooking.pricing.domain.exception.PricingErrorCode;
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
@@ -19,6 +23,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +38,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("Dịch vụ thiết lập giá phòng theo ngày (PR02)")
 class SetRoomRatesServiceTests {
 
+  private static final UUID ACTOR_ID = UUID.fromString("1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9");
+
   @Mock private PricingHotelPort pricingHotelPort;
   @Mock private RoomRateRepository roomRateRepository;
 
@@ -43,11 +50,15 @@ class SetRoomRatesServiceTests {
 
   private final UUID hotelId = UUID.randomUUID();
   private final UUID roomTypeId = UUID.randomUUID();
-  private final UUID actorUserId = UUID.randomUUID();
 
   @BeforeEach
   void setUp() {
     service = new SetRoomRatesService(pricingHotelPort, roomRateRepository, fixedClock);
+  }
+
+  private void givenAccess(UUID hotelId, Level level, HotelStatus status) {
+    given(pricingHotelPort.findManagementAccess(hotelId, ACTOR_ID, false))
+        .willReturn(Optional.of(new HotelManagement(level, status)));
   }
 
   @Nested
@@ -62,8 +73,9 @@ class SetRoomRatesServiceTests {
       LocalDate endExclusive = LocalDate.of(2026, 11, 13); // 3 ngày: 10, 11, 12
       SetRoomRatesCommand command =
           new SetRoomRatesCommand(
-              hotelId, roomTypeId, start, endExclusive, 1_500_000L, "VND", actorUserId);
+              ACTOR_ID, false, hotelId, roomTypeId, start, endExclusive, 1_500_000L, "VND");
 
+      givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
       given(
               roomRateRepository.findRatesByRoomTypeIdAndDateRange(
@@ -82,13 +94,13 @@ class SetRoomRatesServiceTests {
       assertThat(result.rates()).hasSize(3);
       assertThat(result.rates().get(0).price()).isEqualTo(1_500_000L);
 
-      then(pricingHotelPort).should().requireManagementAccess(actorUserId, hotelId);
+      then(pricingHotelPort).should().findManagementAccess(hotelId, ACTOR_ID, false);
       @SuppressWarnings("unchecked")
       ArgumentCaptor<List<RoomRate>> captor = ArgumentCaptor.forClass(List.class);
       then(roomRateRepository).should().saveAll(captor.capture());
       assertThat(captor.getValue())
           .hasSize(3)
-          .allSatisfy(rate -> assertThat(rate.updatedByUserId()).isEqualTo(actorUserId));
+          .allSatisfy(rate -> assertThat(rate.updatedByUserId()).isEqualTo(ACTOR_ID));
     }
 
     @Test
@@ -97,9 +109,10 @@ class SetRoomRatesServiceTests {
       // Given
       LocalDate start = LocalDate.of(2026, 11, 15);
       SetRoomRatesCommand command =
-          new SetRoomRatesCommand(hotelId, roomTypeId, start, null, 2_000_000L, "VND");
+          new SetRoomRatesCommand(
+              ACTOR_ID, false, hotelId, roomTypeId, start, null, 2_000_000L, "VND");
 
-      given(pricingHotelPort.isHotelActive(hotelId)).willReturn(true);
+      givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
       given(roomRateRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, start))
           .willReturn(Collections.emptyList());
@@ -122,7 +135,7 @@ class SetRoomRatesServiceTests {
       // Given
       LocalDate start = LocalDate.of(2026, 11, 10);
       SetRoomRatesCommand command =
-          new SetRoomRatesCommand(hotelId, roomTypeId, start, null, 0L, "VND");
+          new SetRoomRatesCommand(ACTOR_ID, false, hotelId, roomTypeId, start, null, 0L, "VND");
 
       // When & Then
       assertThatThrownBy(() -> service.execute(command))
@@ -139,7 +152,8 @@ class SetRoomRatesServiceTests {
       // Given (today is 2026-11-04)
       LocalDate pastDate = LocalDate.of(2026, 11, 1);
       SetRoomRatesCommand command =
-          new SetRoomRatesCommand(hotelId, roomTypeId, pastDate, null, 1_000_000L, "VND");
+          new SetRoomRatesCommand(
+              ACTOR_ID, false, hotelId, roomTypeId, pastDate, null, 1_000_000L, "VND");
 
       // When & Then
       assertThatThrownBy(() -> service.execute(command))
@@ -156,9 +170,11 @@ class SetRoomRatesServiceTests {
       // Given
       LocalDate start = LocalDate.of(2026, 11, 10);
       SetRoomRatesCommand command =
-          new SetRoomRatesCommand(hotelId, roomTypeId, start, null, 1_000_000L, "VND");
+          new SetRoomRatesCommand(
+              ACTOR_ID, false, hotelId, roomTypeId, start, null, 1_000_000L, "VND");
 
-      given(pricingHotelPort.isHotelActive(hotelId)).willReturn(false);
+      given(pricingHotelPort.findManagementAccess(hotelId, ACTOR_ID, false))
+          .willReturn(Optional.empty());
 
       // When & Then
       assertThatThrownBy(() -> service.execute(command))
@@ -175,9 +191,10 @@ class SetRoomRatesServiceTests {
       // Given
       LocalDate start = LocalDate.of(2026, 11, 10);
       SetRoomRatesCommand command =
-          new SetRoomRatesCommand(hotelId, roomTypeId, start, null, 1_000_000L, "VND");
+          new SetRoomRatesCommand(
+              ACTOR_ID, false, hotelId, roomTypeId, start, null, 1_000_000L, "VND");
 
-      given(pricingHotelPort.isHotelActive(hotelId)).willReturn(true);
+      givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
       given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(false);
 
       // When & Then
@@ -187,6 +204,146 @@ class SetRoomRatesServiceTests {
               ex ->
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.ROOM_TYPE_NOT_FOUND));
+    }
+  }
+
+  @Nested
+  @DisplayName("Phân quyền theo khách sạn")
+  class AccessTests {
+
+    @Test
+    @DisplayName("Ném ACCESS_DENIED và không xét khách sạn khi người gọi là RECEPTIONIST")
+    void shouldThrowAccessDeniedWhenHotelReportsDenied() {
+      // Given
+      givenAccess(hotelId, Level.RECEPTIONIST, HotelStatus.ACTIVE);
+
+      // When & Then
+      assertThatThrownBy(
+              () ->
+                  service.execute(
+                      new SetRoomRatesCommand(
+                          ACTOR_ID,
+                          false,
+                          hotelId,
+                          roomTypeId,
+                          LocalDate.of(2026, 11, 10),
+                          null,
+                          1_000_000L,
+                          "VND")))
+          .isInstanceOf(PricingException.class)
+          .satisfies(
+              ex ->
+                  assertThat(((PricingException) ex).code())
+                      .isEqualTo(PricingErrorCode.ACCESS_DENIED));
+      then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
+      then(roomRateRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName(
+        "Ném HOTEL_NOT_FOUND khi người gọi không thuộc khách sạn hoặc khách sạn không tồn tại")
+    void shouldThrowHotelNotFoundWhenHotelReportsNotFound() {
+      // Given
+      given(pricingHotelPort.findManagementAccess(hotelId, ACTOR_ID, false))
+          .willReturn(Optional.empty());
+
+      // When & Then
+      assertThatThrownBy(
+              () ->
+                  service.execute(
+                      new SetRoomRatesCommand(
+                          ACTOR_ID,
+                          false,
+                          hotelId,
+                          roomTypeId,
+                          LocalDate.of(2026, 11, 10),
+                          null,
+                          1_000_000L,
+                          "VND")))
+          .isInstanceOf(PricingException.class)
+          .satisfies(
+              ex ->
+                  assertThat(((PricingException) ex).code())
+                      .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
+      then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
+      then(roomRateRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Ném HOTEL_NOT_FOUND khi người gọi không có quan hệ nào với khách sạn")
+    void shouldThrowHotelNotFoundWhenActorHasNoRelationToHotel() {
+      // Given
+      givenAccess(hotelId, Level.NONE, HotelStatus.ACTIVE);
+
+      // When & Then
+      assertThatThrownBy(
+              () ->
+                  service.execute(
+                      new SetRoomRatesCommand(
+                          ACTOR_ID,
+                          false,
+                          hotelId,
+                          roomTypeId,
+                          LocalDate.of(2026, 11, 10),
+                          null,
+                          1_000_000L,
+                          "VND")))
+          .satisfies(
+              ex ->
+                  assertThat(((PricingException) ex).code())
+                      .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
+      then(roomRateRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Ném HOTEL_LOCKED và không đụng giá khi khách sạn bị quản trị khóa, kể cả ADMIN")
+    void shouldThrowHotelLockedWhenHotelIsLocked() {
+      // Given
+      givenAccess(hotelId, Level.ADMIN, HotelStatus.LOCKED);
+
+      // When & Then
+      assertThatThrownBy(
+              () ->
+                  service.execute(
+                      new SetRoomRatesCommand(
+                          ACTOR_ID,
+                          false,
+                          hotelId,
+                          roomTypeId,
+                          LocalDate.of(2026, 11, 10),
+                          null,
+                          1_000_000L,
+                          "VND")))
+          .satisfies(
+              ex ->
+                  assertThat(((PricingException) ex).code())
+                      .isEqualTo(PricingErrorCode.HOTEL_LOCKED));
+      then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
+      then(roomRateRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Cho HOTEL_MANAGER thao tác giá khi khách sạn đang DRAFT (chưa/không mở bán)")
+    void shouldAllowManagerWhenHotelIsDraft() {
+      // Given
+      givenAccess(hotelId, Level.MANAGER, HotelStatus.DRAFT);
+      given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
+
+      // When
+      RoomTypeRatesResult result =
+          service.execute(
+              new SetRoomRatesCommand(
+                  ACTOR_ID,
+                  false,
+                  hotelId,
+                  roomTypeId,
+                  LocalDate.of(2026, 11, 10),
+                  null,
+                  1_000_000L,
+                  "VND"));
+
+      // Then
+      assertThat(result.hotelId()).isEqualTo(hotelId);
     }
   }
 }

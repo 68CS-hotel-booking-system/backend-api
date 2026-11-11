@@ -77,4 +77,46 @@ public record Room(
         now,
         0L);
   }
+
+  // HT21: field null được giữ nguyên. Ngừng sử dụng đặt mốc kết thúc phục vụ là now (ghi đè mốc
+  // cũ); bật lại thì xóa mốc kết thúc. Giữ nguyên readinessUpdatedAt/By như hành vi trước đây.
+  public Room update(
+      String roomNumber, String floor, Readiness readiness, Boolean active, Instant now) {
+    if (now == null) {
+      throw HotelException.invalid("Thời điểm cập nhật phòng là bắt buộc.");
+    }
+
+    String newRoomNumber = this.roomNumber;
+    if (roomNumber != null) {
+      newRoomNumber = roomNumber.trim();
+      if (newRoomNumber.isEmpty()) {
+        throw HotelException.invalidRequest("Số phòng không được để trống.");
+      }
+    }
+
+    Instant newOperationalUntil = this.operationalUntil;
+    if (active != null) {
+      newOperationalUntil = active ? null : now;
+    }
+
+    return new Room(
+        id,
+        hotelId,
+        roomTypeId,
+        newRoomNumber,
+        floor != null ? floor : this.floor,
+        readiness != null ? readiness : this.readiness,
+        readinessUpdatedAt,
+        readinessUpdatedBy,
+        operationalFrom,
+        newOperationalUntil,
+        createdAt,
+        now,
+        version);
+  }
+
+  // Phòng còn phục vụ khi chưa có mốc kết thúc hoặc mốc kết thúc nằm sau thời điểm xét.
+  public boolean activeAt(Instant instant) {
+    return operationalUntil == null || operationalUntil.isAfter(instant);
+  }
 }

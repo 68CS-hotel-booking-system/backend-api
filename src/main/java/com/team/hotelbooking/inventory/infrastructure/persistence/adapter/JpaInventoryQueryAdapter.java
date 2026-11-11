@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -86,17 +87,47 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
     LocalDate horizonStart = checkInDate.minusDays(MAX_STAY_HORIZON_DAYS);
     LocalDate horizonEnd = checkOutDate.plusDays(MAX_STAY_HORIZON_DAYS);
 
-    // 1. Lấy tất cả room blocks còn ACTIVE giao thoa với khoảng xét
-    List<RoomBlockJpaEntity> activeBlocks =
+    List<RoomBlockJpaEntity> blocks =
         roomBlockJpaRepository.findActiveBlocksInRange(roomTypeId, horizonStart, horizonEnd);
-    if (activeBlocks == null || activeBlocks.isEmpty()) {
-      activeBlocks =
+    if (blocks == null || blocks.isEmpty())
+      blocks =
           roomBlockJpaRepository.findActiveBlocksInRange(roomTypeId, checkInDate, checkOutDate);
-    }
-    if (activeBlocks == null) {
-      activeBlocks = List.of();
-    }
+    List<RoomAssignmentJpaEntity> assignments =
+        roomAssignmentJpaRepository == null
+            ? List.of()
+            : roomAssignmentJpaRepository.findActiveByRoomTypeIdsOverlapping(
+                List.of(roomTypeId), horizonStart, horizonEnd);
+    List<InventoryReservationJpaEntity> reservations =
+        reservationJpaRepository.findActiveReservationsInRange(
+            roomTypeId, horizonStart, horizonEnd, now);
+    List<DailyReservationOccupancy> occupancy =
+        reservations == null || reservations.isEmpty()
+            ? reservationJpaRepository.sumOccupancyByDateRange(
+                roomTypeId, checkInDate, checkOutDate, now)
+            : List.of();
+    return calculateContinuous(
+        physicalRooms,
+        blocks == null ? List.of() : blocks,
+        assignments == null ? List.of() : assignments,
+        reservations,
+        occupancy,
+        checkInDate,
+        checkOutDate,
+        now);
+  }
 
+  private int calculateContinuous(
+      List<HotelCatalogPort.PhysicalRoomSummary> physicalRooms,
+      List<RoomBlockJpaEntity> activeBlocks,
+      List<RoomAssignmentJpaEntity> activeAssignments,
+      List<InventoryReservationJpaEntity> activeReservations,
+      List<DailyReservationOccupancy> occupancyList,
+      LocalDate checkInDate,
+      LocalDate checkOutDate,
+      Instant now) {
+    LocalDate horizonStart = checkInDate.minusDays(MAX_STAY_HORIZON_DAYS);
+    LocalDate horizonEnd = checkOutDate.plusDays(MAX_STAY_HORIZON_DAYS);
+    // 1. Lấy tất cả room blocks còn ACTIVE giao thoa với khoảng xét
     Map<UUID, Set<LocalDate>> blockedDatesByRoom = new HashMap<>();
     List<StayDemand> allDemands = new ArrayList<>();
 
@@ -121,14 +152,6 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
       }
     }
 
-    List<RoomAssignmentJpaEntity> activeAssignments =
-        roomAssignmentJpaRepository != null
-            ? roomAssignmentJpaRepository.findActiveByRoomTypeIdsOverlapping(
-                List.of(roomTypeId), horizonStart, horizonEnd)
-            : List.of();
-    if (activeAssignments == null) {
-      activeAssignments = List.of();
-    }
     for (RoomAssignmentJpaEntity assignment : activeAssignments) {
       LocalDate start =
           assignment.getStartDate().isBefore(horizonStart)
@@ -152,16 +175,9 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
     }
 
     // 2. Lấy các giữ chỗ (HELD còn hạn) và đã xác nhận (CONFIRMED) để ghép thành khoảng lưu trú
-    List<InventoryReservationJpaEntity> activeReservations =
-        reservationJpaRepository.findActiveReservationsInRange(
-            roomTypeId, horizonStart, horizonEnd, now);
-
     if (activeReservations != null && !activeReservations.isEmpty()) {
       allDemands.addAll(buildStayDemandsFromReservations(activeReservations, activeAssignments));
     } else {
-      List<DailyReservationOccupancy> occupancyList =
-          reservationJpaRepository.sumOccupancyByDateRange(
-              roomTypeId, checkInDate, checkOutDate, now);
       if (occupancyList != null) {
         for (DailyReservationOccupancy occ : occupancyList) {
           if (occ.getTotalQuantity() > 0) {
@@ -486,5 +502,52 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
     return demands.stream()
         .filter(d -> d.startInclusive().isBefore(finalEnd) && d.endExclusive().isAfter(finalStart))
         .toList();
+  }
+
+  @Override
+  public Map<UUID, Integer> calculateMinAvailableQuantities(
+      Map<UUID, Long> operationalRoomsByRoomType, LocalDate checkInDate, LocalDate checkOutDate) {
+    if (operationalRoomsByRoomType.isEmpty()) {
+      return Map.of();
+    }
+
+    Instant now = clock.instant();
+    var ids = operationalRoomsByRoomType.keySet();
+    LocalDate start = checkInDate.minusDays(MAX_STAY_HORIZON_DAYS);
+    LocalDate end = checkOutDate.plusDays(MAX_STAY_HORIZON_DAYS);
+    var rooms =
+        hotelCatalogPort.findPhysicalRoomsByRoomTypeIds(ids).stream()
+            .collect(Collectors.groupingBy(HotelCatalogPort.PhysicalRoomSummary::roomTypeId));
+    var blocks =
+        roomBlockJpaRepository.findActiveBlocksInRangeForRoomTypes(ids, start, end).stream()
+            .collect(Collectors.groupingBy(RoomBlockJpaEntity::getRoomTypeId));
+    var reservations =
+        reservationJpaRepository
+            .findActiveReservationsForRoomTypes(
+                ids, start, end, now, DbReservationStatus.HELD, DbReservationStatus.CONFIRMED)
+            .stream()
+            .collect(Collectors.groupingBy(InventoryReservationJpaEntity::getRoomTypeId));
+    var assignments =
+        roomAssignmentJpaRepository == null
+            ? Map.<UUID, List<RoomAssignmentJpaEntity>>of()
+            : roomAssignmentJpaRepository
+                .findActiveByRoomTypeIdsOverlapping(ids, start, end)
+                .stream()
+                .collect(Collectors.groupingBy(RoomAssignmentJpaEntity::getRoomTypeId));
+    Map<UUID, Integer> result = new HashMap<>();
+    for (UUID id : ids) {
+      result.put(
+          id,
+          calculateContinuous(
+              rooms.getOrDefault(id, List.of()),
+              blocks.getOrDefault(id, List.of()),
+              assignments.getOrDefault(id, List.of()),
+              reservations.getOrDefault(id, List.of()),
+              List.of(),
+              checkInDate,
+              checkOutDate,
+              now));
+    }
+    return result;
   }
 }

@@ -26,7 +26,9 @@ public class HotelJpaEntity {
 
   public enum DbStatus {
     DRAFT,
-    ACTIVE
+    ACTIVE,
+    SUSPENDED,
+    LOCKED
   }
 
   @Id private UUID id;
@@ -48,6 +50,12 @@ public class HotelJpaEntity {
 
   @Column(nullable = false, length = 255)
   private String address;
+
+  @Column(name = "contact_phone", length = 20)
+  private String contactPhone;
+
+  @Column(name = "contact_email", length = 255)
+  private String contactEmail;
 
   @Column(precision = 9, scale = 6)
   private BigDecimal latitude;

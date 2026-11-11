@@ -115,7 +115,8 @@ class PublicHotelIntegrationTests {
               "longitude",
               "starRating",
               "checkInTime",
-              "checkOutTime"),
+              "checkOutTime",
+              "amenities"),
           fields);
       assertFalse(body.contains(OWNER_ID.toString()), "Không được lộ Owner");
       assertFalse(body.contains("ACTIVE"), "Không được lộ trạng thái");
@@ -186,7 +187,7 @@ class PublicHotelIntegrationTests {
       assertEquals(expectedIds, ids);
       assertFalse(ids.contains(INACTIVE_ROOM_TYPE_ID.toString()), "Không trả loại phòng ngừng bán");
       assertEquals(
-          List.of("id", "name", "description", "maxAdults", "maxChildren"),
+          List.of("id", "name", "description", "maxAdults", "maxChildren", "amenities"),
           data.get(0).propertyNames().stream().toList());
       assertEquals(2, data.get(0).get("maxAdults").asInt());
       assertEquals(0, data.get(0).get("maxChildren").asInt());
