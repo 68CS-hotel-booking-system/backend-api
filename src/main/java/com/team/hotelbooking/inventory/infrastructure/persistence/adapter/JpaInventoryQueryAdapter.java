@@ -6,6 +6,7 @@ import com.team.hotelbooking.inventory.domain.service.RoomAllocationPlanner;
 import com.team.hotelbooking.inventory.domain.service.RoomAllocationPlanner.PhysicalRoom;
 import com.team.hotelbooking.inventory.domain.service.RoomAllocationPlanner.StayDemand;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity;
+import com.team.hotelbooking.inventory.infrastructure.persistence.entity.InventoryReservationJpaEntity.DbReservationStatus;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomAssignmentJpaEntity;
 import com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomBlockJpaEntity;
 import com.team.hotelbooking.inventory.infrastructure.persistence.repository.DailyReservationOccupancy;
@@ -180,6 +181,94 @@ public class JpaInventoryQueryAdapter implements InventoryQueryPort {
     // 3. Kiểm tra phân bổ liên tục cả kỳ theo IV-03, IV-04, IV-13
     return RoomAllocationPlanner.calculateMaxAllocatable(
         plannerRooms, relevantDemands, checkInDate, checkOutDate, now);
+  }
+
+  @Override
+  public boolean canAllocateAfterAssignment(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDateExclusive) {
+    Instant now = clock.instant();
+    LocalDate today = LocalDate.ofInstant(now, clock.getZone());
+    LocalDate firstAffectedNight = startDate.isAfter(today) ? startDate : today;
+    if (!endDateExclusive.isAfter(firstAffectedNight)) {
+      return true;
+    }
+
+    List<InventoryReservationJpaEntity> reservations =
+        reservationJpaRepository.findActiveReservationsFrom(
+            roomTypeId, today, now, DbReservationStatus.HELD, DbReservationStatus.CONFIRMED);
+    List<StayDemand> connectedStays =
+        filterConnectedDemands(
+            buildStayDemandsFromReservations(reservations), firstAffectedNight, endDateExclusive);
+    if (connectedStays.isEmpty()) {
+      return true;
+    }
+
+    // Lấy cả các đêm nằm ngoài khoảng gán nếu chúng thuộc kỳ ở bị ảnh hưởng.
+    LocalDate start =
+        connectedStays.stream()
+            .map(StayDemand::startInclusive)
+            .min(LocalDate::compareTo)
+            .orElseThrow();
+    LocalDate end =
+        connectedStays.stream()
+            .map(StayDemand::endExclusive)
+            .max(LocalDate::compareTo)
+            .orElseThrow();
+    List<RoomAssignmentJpaEntity> assignments =
+        roomAssignmentJpaRepository.findActiveByRoomTypeIdsOverlapping(
+            List.of(roomTypeId), start, end);
+    List<StayDemand> demands =
+        new ArrayList<>(
+            filterConnectedDemands(
+                buildStayDemandsFromReservations(reservations, assignments), start, end));
+    Map<UUID, Set<LocalDate>> occupiedDates = new HashMap<>();
+    for (RoomAssignmentJpaEntity assignment : assignments) {
+      addOccupiedNights(
+          occupiedDates,
+          assignment.getRoomId(),
+          assignment.getStartDate(),
+          assignment.getEndDate(),
+          start,
+          end);
+    }
+    for (RoomBlockJpaEntity block :
+        roomBlockJpaRepository.findActiveBlocksInRange(roomTypeId, start, end)) {
+      LocalDate blockEndExclusive = block.getEndDate().plusDays(1);
+      if (block.getRoomId() == null) {
+        LocalDate overlapStart = block.getStartDate().isAfter(start) ? block.getStartDate() : start;
+        LocalDate overlapEnd = blockEndExclusive.isBefore(end) ? blockEndExclusive : end;
+        demands.add(new StayDemand(overlapStart, overlapEnd, 1));
+      } else {
+        addOccupiedNights(
+            occupiedDates, block.getRoomId(), block.getStartDate(), blockEndExclusive, start, end);
+      }
+    }
+    List<PhysicalRoom> rooms =
+        hotelCatalogPort.findPhysicalRoomsByRoomTypeId(roomTypeId).stream()
+            .map(
+                room ->
+                    new PhysicalRoom(
+                        room.id(),
+                        room.operationalFrom(),
+                        room.operationalUntil(),
+                        occupiedDates.getOrDefault(room.id(), Set.of())))
+            .toList();
+    return RoomAllocationPlanner.canAllocate(rooms, demands, now);
+  }
+
+  private static void addOccupiedNights(
+      Map<UUID, Set<LocalDate>> datesByRoom,
+      UUID roomId,
+      LocalDate occupiedStart,
+      LocalDate occupiedEnd,
+      LocalDate rangeStart,
+      LocalDate rangeEnd) {
+    LocalDate start = occupiedStart.isAfter(rangeStart) ? occupiedStart : rangeStart;
+    LocalDate end = occupiedEnd.isBefore(rangeEnd) ? occupiedEnd : rangeEnd;
+    Set<LocalDate> dates = datesByRoom.computeIfAbsent(roomId, ignored -> new HashSet<>());
+    for (LocalDate date = start; date.isBefore(end); date = date.plusDays(1)) {
+      dates.add(date);
+    }
   }
 
   @Override

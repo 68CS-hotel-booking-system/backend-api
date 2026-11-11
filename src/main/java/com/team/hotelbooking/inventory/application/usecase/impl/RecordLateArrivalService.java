@@ -48,9 +48,6 @@ public class RecordLateArrivalService implements RecordLateArrivalUseCase {
           "Thông tin đơn đặt phòng và thời điểm dự kiến khách đến muộn không được để trống (BK-09).");
     }
 
-    hotelCatalogPort
-        .findHotelSummary(command.hotelId())
-        .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
     hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
 
     BookingStayInfo booking =

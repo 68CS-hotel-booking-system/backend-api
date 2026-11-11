@@ -6,6 +6,9 @@ import java.util.UUID;
 public interface InventoryQueryPort {
   int calculateAvailableQuantity(UUID roomTypeId, LocalDate checkInDate, LocalDate checkOutDate);
 
+  boolean canAllocateAfterAssignment(
+      UUID roomTypeId, LocalDate startDate, LocalDate endDateExclusive);
+
   boolean canAllocateWithCandidateBlock(
       UUID roomTypeId,
       UUID candidateBlockIdToReplace,

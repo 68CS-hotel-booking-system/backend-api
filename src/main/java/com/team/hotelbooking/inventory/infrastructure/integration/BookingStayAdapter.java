@@ -134,8 +134,9 @@ public class BookingStayAdapter implements BookingStayPort {
     entity.setUpdatedAt(checkedInAt);
     BookingStayOperationJpaEntity saved = bookingStayOperationJpaRepository.save(entity);
 
-    if (bookingCheckoutDirectory != null) {
-      bookingCheckoutDirectory.updateStayStatus(bookingId, "CHECKED_IN", checkedInAt);
+    if (!bookingCheckoutDirectory.updateStayStatus(bookingId, "CHECKED_IN", checkedInAt)) {
+      throw InventoryException.invalidStayOperation(
+          "Không thể đồng bộ trạng thái nhận phòng của đơn đặt phòng.");
     }
 
     return new BookingStayInfo(
@@ -176,8 +177,9 @@ public class BookingStayAdapter implements BookingStayPort {
     entity.setUpdatedAt(checkedOutAt);
     BookingStayOperationJpaEntity saved = bookingStayOperationJpaRepository.save(entity);
 
-    if (bookingCheckoutDirectory != null) {
-      bookingCheckoutDirectory.updateStayStatus(bookingId, "CHECKED_OUT", checkedOutAt);
+    if (!bookingCheckoutDirectory.updateStayStatus(bookingId, "CHECKED_OUT", checkedOutAt)) {
+      throw InventoryException.invalidStayOperation(
+          "Không thể đồng bộ trạng thái trả phòng của đơn đặt phòng.");
     }
 
     return new BookingStayInfo(
@@ -219,8 +221,9 @@ public class BookingStayAdapter implements BookingStayPort {
     entity.setUpdatedAt(markedAt);
     BookingStayOperationJpaEntity saved = bookingStayOperationJpaRepository.save(entity);
 
-    if (bookingCheckoutDirectory != null) {
-      bookingCheckoutDirectory.updateStayStatus(bookingId, "NO_SHOW", markedAt);
+    if (!bookingCheckoutDirectory.updateStayStatus(bookingId, "NO_SHOW", markedAt)) {
+      throw InventoryException.invalidStayOperation(
+          "Không thể đồng bộ trạng thái khách không đến của đơn đặt phòng.");
     }
 
     return new BookingStayInfo(

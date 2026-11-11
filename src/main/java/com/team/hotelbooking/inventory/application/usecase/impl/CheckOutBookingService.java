@@ -45,9 +45,6 @@ public class CheckOutBookingService implements CheckOutBookingUseCase {
       throw InventoryException.invalidStayOperation("Thông tin trả phòng không được để trống.");
     }
 
-    hotelCatalogPort
-        .findHotelSummary(command.hotelId())
-        .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
     hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
 
     BookingStayInfo booking =

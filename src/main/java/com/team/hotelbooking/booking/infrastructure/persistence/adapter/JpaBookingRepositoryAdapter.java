@@ -140,6 +140,19 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
     BookingJpaEntity entity = entityOpt.get();
     BookingJpaEntity.DbStatus fromStatus = entity.getStatus();
     BookingJpaEntity.DbStatus toStatus = BookingJpaEntity.DbStatus.valueOf(status.name());
+    if (fromStatus == toStatus) {
+      return true;
+    }
+    boolean allowed =
+        (toStatus == BookingJpaEntity.DbStatus.CHECKED_IN
+                && fromStatus == BookingJpaEntity.DbStatus.CONFIRMED)
+            || (toStatus == BookingJpaEntity.DbStatus.CHECKED_OUT
+                && fromStatus == BookingJpaEntity.DbStatus.CHECKED_IN)
+            || (toStatus == BookingJpaEntity.DbStatus.NO_SHOW
+                && fromStatus == BookingJpaEntity.DbStatus.CONFIRMED);
+    if (!allowed) {
+      return false;
+    }
     entity.setStatus(toStatus);
     entity.setUpdatedAt(updatedAt);
     bookingJpaRepository.saveAndFlush(entity);

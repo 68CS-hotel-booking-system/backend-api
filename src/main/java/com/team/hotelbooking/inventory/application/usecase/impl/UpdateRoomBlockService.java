@@ -52,6 +52,8 @@ public class UpdateRoomBlockService implements UpdateRoomBlockUseCase {
           "Ngày kết thúc chặn phòng không được trước ngày bắt đầu.");
     }
 
+    hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
+
     RoomBlock existing =
         roomBlockRepository
             .lockByIdAndHotelId(command.blockId(), command.hotelId())

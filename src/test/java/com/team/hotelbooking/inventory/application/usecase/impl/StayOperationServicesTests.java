@@ -25,6 +25,7 @@ import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort.HotelSummary;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort.PhysicalRoomSummary;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort.RoomTypeSummary;
+import com.team.hotelbooking.inventory.application.port.InventoryQueryPort;
 import com.team.hotelbooking.inventory.application.result.BookingRoomAssignmentsResult;
 import com.team.hotelbooking.inventory.application.result.BookingStayOperationResult;
 import com.team.hotelbooking.inventory.application.result.RoomReadinessResult;
@@ -54,6 +55,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class StayOperationServicesTests {
 
   @Mock private HotelCatalogPort hotelCatalogPort;
+  @Mock private InventoryQueryPort inventoryQueryPort;
   @Mock private BookingStayPort bookingStayPort;
   @Mock private RoomAssignmentRepository roomAssignmentRepository;
   @Mock private RoomBlockRepository roomBlockRepository;
@@ -85,6 +87,7 @@ class StayOperationServicesTests {
             bookingStayPort,
             roomAssignmentRepository,
             roomBlockRepository,
+            inventoryQueryPort,
             fixedClock);
     checkInBookingService =
         new CheckInBookingService(
@@ -170,8 +173,6 @@ class StayOperationServicesTests {
               null,
               null);
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -194,6 +195,9 @@ class StayOperationServicesTests {
               bookingId,
               List.of(new RoomAssignmentItem(bookingItemId, List.of(room302Id))),
               "Khách đổi sang phòng 302");
+
+      given(inventoryQueryPort.canAllocateAfterAssignment(roomTypeId, checkIn, checkOut))
+          .willReturn(true);
 
       BookingRoomAssignmentsResult result = assignRoomsService.execute(command);
 
@@ -269,8 +273,6 @@ class StayOperationServicesTests {
               null,
               null);
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -343,8 +345,6 @@ class StayOperationServicesTests {
               null,
               null);
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -415,8 +415,6 @@ class StayOperationServicesTests {
               null,
               null);
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(checkedInBooking));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -493,8 +491,6 @@ class StayOperationServicesTests {
               null,
               null);
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -547,8 +543,6 @@ class StayOperationServicesTests {
               null,
               List.of(new BookingItemStayInfo(bookingItemId, roomTypeId, 1, checkIn, checkOut)));
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(alreadyNoShow));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -580,8 +574,6 @@ class StayOperationServicesTests {
               "Chuyến bay trễ",
               List.of(new BookingItemStayInfo(bookingItemId, roomTypeId, 1, checkIn, checkOut)));
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(bookingWithLateArrival));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))
@@ -616,8 +608,6 @@ class StayOperationServicesTests {
               null,
               List.of(new BookingItemStayInfo(bookingItemId, roomTypeId, 1, checkIn, checkOut)));
 
-      given(hotelCatalogPort.findHotelSummary(hotelId))
-          .willReturn(Optional.of(new HotelSummary(hotelId, true, false)));
       given(bookingStayPort.findBookingForStayOperation(hotelId, bookingId))
           .willReturn(Optional.of(booking));
       given(hotelCatalogPort.lockRoomTypesInHotel(hotelId, List.of(roomTypeId)))

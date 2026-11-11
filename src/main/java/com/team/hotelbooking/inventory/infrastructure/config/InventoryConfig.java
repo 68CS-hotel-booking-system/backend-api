@@ -31,7 +31,6 @@ import com.team.hotelbooking.inventory.application.usecase.impl.UpdateRoomBlockS
 import com.team.hotelbooking.inventory.application.usecase.impl.UpdateRoomReadinessService;
 import com.team.hotelbooking.inventory.domain.repository.RoomAssignmentRepository;
 import com.team.hotelbooking.inventory.domain.repository.RoomBlockRepository;
-import com.team.hotelbooking.inventory.infrastructure.persistence.repository.InventoryReservationJpaRepository;
 import java.time.Clock;
 import java.util.Objects;
 import org.springframework.context.annotation.Bean;
@@ -145,7 +144,7 @@ public class InventoryConfig {
       BookingStayPort bookingStayPort,
       RoomAssignmentRepository roomAssignmentRepository,
       RoomBlockRepository roomBlockRepository,
-      InventoryReservationJpaRepository inventoryReservationJpaRepository,
+      InventoryQueryPort inventoryQueryPort,
       Clock clock,
       PlatformTransactionManager transactionManager) {
 
@@ -155,7 +154,7 @@ public class InventoryConfig {
             bookingStayPort,
             roomAssignmentRepository,
             roomBlockRepository,
-            inventoryReservationJpaRepository,
+            inventoryQueryPort,
             clock);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     return command ->

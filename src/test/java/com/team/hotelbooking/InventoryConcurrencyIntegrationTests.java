@@ -111,6 +111,7 @@ class InventoryConcurrencyIntegrationTests {
         SINGLE_ROOM_TYPE_ID,
         TWO_ROOM_TYPE_ID);
     jdbc.update("DELETE FROM room_blocks WHERE hotel_id = ?", HOTEL_ID);
+    jdbc.update("DELETE FROM bookings WHERE hotel_id = ?", HOTEL_ID);
 
     jdbc.update(
         """
@@ -159,6 +160,10 @@ class InventoryConcurrencyIntegrationTests {
         ROOM_302_ID,
         HOTEL_ID,
         TWO_ROOM_TYPE_ID);
+    jdbc.update("UPDATE hotels SET status = 'ACTIVE'::hotel_status__t WHERE id = ?", HOTEL_ID);
+    jdbc.update("UPDATE room_types SET is_active = TRUE WHERE hotel_id = ?", HOTEL_ID);
+    jdbc.update(
+        "UPDATE rooms SET readiness = 'READY'::room_readiness__t WHERE hotel_id = ?", HOTEL_ID);
   }
 
   @Test
@@ -488,6 +493,7 @@ class InventoryConcurrencyIntegrationTests {
     LocalDate checkOut = checkIn.plusDays(2);
     UUID bookingId = UUID.randomUUID();
     UUID itemId = UUID.randomUUID();
+    insertConfirmedBooking(bookingId, checkIn, checkOut);
 
     inventoryReservationDirectory.hold(
         new HoldRequest(
@@ -526,10 +532,35 @@ class InventoryConcurrencyIntegrationTests {
     BookingStayOperationResult checkedIn =
         checkInBookingUseCase.execute(new CheckInBookingCommand(OWNER_ID, HOTEL_ID, bookingId));
     assertThat(checkedIn.stayStatus()).isEqualTo("CHECKED_IN");
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                assignRoomsUseCase.execute(
+                    new AssignRoomsCommand(
+                        OWNER_ID,
+                        HOTEL_ID,
+                        bookingId,
+                        List.of(
+                            new AssignRoomsCommand.RoomAssignmentItem(
+                                itemId, List.of(ROOM_101_ID))),
+                        "Đổi phòng sau khi nhận")))
+        .isInstanceOf(InventoryException.class)
+        .extracting(ex -> ((InventoryException) ex).code())
+        .isEqualTo(InventoryErrorCode.INVALID_STAY_OPERATION);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status::text FROM bookings WHERE id = ?", String.class, bookingId))
+        .isEqualTo("CHECKED_IN");
+
+    jdbc.update("UPDATE hotels SET status = 'DRAFT'::hotel_status__t WHERE id = ?", HOTEL_ID);
+    jdbc.update("UPDATE room_types SET is_active = FALSE WHERE id = ?", SINGLE_ROOM_TYPE_ID);
 
     BookingStayOperationResult checkedOut =
         checkOutBookingUseCase.execute(new CheckOutBookingCommand(OWNER_ID, HOTEL_ID, bookingId));
     assertThat(checkedOut.stayStatus()).isEqualTo("CHECKED_OUT");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status::text FROM bookings WHERE id = ?", String.class, bookingId))
+        .isEqualTo("CHECKED_OUT");
 
     String readinessInDb =
         jdbc.queryForObject(
@@ -546,6 +577,7 @@ class InventoryConcurrencyIntegrationTests {
     LocalDate tomorrow = LocalDate.now().plusDays(1);
     UUID bookingId = UUID.randomUUID();
     UUID itemId = UUID.randomUUID();
+    insertConfirmedBooking(bookingId, yesterday, tomorrow.plusDays(1));
 
     jdbc.update(
         """
@@ -575,11 +607,172 @@ class InventoryConcurrencyIntegrationTests {
             new MarkNoShowCommand(OWNER_ID, HOTEL_ID, bookingId, "Khách không đến nhận phòng"));
     assertThat(firstNoShow.stayStatus()).isEqualTo("NO_SHOW");
     assertThat(firstNoShow.releasedRoomNights()).isEqualTo(2);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status::text FROM bookings WHERE id = ?", String.class, bookingId))
+        .isEqualTo("NO_SHOW");
 
     BookingStayOperationResult secondNoShow =
         markNoShowUseCase.execute(
             new MarkNoShowCommand(OWNER_ID, HOTEL_ID, bookingId, "Bấm lặp lần 2"));
     assertThat(secondNoShow.stayStatus()).isEqualTo("NO_SHOW");
     assertThat(secondNoShow.releasedRoomNights()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("Từ chối sửa lịch chặn khi người gọi không thuộc khách sạn")
+  void shouldRejectRoomBlockUpdateOutsideHotelScope() throws Exception {
+    LocalDate start = LocalDate.now().plusDays(10);
+    var block =
+        createRoomBlockUseCase.execute(
+            new CreateRoomBlockCommand(OWNER_ID, HOTEL_ID, ROOM_101_ID, start, start, "Bảo trì"));
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                    "/api/v1/management/hotels/{hotelId}/room-blocks/{blockId}",
+                    HOTEL_ID,
+                    block.id())
+                .with(
+                    org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.subject(UUID.randomUUID().toString()))
+                        .authorities(
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "ROLE_HOTEL_OWNER")))
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"startDate\":\""
+                        + start
+                        + "\",\"endDate\":\""
+                        + start.plusDays(1)
+                        + "\",\"reason\":\"Sửa trái phép\"}"))
+        .andExpect(status().isForbidden());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT end_date FROM room_blocks WHERE id = ?", LocalDate.class, block.id()))
+        .isEqualTo(start);
+  }
+
+  @Test
+  @DisplayName("Gán đơn ngắn phải bảo vệ đủ kỳ ở của đơn dài và rollback khi hết phương án")
+  void shouldProtectLongerUnassignedStay() {
+    LocalDate start = LocalDate.now().plusDays(10);
+    createRoomBlockUseCase.execute(
+        new CreateRoomBlockCommand(
+            OWNER_ID,
+            HOTEL_ID,
+            ROOM_302_ID,
+            start.plusDays(1),
+            start.plusDays(1),
+            "Bảo trì đêm thứ hai"));
+    UUID longBooking = UUID.randomUUID();
+    UUID shortBooking = UUID.randomUUID();
+    UUID shortItem = UUID.randomUUID();
+    inventoryReservationDirectory.hold(
+        new HoldRequest(
+            longBooking,
+            HOTEL_ID,
+            start,
+            start.plusDays(2),
+            Instant.now().plusSeconds(900),
+            List.of(new HoldItemRequest(UUID.randomUUID(), TWO_ROOM_TYPE_ID, 1))));
+    inventoryReservationDirectory.confirm(longBooking);
+    inventoryReservationDirectory.hold(
+        new HoldRequest(
+            shortBooking,
+            HOTEL_ID,
+            start,
+            start.plusDays(1),
+            Instant.now().plusSeconds(900),
+            List.of(new HoldItemRequest(shortItem, TWO_ROOM_TYPE_ID, 1))));
+    inventoryReservationDirectory.confirm(shortBooking);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                assignRoomsUseCase.execute(
+                    new AssignRoomsCommand(
+                        OWNER_ID,
+                        HOTEL_ID,
+                        shortBooking,
+                        List.of(
+                            new AssignRoomsCommand.RoomAssignmentItem(
+                                shortItem, List.of(ROOM_301_ID))),
+                        null)))
+        .isInstanceOf(InventoryException.class)
+        .extracting(ex -> ((InventoryException) ex).code())
+        .isEqualTo(InventoryErrorCode.ROOM_ASSIGNMENT_CONFLICT);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM room_assignments WHERE booking_id = ?",
+                Integer.class,
+                shortBooking))
+        .isZero();
+    assignRoomsUseCase.execute(
+        new AssignRoomsCommand(
+            OWNER_ID,
+            HOTEL_ID,
+            shortBooking,
+            List.of(new AssignRoomsCommand.RoomAssignmentItem(shortItem, List.of(ROOM_302_ID))),
+            null));
+  }
+
+  @Test
+  @DisplayName("Không tìm thấy booking chính phải rollback toàn bộ thao tác check-in")
+  void shouldRollbackWhenBookingStatusCannotBeUpdated() {
+    LocalDate today = LocalDate.now();
+    UUID bookingId = UUID.randomUUID();
+    UUID itemId = UUID.randomUUID();
+    inventoryReservationDirectory.hold(
+        new HoldRequest(
+            bookingId,
+            HOTEL_ID,
+            today,
+            today.plusDays(2),
+            Instant.now().plusSeconds(900),
+            List.of(new HoldItemRequest(itemId, SINGLE_ROOM_TYPE_ID, 1))));
+    inventoryReservationDirectory.confirm(bookingId);
+    assignRoomsUseCase.execute(
+        new AssignRoomsCommand(
+            OWNER_ID,
+            HOTEL_ID,
+            bookingId,
+            List.of(new AssignRoomsCommand.RoomAssignmentItem(itemId, List.of(ROOM_101_ID))),
+            null));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                checkInBookingUseCase.execute(
+                    new CheckInBookingCommand(OWNER_ID, HOTEL_ID, bookingId)))
+        .isInstanceOf(InventoryException.class);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM booking_stay_operations WHERE booking_id = ?",
+                Integer.class,
+                bookingId))
+        .isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status::text FROM room_assignments WHERE booking_id = ?",
+                String.class,
+                bookingId))
+        .isEqualTo("ASSIGNED");
+  }
+
+  private void insertConfirmedBooking(UUID bookingId, LocalDate checkIn, LocalDate checkOut) {
+    int nights = (int) ChronoUnit.DAYS.between(checkIn, checkOut);
+    jdbc.update(
+        """
+        INSERT INTO bookings (id, booking_code, customer_id, hotel_id,
+          booker_name_snapshot, booker_email_snapshot, booker_phone_snapshot,
+          guest_name_snapshot, guest_email_snapshot, guest_phone_snapshot,
+          check_in, check_out, days, nights, status)
+        VALUES (?, ?, ?, ?, 'Khách test', 'guest@test.local', '+84909998877',
+          'Khách test', 'guest@test.local', '+84909998877', ?, ?, ?, ?, 'CONFIRMED'::booking_status__t)
+        """,
+        bookingId,
+        bookingId.toString().substring(0, 20),
+        OWNER_ID,
+        HOTEL_ID,
+        checkIn,
+        checkOut,
+        nights + 1,
+        nights);
   }
 }

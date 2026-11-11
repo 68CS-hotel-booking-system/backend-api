@@ -112,6 +112,21 @@ public interface InventoryReservationJpaRepository
 
   List<InventoryReservationJpaEntity> findAllByBookingIdOrderByStayDateAscIdAsc(UUID bookingId);
 
+  @Query(
+      """
+      SELECT ir FROM InventoryReservationJpaEntity ir
+      WHERE ir.roomTypeId = :roomTypeId
+        AND ir.stayDate >= :startDate
+        AND ((ir.status = :heldStatus AND ir.expiresAt > :now)
+             OR ir.status = :confirmedStatus)
+      """)
+  List<InventoryReservationJpaEntity> findActiveReservationsFrom(
+      @Param("roomTypeId") UUID roomTypeId,
+      @Param("startDate") LocalDate startDate,
+      @Param("now") Instant now,
+      @Param("heldStatus") DbReservationStatus heldStatus,
+      @Param("confirmedStatus") DbReservationStatus confirmedStatus);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
       """

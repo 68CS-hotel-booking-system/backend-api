@@ -54,9 +54,6 @@ public class MarkNoShowService implements MarkNoShowUseCase {
           "Thông tin đánh dấu khách không đến (NO_SHOW) không được để trống.");
     }
 
-    hotelCatalogPort
-        .findHotelSummary(command.hotelId())
-        .orElseThrow(() -> InventoryException.hotelNotFound("Không tìm thấy khách sạn."));
     hotelCatalogPort.requireManagementAccess(command.actorId(), command.hotelId());
 
     BookingStayInfo booking =
