@@ -20,6 +20,9 @@ target/
 *.ipr
 # Keep other local docs ignored; include the business draft and database review.
 /docs/*
+!/docs/api/
+/docs/api/*
+!/docs/api/hotel-review-requests.md
 !/docs/business/
 /docs/business/*
 !/docs/business/module-scope-and-rules-draft.md

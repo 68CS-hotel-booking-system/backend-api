@@ -51,7 +51,7 @@ public final class UploadHotelImageService implements UploadHotelImageUseCase {
       throw new MediaException(MediaErrorCode.VALIDATION_FAILED);
     }
 
-    hotels.requireManage(command.actorId(), command.hotelId());
+    hotels.requireUpload(command.actorId(), command.hotelId());
 
     byte[] content = command.content();
 

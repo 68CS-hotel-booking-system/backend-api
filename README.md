@@ -50,6 +50,11 @@ riêng.
 - Mỗi module chia thành `api`, `application`, `domain`, `infrastructure`.
 - `shared`: response, xử lý lỗi, security và cấu hình chung.
 
+## Hồ sơ xét duyệt khách sạn
+
+[Hợp đồng API xét duyệt](docs/api/hotel-review-requests.md): Owner gửi snapshot, Admin xét duyệt,
+quyền truy cập, lỗi, ví dụ request/response và tương thích với API approve cũ.
+
 ## Trạng thái
 
 [Tài liệu tổng thể đề tài](docs/project-overview.md): giới thiệu, actor chính, nghiệp vụ từng phần, quy trình và phạm vi MVP.

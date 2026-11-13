@@ -77,6 +77,11 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   }
 
   @Override
+  public boolean hasPendingReview(UUID hotelId) {
+    return hotelJpaRepository.hasPendingReview(hotelId);
+  }
+
+  @Override
   public Hotel update(Hotel hotel, long expectedVersion) {
     HotelJpaEntity entity =
         hotelJpaRepository

@@ -106,7 +106,7 @@ public class ManagementRoomController {
   @Operation(
       summary = "[HT21] Cập nhật thông tin hoặc ngừng sử dụng phòng vật lý",
       description =
-          "Chỉnh sửa số phòng, tầng, trạng thái buồng phòng (ready, cleaning, maintenance) hoặc ngừng sử dụng phòng (active=false). Chỉ ADMIN, Owner của khách sạn hoặc HOTEL_MANAGER đang hoạt động của đúng khách sạn đó được sửa.")
+          "Chỉnh sửa số phòng, tầng, trạng thái buồng phòng (ready, cleaning, maintenance) hoặc ngừng sử dụng phòng (active=false). Chỉ Owner của khách sạn hoặc HOTEL_MANAGER đang hoạt động của đúng khách sạn đó được sửa.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",

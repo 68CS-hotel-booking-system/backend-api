@@ -3,7 +3,6 @@ package com.team.hotelbooking.hotel.application.usecase.impl;
 import com.team.hotelbooking.hotel.application.command.ReplaceHotelAmenitiesCommand;
 import com.team.hotelbooking.hotel.application.result.ListAmenitiesResult;
 import com.team.hotelbooking.hotel.application.usecase.ReplaceHotelAmenitiesUseCase;
-import com.team.hotelbooking.hotel.domain.exception.HotelErrorCode;
 import com.team.hotelbooking.hotel.domain.exception.HotelException;
 import com.team.hotelbooking.hotel.domain.model.Amenity;
 import com.team.hotelbooking.hotel.domain.repository.AmenityRepository;
@@ -16,12 +15,10 @@ import java.util.UUID;
 
 public class ReplaceHotelAmenitiesService implements ReplaceHotelAmenitiesUseCase {
 
-  private final HotelRepository hotels;
   private final AmenityRepository amenities;
   private final HotelManagementAccess access;
 
   public ReplaceHotelAmenitiesService(HotelRepository hotels, AmenityRepository amenities) {
-    this.hotels = hotels;
     this.amenities = amenities;
     this.access = new HotelManagementAccess(hotels);
   }
@@ -36,11 +33,6 @@ public class ReplaceHotelAmenitiesService implements ReplaceHotelAmenitiesUseCas
     // Cùng quy tắc quyền với PATCH thông tin khách sạn; trạng thái tài khoản đã được
     // CurrentUserJwtConverter kiểm khi dựng principal (xem HotelManagementAccess).
     access.requireEditableHotel(command.actorUserId(), command.admin(), command.hotelId());
-
-    // Khóa hotel sau khi đã kiểm quyền để hai lần thay danh sách cùng hotel chạy tuần tự.
-    hotels
-        .findByIdForUpdate(command.hotelId())
-        .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
 
     Amenity.requireAssignable(
         amenityIds, amenities.findAllByIds(amenityIds), Amenity.Category.HOTEL);

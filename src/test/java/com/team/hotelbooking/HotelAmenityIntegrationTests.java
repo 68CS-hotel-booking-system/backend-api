@@ -235,13 +235,11 @@ class HotelAmenityIntegrationTests {
     private static final String BODY = "{\"name\":\"Tên do người sửa\",\"version\":0}";
 
     @Test
-    void shouldUpdateHotelWhenActorIsAdmin() throws Exception {
-      // When
-      JsonNode data = readData(patchHotel(as(ADMIN_ID, "ADMIN"), BODY), 200);
-
-      // Then
-      // ADMIN không sở hữu và không thuộc hotel_members của hotel này.
-      assertEquals("Tên do người sửa", data.get("name").asString());
+    void shouldDenyAdminProfileWrites() throws Exception {
+      patchHotel(as(ADMIN_ID, "ADMIN"), BODY)
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+      assertHotelUnchanged();
     }
 
     @Test
@@ -348,8 +346,8 @@ class HotelAmenityIntegrationTests {
                   .with(as(ADMIN_ID, "ADMIN"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(BODY))
-          .andExpect(status().isNotFound())
-          .andExpect(jsonPath("$.code").value("HOTEL_NOT_FOUND"));
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
     @Test
@@ -444,7 +442,7 @@ class HotelAmenityIntegrationTests {
       // When / Then
       putAmenities(
               HOTEL_PATH + "/amenities",
-              as(ADMIN_ID, "ADMIN"),
+              as(OWNER_ID, "HOTEL_OWNER"),
               UUID.fromString("00000000-0000-4000-8000-000000000099"))
           .andExpect(status().isNotFound())
           .andExpect(jsonPath("$.code").value("AMENITY_NOT_FOUND"));

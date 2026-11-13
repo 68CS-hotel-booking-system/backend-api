@@ -125,7 +125,7 @@ class HotelSalesLifecycleIntegrationTests {
     void shouldReturnUnprocessableWithEveryReasonAndKeepDraftWhenHotelIsIncomplete()
         throws Exception {
       // When
-      approve(INCOMPLETE_HOTEL_ID, admin())
+      submitReview(INCOMPLETE_HOTEL_ID)
           .andExpect(status().is(422))
           .andExpect(jsonPath("$.code").value("HOTEL_NOT_READY"))
           .andExpect(jsonPath("$.errors[0].field").value("contact"))
@@ -142,7 +142,7 @@ class HotelSalesLifecycleIntegrationTests {
       jdbc.update("UPDATE rooms SET operational_until = now() WHERE id = ?", ROOM_ID);
 
       // When / Then
-      approve(READY_HOTEL_ID, admin())
+      submitReview(READY_HOTEL_ID)
           .andExpect(status().is(422))
           .andExpect(jsonPath("$.errors.length()").value(1))
           .andExpect(jsonPath("$.errors[0].field").value("rooms"));
@@ -153,6 +153,14 @@ class HotelSalesLifecycleIntegrationTests {
     void shouldApproveRecordHistoryAndShowHotelPubliclyWhenHotelIsReady() throws Exception {
       // Given
       getPublicHotel(READY_HOTEL_ID).andExpect(status().isNotFound());
+      long version =
+          jdbc.queryForObject(
+              "SELECT version FROM hotels WHERE id = ?", Long.class, READY_HOTEL_ID);
+      post(
+              "/api/v1/management/hotels/" + READY_HOTEL_ID + "/review-requests",
+              "{\"expectedVersion\":" + version + "}",
+              owner())
+          .andExpect(status().isCreated());
 
       // When
       approve(READY_HOTEL_ID, admin())
@@ -173,14 +181,14 @@ class HotelSalesLifecycleIntegrationTests {
     }
 
     @Test
-    void shouldReturnBadRequestWithoutHistoryWhenHotelIsAlreadyActive() throws Exception {
+    void shouldRequirePendingReviewEvenWhenHotelIsAlreadyActive() throws Exception {
       // Given
       jdbc.update("UPDATE hotels SET status = 'ACTIVE' WHERE id = ?", READY_HOTEL_ID);
 
       // When / Then
       approve(READY_HOTEL_ID, admin())
-          .andExpect(status().isBadRequest())
-          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+          .andExpect(status().isConflict())
+          .andExpect(jsonPath("$.code").value("REVIEW_REQUIRED"));
       assertEquals(0, historyOf(READY_HOTEL_ID).size());
     }
 
@@ -410,6 +418,15 @@ class HotelSalesLifecycleIntegrationTests {
     return mvc.perform(request);
   }
 
+  private ResultActions submitReview(UUID hotelId) throws Exception {
+    long version =
+        jdbc.queryForObject("SELECT version FROM hotels WHERE id = ?", Long.class, hotelId);
+    return post(
+        "/api/v1/management/hotels/" + hotelId + "/review-requests",
+        "{\"expectedVersion\":" + version + "}",
+        owner());
+  }
+
   private ResultActions approve(UUID hotelId, JwtRequestPostProcessor actor) throws Exception {
     return mvc.perform(patch("/api/v1/management/hotels/" + hotelId + "/approve").with(actor));
   }
@@ -488,6 +505,7 @@ class HotelSalesLifecycleIntegrationTests {
   }
 
   private void resetHotel(UUID id, String contactPhone) {
+    jdbc.update("DELETE FROM hotel_review_requests WHERE hotel_id = ?", id);
     jdbc.update("DELETE FROM hotel_status_history WHERE hotel_id = ?", id);
     jdbc.update(
         """

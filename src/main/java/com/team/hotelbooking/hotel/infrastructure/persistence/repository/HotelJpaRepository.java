@@ -26,6 +26,12 @@ public interface HotelJpaRepository
   @Query("select h from HotelJpaEntity h where h.id = :hotelId")
   Optional<HotelJpaEntity> findByIdForUpdate(@Param("hotelId") UUID hotelId);
 
+  @Query(
+      value =
+          "SELECT EXISTS (SELECT 1 FROM hotel_review_requests WHERE hotel_id = :hotelId AND status = 'PENDING')",
+      nativeQuery = true)
+  boolean hasPendingReview(@Param("hotelId") UUID hotelId);
+
   // hotel_members chưa có entity riêng; chỉ cần các vai trò đang hoạt động của user tại hotel.
   @Query(
       value =

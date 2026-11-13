@@ -66,9 +66,9 @@ public class AdminHotelController {
   }
 
   @Operation(
-      summary = "Duyệt công khai khách sạn lần đầu (DRAFT → ACTIVE)",
+      summary = "Duyệt hồ sơ PENDING của khách sạn (API tương thích)",
       description =
-          "Chỉ ADMIN. Kiểm HT-03: tên, địa chỉ, ít nhất một liên hệ (điện thoại hoặc email) và ít"
+          "Chỉ ADMIN; yêu cầu hồ sơ PENDING do Owner gửi, thiếu trả 409 REVIEW_REQUIRED. Kiểm HT-03: tên, địa chỉ, ít nhất một liên hệ (điện thoại hoặc email) và ít"
               + " nhất một loại phòng đang bán có sức chứa hợp lệ, có phòng vật lý đang phục vụ."
               + " Thiếu điều kiện trả 422 HOTEL_NOT_READY, liệt kê từng lý do trong errors.")
   @ApiResponses({
@@ -76,8 +76,8 @@ public class AdminHotelController {
         responseCode = "200",
         description = "Đã duyệt, trả trạng thái ACTIVE"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "400",
-        description = "Khách sạn không ở trạng thái DRAFT",
+        responseCode = "409",
+        description = "Không có hồ sơ PENDING hoặc khách sạn không ở DRAFT",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",

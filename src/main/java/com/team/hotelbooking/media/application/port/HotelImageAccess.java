@@ -6,6 +6,8 @@ public interface HotelImageAccess {
 
   void requireManage(UUID actorId, UUID hotelId);
 
+  void requireUpload(UUID actorId, UUID hotelId);
+
   void lockForUpdate(UUID actorId, UUID hotelId, long expectedVersion);
 
   boolean isPublished(UUID hotelId);

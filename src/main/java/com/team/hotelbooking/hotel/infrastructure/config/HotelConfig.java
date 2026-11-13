@@ -2,7 +2,6 @@ package com.team.hotelbooking.hotel.infrastructure.config;
 
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.port.RoomInventoryPort;
-import com.team.hotelbooking.hotel.application.usecase.ApproveHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
@@ -24,7 +23,6 @@ import com.team.hotelbooking.hotel.application.usecase.UnlockHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
-import com.team.hotelbooking.hotel.application.usecase.impl.ApproveHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
@@ -238,26 +236,6 @@ public class HotelConfig {
     transaction.setReadOnly(true);
 
     return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
-  }
-
-  // Duyệt, kiểm HT-03 và ghi lịch sử trong cùng transaction; lỗi ở bước nào cũng rollback.
-  @Bean
-  public ApproveHotelUseCase approveHotelUseCase(
-      HotelRepository hotels,
-      RoomTypeRepository roomTypes,
-      RoomRepository rooms,
-      HotelStatusHistoryRepository statusHistory,
-      IdentityAccounts accounts,
-      Clock clock,
-      PlatformTransactionManager transactionManager) {
-
-    ApproveHotelService service =
-        new ApproveHotelService(hotels, roomTypes, rooms, statusHistory, accounts, clock);
-    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-
-    return (hotelId, adminActorId) ->
-        Objects.requireNonNull(
-            transaction.execute(status -> service.execute(hotelId, adminActorId)));
   }
 
   @Bean

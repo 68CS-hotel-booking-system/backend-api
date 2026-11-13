@@ -269,10 +269,11 @@ class ManagementRoomUpdateIntegrationTests {
     private static final String ROOM_BODY = "{\"floor\": 9}";
 
     @Test
-    void shouldAllowAdminToUpdateRoomTypeAndRoomOfAnyHotel() throws Exception {
+    void shouldDenyAdminChangesToRoomTypeAndRoom() throws Exception {
       // When / Then
-      patchAs(ROOM_TYPE_PATH, ROOM_TYPE_BODY, actor(ADMIN_ID, "ADMIN")).andExpect(status().isOk());
-      patchAs(ROOM_PATH, ROOM_BODY, actor(ADMIN_ID, "ADMIN")).andExpect(status().isOk());
+      patchAs(ROOM_TYPE_PATH, ROOM_TYPE_BODY, actor(ADMIN_ID, "ADMIN"))
+          .andExpect(status().isForbidden());
+      patchAs(ROOM_PATH, ROOM_BODY, actor(ADMIN_ID, "ADMIN")).andExpect(status().isForbidden());
     }
 
     @Test
@@ -336,20 +337,20 @@ class ManagementRoomUpdateIntegrationTests {
     }
 
     @Test
-    void shouldReturnNotFoundWhenAdminTargetsMissingHotel() throws Exception {
+    void shouldDenyAdminProfileWritesEvenForMissingHotel() throws Exception {
       // When / Then
       patchAs(
               "/api/v1/management/hotels/" + MISSING_HOTEL_ID + "/room-types/" + ROOM_TYPE_ID,
               ROOM_TYPE_BODY,
               actor(ADMIN_ID, "ADMIN"))
-          .andExpect(status().isNotFound())
-          .andExpect(jsonPath("$.code").value("HOTEL_NOT_FOUND"));
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
       patchAs(
               "/api/v1/management/hotels/" + MISSING_HOTEL_ID + "/rooms/" + ROOM_ID,
               ROOM_BODY,
               actor(ADMIN_ID, "ADMIN"))
-          .andExpect(status().isNotFound())
-          .andExpect(jsonPath("$.code").value("HOTEL_NOT_FOUND"));
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
   }
 

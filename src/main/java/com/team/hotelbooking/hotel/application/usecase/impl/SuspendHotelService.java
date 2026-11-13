@@ -35,7 +35,7 @@ public class SuspendHotelService implements SuspendHotelUseCase {
     Objects.requireNonNull(command, "Command không được null.");
 
     // Quyền giống PATCH khách sạn: RECEPTIONIST → 403, người ngoài/hotel không tồn tại → 404.
-    access.requireEditableHotel(command.actorUserId(), command.admin(), command.hotelId());
+    access.requireManageableHotel(command.actorUserId(), command.admin(), command.hotelId());
     Hotel hotel = lifecycle.lockForStatusChange(command.hotelId());
     Hotel suspended = hotel.suspend(clock.instant());
 

@@ -104,7 +104,7 @@ class UpdateRoomServiceTests {
   }
 
   private void givenExistingRoom() {
-    given(hotels.findById(hotelId)).willReturn(Optional.of(hotel));
+    given(hotels.findByIdForUpdate(hotelId)).willReturn(Optional.of(hotel));
     given(rooms.findByIdAndHotelId(roomId, hotelId)).willReturn(Optional.of(existingRoom));
   }
 
@@ -172,7 +172,8 @@ class UpdateRoomServiceTests {
       UpdateRoomCommand command =
           new UpdateRoomCommand(
               OWNER_ID, false, hotelId, roomId, null, null, " MAINTENANCE ", null);
-      givenExistingRoom();
+      given(hotels.findById(hotelId)).willReturn(Optional.of(hotel));
+      given(rooms.findByIdAndHotelId(roomId, hotelId)).willReturn(Optional.of(existingRoom));
       givenUpdateReturnsSavedRoom();
       ArgumentCaptor<Room> saved = ArgumentCaptor.forClass(Room.class);
 
@@ -264,7 +265,7 @@ class UpdateRoomServiceTests {
       // Given
       UpdateRoomCommand command =
           new UpdateRoomCommand(OWNER_ID, false, hotelId, roomId, "P.102", null, null, null);
-      given(hotels.findById(hotelId)).willReturn(Optional.empty());
+      given(hotels.findByIdForUpdate(hotelId)).willReturn(Optional.empty());
 
       // When & Then
       assertThatThrownBy(() -> service.execute(command))
@@ -280,7 +281,7 @@ class UpdateRoomServiceTests {
       // Given
       UpdateRoomCommand command =
           new UpdateRoomCommand(OWNER_ID, false, hotelId, roomId, "P.102", null, null, null);
-      given(hotels.findById(hotelId)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(hotelId)).willReturn(Optional.of(hotel));
       given(rooms.findByIdAndHotelId(roomId, hotelId)).willReturn(Optional.empty());
 
       // When & Then
@@ -331,7 +332,8 @@ class UpdateRoomServiceTests {
       UpdateRoomCommand command =
           new UpdateRoomCommand(
               OWNER_ID, false, hotelId, roomId, null, null, "invalid_status", null);
-      givenExistingRoom();
+      given(hotels.findById(hotelId)).willReturn(Optional.of(hotel));
+      given(rooms.findByIdAndHotelId(roomId, hotelId)).willReturn(Optional.of(existingRoom));
 
       // When & Then
       assertThatThrownBy(() -> service.execute(command))
@@ -370,25 +372,19 @@ class UpdateRoomServiceTests {
     }
 
     @Test
-    @DisplayName("ADMIN sửa được phòng mà không cần là thành viên khách sạn")
-    void shouldUpdateRoomWithoutMembershipLookupWhenActorIsAdmin() {
-      // Given
-      givenExistingRoom();
-      givenUpdateReturnsSavedRoom();
-
-      // When
-      service.execute(commandBy(OTHER_USER_ID, true));
-
-      // Then
-      then(hotels).should().findById(hotelId);
-      then(hotels).shouldHaveNoMoreInteractions();
+    @DisplayName("ADMIN không được sửa thông tin phòng của Owner")
+    void shouldDenyAdminProfileWrites() {
+      assertThatThrownBy(() -> service.execute(commandBy(OTHER_USER_ID, true)))
+          .isInstanceOf(HotelException.class)
+          .satisfies(ex -> assertThat(errorCodeOf(ex)).isEqualTo(HotelErrorCode.ACCESS_DENIED));
+      then(hotels).shouldHaveNoInteractions();
     }
 
     @Test
     @DisplayName("Ném ACCESS_DENIED và không đọc phòng khi người gọi là RECEPTIONIST")
     void shouldThrowAccessDeniedWhenActorIsReceptionist() {
       // Given
-      given(hotels.findById(hotelId)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(hotelId)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(hotelId, OTHER_USER_ID))
           .willReturn(Set.of(HotelMemberRole.RECEPTIONIST));
 
@@ -403,7 +399,7 @@ class UpdateRoomServiceTests {
     @DisplayName("Ném HOTEL_NOT_FOUND khi người gọi không thuộc khách sạn")
     void shouldThrowHotelNotFoundWhenActorIsNotHotelMember() {
       // Given
-      given(hotels.findById(hotelId)).willReturn(Optional.of(hotel));
+      given(hotels.findByIdForUpdate(hotelId)).willReturn(Optional.of(hotel));
       given(hotels.findActiveMemberRoles(hotelId, OTHER_USER_ID)).willReturn(Set.of());
 
       // When & Then
@@ -415,15 +411,11 @@ class UpdateRoomServiceTests {
 
     @Test
     @DisplayName("Ném HOTEL_NOT_FOUND khi ADMIN sửa phòng của khách sạn không tồn tại")
-    void shouldThrowHotelNotFoundWhenAdminTargetsMissingHotel() {
-      // Given
-      given(hotels.findById(hotelId)).willReturn(Optional.empty());
-
-      // When & Then
+    void shouldDenyAdminEvenWhenHotelDoesNotExist() {
       assertThatThrownBy(() -> service.execute(commandBy(OTHER_USER_ID, true)))
           .isInstanceOf(HotelException.class)
-          .satisfies(ex -> assertThat(errorCodeOf(ex)).isEqualTo(HotelErrorCode.HOTEL_NOT_FOUND));
-      then(rooms).shouldHaveNoInteractions();
+          .satisfies(ex -> assertThat(errorCodeOf(ex)).isEqualTo(HotelErrorCode.ACCESS_DENIED));
+      then(hotels).shouldHaveNoInteractions();
     }
   }
 }

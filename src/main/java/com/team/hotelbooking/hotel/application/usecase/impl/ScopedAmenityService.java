@@ -33,7 +33,6 @@ public final class ScopedAmenityService
         UpdateCustomAmenityUseCase,
         DetachCustomAmenityUseCase,
         ReplaceRoomAmenitiesUseCase {
-  private final HotelRepository hotels;
   private final RoomRepository rooms;
   private final AmenityRepository amenities;
   private final ScopedAmenityRepository scoped;
@@ -46,7 +45,6 @@ public final class ScopedAmenityService
       AmenityRepository amenities,
       ScopedAmenityRepository scoped,
       Clock clock) {
-    this.hotels = hotels;
     this.rooms = rooms;
     this.amenities = amenities;
     this.scoped = scoped;
@@ -120,13 +118,10 @@ public final class ScopedAmenityService
   private Room requireScope(UUID actorId, boolean admin, UUID hotelId, UUID roomId, boolean write) {
     if (actorId == null || hotelId == null)
       throw HotelException.invalid("Người thực hiện và khách sạn là bắt buộc.");
-    access.requireEditableHotel(actorId, admin, hotelId);
     if (write) {
-      // Cùng thứ tự khóa với PUT hotel amenities; tuần tự hóa toàn bộ ghi tiện ích trong hotel.
-      hotels
-          .findByIdForUpdate(hotelId)
-          .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
       access.requireEditableHotel(actorId, admin, hotelId);
+    } else {
+      access.requireManageableHotel(actorId, admin, hotelId);
     }
     if (roomId == null) return null;
     return rooms
