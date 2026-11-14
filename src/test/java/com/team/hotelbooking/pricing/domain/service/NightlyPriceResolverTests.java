@@ -18,6 +18,29 @@ class NightlyPriceResolverTests {
   private static final LocalDate CHECK_IN = LocalDate.of(2026, 12, 1);
   private static final LocalDate CHECK_OUT = LocalDate.of(2026, 12, 4);
 
+  @Test
+  @DisplayName("Giá hiệu lực một ngày trùng với quy tắc giá của kỳ lưu trú")
+  void shouldUseSameEffectivePriceForGridAndStay() {
+    for (long basePrice : new long[] {0L, 500_000L}) {
+      for (Long customRate : new Long[] {null, 700_000L, 0L, -1L}) {
+        var effective = NightlyPriceResolver.resolveNight(basePrice, customRate);
+        var stay =
+            NightlyPriceResolver.resolve(
+                basePrice,
+                customRate == null ? Map.of() : Map.of(CHECK_IN, customRate),
+                CHECK_IN,
+                CHECK_IN.plusDays(1));
+        assertThat(stay.sellable()).isEqualTo(effective.amount() != null);
+        if (stay.sellable()) {
+          assertThat(stay.totalAmount()).isEqualTo(effective.amount());
+          assertThat(effective.source().name()).isEqualTo(customRate == null ? "BASE" : "RATE");
+        } else {
+          assertThat(effective.source().name()).isEqualTo("NONE");
+        }
+      }
+    }
+  }
+
   @Nested
   @DisplayName("NightlyPriceResolver.resolve")
   class ResolveTests {

@@ -55,6 +55,8 @@ public record Hotel(
       String slug,
       String description,
       String address,
+      String contactPhone,
+      String contactEmail,
       BigDecimal latitude,
       BigDecimal longitude,
       Short starRating,
@@ -82,6 +84,13 @@ public record Hotel(
       throw invalid("Giờ nhận phòng và giờ trả phòng không được để trống.");
     }
 
+    String normalizedPhone =
+        contactPhone == null || contactPhone.isBlank() ? null : normalizePhone(contactPhone);
+    String normalizedEmail =
+        contactEmail == null || contactEmail.isBlank() ? null : normalizeEmail(contactEmail);
+    if (normalizedPhone == null && normalizedEmail == null) {
+      throw invalid("Nhập ít nhất số điện thoại hoặc email liên hệ khách sạn.");
+    }
     return new Hotel(
         id,
         ownerId,
@@ -90,8 +99,8 @@ public record Hotel(
         normalizedSlug,
         description,
         normalizedAddress,
-        null,
-        null,
+        normalizedPhone,
+        normalizedEmail,
         latitude,
         longitude,
         starRating,

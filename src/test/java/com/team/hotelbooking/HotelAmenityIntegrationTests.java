@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -112,6 +113,95 @@ class HotelAmenityIntegrationTests {
         DELUXE_ID,
         STANDARD_ID,
         OTHER_HOTEL_TYPE_ID);
+  }
+
+  @Nested
+  @DisplayName("Tạo khách sạn có liên hệ riêng tư")
+  class CreateWithContactTests {
+    private String body(String contacts) {
+      return """
+          {"cityId":"%s","name":"Contact Hotel","address":"12 Test Street",
+           "checkInTime":"14:00","checkOutTime":"12:00",%s}
+          """
+          .formatted(DA_NANG_ID, contacts);
+    }
+
+    @Test
+    void ownerCreatesContactAtomicallyAndPublicResponsesNeverExposeIt() throws Exception {
+      JsonNode created =
+          readData(
+              mvc.perform(
+                  post("/api/v1/management/hotels")
+                      .with(as(OWNER_ID, "HOTEL_OWNER"))
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(
+                          body(
+                              "\"contactPhone\":\" 0901234567 \",\"contactEmail\":\" desk@hotel.test \",\"starRating\":4"))),
+              201);
+      String hotelId = created.get("id").asString();
+      assertEquals("0901234567", created.get("contactPhone").asString());
+      assertEquals("desk@hotel.test", created.get("contactEmail").asString());
+      assertEquals(0, created.get("version").asInt());
+      assertEquals(
+          "0901234567",
+          jdbc.queryForObject(
+              "select contact_phone from hotels where id = ?",
+              String.class,
+              UUID.fromString(hotelId)));
+      for (var actor : List.of(as(OWNER_ID, "HOTEL_OWNER"), as(ADMIN_ID, "ADMIN"))) {
+        mvc.perform(get("/api/v1/management/hotels/" + hotelId).with(actor))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.contactEmail").value("desk@hotel.test"));
+      }
+      mvc.perform(get("/api/v1/management/hotels/" + hotelId).with(as(CUSTOMER_ID, "CUSTOMER")))
+          .andExpect(status().isForbidden());
+      jdbc.update("update hotels set status = 'ACTIVE' where id = ?", UUID.fromString(hotelId));
+      mvc.perform(get("/api/v1/hotels/" + hotelId))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.contactPhone").doesNotExist())
+          .andExpect(jsonPath("$.data.contactEmail").doesNotExist());
+      mvc.perform(get("/api/v1/hotels").param("keyword", "Contact Hotel"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.content[*].contactPhone").doesNotExist())
+          .andExpect(jsonPath("$.data.content[*].contactEmail").doesNotExist());
+    }
+
+    @Test
+    void adminCanCreateForOwnerWithEmailOnly() throws Exception {
+      JsonNode created =
+          readData(
+              mvc.perform(
+                  post("/api/v1/management/hotels")
+                      .with(as(ADMIN_ID, "ADMIN"))
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(
+                          body(
+                              "\"ownerId\":\""
+                                  + OWNER_ID
+                                  + "\",\"contactEmail\":\"admin-contact@hotel.test\""))),
+              201);
+      assertEquals(OWNER_ID.toString(), created.get("ownerId").asString());
+      assertEquals("admin-contact@hotel.test", created.get("contactEmail").asString());
+    }
+
+    @Test
+    void rejectsMissingOrMalformedContactWithoutCreatingADraft() throws Exception {
+      long before = jdbc.queryForObject("select count(*) from hotels", Long.class);
+      for (String contact :
+          List.of(
+              "\"contactPhone\":null",
+              "\"contactPhone\":\" \",\"contactEmail\":\" \"",
+              "\"contactPhone\":\"123\"",
+              "\"contactEmail\":\"invalid\"")) {
+        mvc.perform(
+                post("/api/v1/management/hotels")
+                    .with(as(OWNER_ID, "HOTEL_OWNER"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body(contact)))
+            .andExpect(status().isBadRequest());
+      }
+      assertEquals(before, jdbc.queryForObject("select count(*) from hotels", Long.class));
+    }
   }
 
   @Nested
@@ -607,6 +697,156 @@ class HotelAmenityIntegrationTests {
             .with(actor)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"amenityIds\":[" + ids + "]}"));
+  }
+
+  @Nested
+  class RoomCreationAndPublishReadinessTests {
+    private UUID flowHotel;
+    private UUID flowType;
+    private String path;
+
+    @BeforeEach
+    void prepareFlow() {
+      flowHotel = UUID.randomUUID();
+      flowType = UUID.randomUUID();
+      insertHotel(flowHotel, OWNER_ID);
+      insertRoomType(flowType, flowHotel, "Flow type");
+      jdbc.update(
+          "UPDATE hotels SET status='DRAFT', contact_phone='0901234567' WHERE id=?", flowHotel);
+      jdbc.update(
+          "UPDATE room_types SET max_adults=2, max_children=0, max_occupancy=2 WHERE id=?",
+          flowType);
+      path = "/api/v1/management/hotels/" + flowHotel;
+    }
+
+    @Test
+    void createsReadyRoomAtServerNowWithoutFollowUpPatch() throws Exception {
+      var created =
+          readData(
+              mvc.perform(
+                  post(path + "/rooms")
+                      .with(as(OWNER_ID, "HOTEL_OWNER"))
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(
+                          mapper.writeValueAsString(
+                              Map.of(
+                                  "roomTypeId",
+                                  flowType,
+                                  "roomNumber",
+                                  "101",
+                                  "readiness",
+                                  "READY")))),
+              201);
+      assertEquals("READY", created.get("readiness").asString());
+      assertEquals("OPERATING", created.get("operationalStatus").asString());
+      assertTrue(
+          java.time.Duration.between(
+                      java.time.Instant.parse(created.get("operationalFrom").asString()),
+                      java.time.Instant.now())
+                  .abs()
+                  .toSeconds()
+              < 15);
+      mvc.perform(get(path + "/publish-readiness").with(as(OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.ready").value(true))
+          .andExpect(jsonPath("$.data.operationalRoomCount").value(1));
+    }
+
+    @Test
+    void scheduledReadyRoomIsNotOperationalAndNotEnoughForSubmission() throws Exception {
+      var created =
+          readData(
+              mvc.perform(
+                  post(path + "/rooms")
+                      .with(as(OWNER_ID, "HOTEL_OWNER"))
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(
+                          mapper.writeValueAsString(
+                              Map.of(
+                                  "roomTypeId",
+                                  flowType,
+                                  "roomNumber",
+                                  "102",
+                                  "readiness",
+                                  "READY",
+                                  "operationalFrom",
+                                  java.time.Instant.now().plusSeconds(86400).toString())))),
+              201);
+      assertEquals("SCHEDULED", created.get("operationalStatus").asString());
+      mvc.perform(get(path + "/publish-readiness").with(as(OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.ready").value(false))
+          .andExpect(jsonPath("$.data.operationalRoomCount").value(0));
+    }
+
+    @Test
+    void notReadyRoomStillCountsAsOperatingAndCanStopAndResume() throws Exception {
+      var created =
+          readData(
+              mvc.perform(
+                  post(path + "/rooms")
+                      .with(as(OWNER_ID, "HOTEL_OWNER"))
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(
+                          mapper.writeValueAsString(
+                              Map.of("roomTypeId", flowType, "roomNumber", "103")))),
+              201);
+      assertEquals("DIRTY", created.get("readiness").asString());
+      var roomPath = path + "/rooms/" + created.get("id").asString();
+      mvc.perform(get(path + "/publish-readiness").with(as(ADMIN_ID, "ADMIN")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.ready").value(true));
+      mvc.perform(
+              patch(roomPath)
+                  .with(as(OWNER_ID, "HOTEL_OWNER"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"active\":false}"))
+          .andExpect(status().isOk());
+      mvc.perform(get(path + "/publish-readiness").with(as(OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(jsonPath("$.data.ready").value(false))
+          .andExpect(jsonPath("$.data.operationalRoomCount").value(0));
+      mvc.perform(
+              patch(roomPath)
+                  .with(as(OWNER_ID, "HOTEL_OWNER"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"active\":true}"))
+          .andExpect(status().isOk());
+      mvc.perform(get(path + "/publish-readiness").with(as(OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(jsonPath("$.data.ready").value(true))
+          .andExpect(jsonPath("$.data.operationalRoomCount").value(1));
+    }
+
+    @Test
+    void deniesUnrelatedOwnerAndCustomerReadinessAccess() throws Exception {
+      mvc.perform(get(path + "/publish-readiness").with(as(OTHER_OWNER_ID, "HOTEL_OWNER")))
+          .andExpect(status().isNotFound());
+      mvc.perform(get(path + "/publish-readiness").with(as(CUSTOMER_ID, "CUSTOMER")))
+          .andExpect(status().isForbidden());
+    }
+  }
+
+  @Test
+  void shouldReturnSavedBasePriceWhenReloadingManagementRoomTypes() throws Exception {
+    var hotel = UUID.randomUUID();
+    insertHotel(hotel, OWNER_ID);
+    var path = "/api/v1/management/hotels/" + hotel;
+    var type = UUID.randomUUID();
+    insertRoomType(type, hotel, "Price regression");
+    mvc.perform(
+            patch(path + "/room-types/" + type)
+                .with(as(OWNER_ID, "HOTEL_OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"basePrice\":300000}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.basePrice").value(300_000));
+    var list =
+        readData(mvc.perform(get(path + "/room-types").with(as(OWNER_ID, "HOTEL_OWNER"))), 200);
+    var saved =
+        list.valueStream()
+            .filter(item -> item.get("id").asString().equals(type.toString()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(300_000L, saved.get("basePrice").asLong());
   }
 
   private JsonNode readData(ResultActions result, int expectedStatus) throws Exception {

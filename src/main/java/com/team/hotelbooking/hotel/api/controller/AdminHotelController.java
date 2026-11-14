@@ -51,6 +51,8 @@ public class AdminHotelController {
             request.name(),
             request.description(),
             request.address(),
+            request.contactPhone(),
+            request.contactEmail(),
             request.latitude(),
             request.longitude(),
             request.starRating(),

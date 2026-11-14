@@ -102,6 +102,8 @@ public class CreateHotelService implements CreateHotelUseCase {
             slug,
             command.description(),
             command.address(),
+            command.contactPhone(),
+            command.contactEmail(),
             command.latitude(),
             command.longitude(),
             command.starRating(),

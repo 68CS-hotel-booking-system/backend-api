@@ -83,9 +83,11 @@ class ManagementRateControllerTests {
 
       List<DailyRateResult> rates =
           List.of(
-              new DailyRateResult(LocalDate.of(2026, 11, 1), 1200000L, true, Instant.now()),
-              new DailyRateResult(LocalDate.of(2026, 11, 2), null, false, null),
-              new DailyRateResult(LocalDate.of(2026, 11, 3), 1500000L, true, Instant.now()));
+              new DailyRateResult(
+                  LocalDate.of(2026, 11, 1), 1200000L, true, Instant.now(), 1200000L, "RATE"),
+              new DailyRateResult(LocalDate.of(2026, 11, 2), null, false, null, 500000L, "BASE"),
+              new DailyRateResult(
+                  LocalDate.of(2026, 11, 3), 1500000L, true, Instant.now(), 1500000L, "RATE"));
 
       RoomTypeRatesResult result =
           new RoomTypeRatesResult(hotelId, roomTypeId, "VND", startDate, endDate, rates);
@@ -106,6 +108,10 @@ class ManagementRateControllerTests {
           .andExpect(jsonPath("$.data.roomTypeId").value(roomTypeId.toString()))
           .andExpect(jsonPath("$.data.rates[0].price").value(1200000))
           .andExpect(jsonPath("$.data.rates[0].hasRate").value(true))
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").value(1200000))
+          .andExpect(jsonPath("$.data.rates[0].source").value("RATE"))
+          .andExpect(jsonPath("$.data.rates[1].effectivePrice").value(500000))
+          .andExpect(jsonPath("$.data.rates[1].source").value("BASE"))
           .andExpect(jsonPath("$.data.rates[1].hasRate").value(false))
           .andExpect(jsonPath("$.data.rates[2].price").value(1500000));
     }
@@ -155,8 +161,10 @@ class ManagementRateControllerTests {
 
       List<DailyRateResult> rates =
           List.of(
-              new DailyRateResult(LocalDate.of(2026, 11, 10), 1500000L, true, Instant.now()),
-              new DailyRateResult(LocalDate.of(2026, 11, 11), 1500000L, true, Instant.now()));
+              new DailyRateResult(
+                  LocalDate.of(2026, 11, 10), 1500000L, true, Instant.now(), 1500000L, "RATE"),
+              new DailyRateResult(
+                  LocalDate.of(2026, 11, 11), 1500000L, true, Instant.now(), 1500000L, "RATE"));
 
       RoomTypeRatesResult result =
           new RoomTypeRatesResult(
@@ -178,7 +186,10 @@ class ManagementRateControllerTests {
           .andExpect(jsonPath("$.data.roomTypeId").value(roomTypeId.toString()))
           .andExpect(jsonPath("$.data.currency").value("VND"))
           .andExpect(jsonPath("$.data.rates[0].price").value(1500000))
-          .andExpect(jsonPath("$.data.rates[1].price").value(1500000));
+          .andExpect(jsonPath("$.data.rates[1].price").value(1500000))
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").value(1500000))
+          .andExpect(jsonPath("$.data.rates[0].source").value("RATE"))
+          .andExpect(jsonPath("$.data.rates[1].source").value("RATE"));
     }
 
     @Test
