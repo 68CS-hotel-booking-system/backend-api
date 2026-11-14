@@ -10,4 +10,5 @@ public record CreateRoomCommand(
     String roomNumber,
     String floor,
     Instant operationalFrom,
-    Instant operationalUntil) {}
+    Instant operationalUntil,
+    String readiness) {}

@@ -82,7 +82,7 @@ class ManagementRoomControllerResponseTests {
             .build();
     room =
         new ListManagementRoomsResult(
-            ROOM_ID, ROOM_TYPE_ID, "101", null, "READY", AT, AT, null, AT, AT, 2L);
+            ROOM_ID, ROOM_TYPE_ID, "101", null, "READY", "OPERATING", AT, AT, null, AT, AT, 2L);
   }
 
   @Nested
@@ -113,7 +113,7 @@ class ManagementRoomControllerResponseTests {
           .andExpect(jsonPath("$.data.first").value(true))
           .andExpect(jsonPath("$.data.last").value(true))
           .andExpect(jsonPath("$.data.content", hasSize(1)))
-          .andExpect(jsonPath("$.data.content[0].*", hasSize(11)))
+          .andExpect(jsonPath("$.data.content[0].*", hasSize(12)))
           .andExpect(jsonPath("$.data.content[0].id").value(ROOM_ID.toString()))
           .andExpect(jsonPath("$.data.content[0].roomTypeId").value(ROOM_TYPE_ID.toString()))
           .andExpect(jsonPath("$.data.content[0].roomNumber").value("101"))

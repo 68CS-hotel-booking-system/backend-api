@@ -43,8 +43,7 @@ public class CreateRoomService implements CreateRoomUseCase {
     if (command == null
         || command.actorId() == null
         || command.hotelId() == null
-        || command.roomTypeId() == null
-        || command.operationalFrom() == null) {
+        || command.roomTypeId() == null) {
       throw HotelException.invalid(
           "Thông tin người thực hiện, khách sạn, loại phòng và thời điểm bắt đầu phục vụ là bắt buộc.");
     }
@@ -82,13 +81,22 @@ public class CreateRoomService implements CreateRoomUseCase {
             roomType.id(),
             command.roomNumber(),
             command.floor(),
-            command.operationalFrom(),
+            command.operationalFrom() == null ? now : command.operationalFrom(),
             command.operationalUntil(),
             actor.id(),
-            now);
+            now,
+            command.readiness() == null ? Room.Readiness.DIRTY : readinessOf(command.readiness()));
 
     Room saved = rooms.add(room);
 
-    return CreateRoomResult.from(saved);
+    return CreateRoomResult.from(saved, now);
+  }
+
+  private static Room.Readiness readinessOf(String value) {
+    try {
+      return Room.Readiness.valueOf(value);
+    } catch (IllegalArgumentException error) {
+      throw HotelException.invalid("Trạng thái phòng phải là READY hoặc DIRTY.");
+    }
   }
 }

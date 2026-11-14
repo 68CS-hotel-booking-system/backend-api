@@ -34,6 +34,30 @@ public record Room(
       Instant operationalUntil,
       UUID actorId,
       Instant now) {
+    return create(
+        id,
+        hotelId,
+        roomTypeId,
+        roomNumber,
+        floor,
+        operationalFrom,
+        operationalUntil,
+        actorId,
+        now,
+        Readiness.DIRTY);
+  }
+
+  public static Room create(
+      UUID id,
+      UUID hotelId,
+      UUID roomTypeId,
+      String roomNumber,
+      String floor,
+      Instant operationalFrom,
+      Instant operationalUntil,
+      UUID actorId,
+      Instant now,
+      Readiness initialReadiness) {
     if (id == null || hotelId == null || roomTypeId == null || actorId == null || now == null) {
       throw HotelException.invalid(
           "Định danh phòng, khách sạn, loại phòng, người thực hiện và thời điểm tạo là bắt buộc.");
@@ -68,7 +92,7 @@ public record Room(
         roomTypeId,
         normalizedRoomNumber,
         normalizedFloor,
-        Readiness.DIRTY,
+        initialReadiness == null ? Readiness.DIRTY : initialReadiness,
         now,
         actorId,
         operationalFrom,
@@ -113,6 +137,18 @@ public record Room(
         createdAt,
         now,
         version);
+  }
+
+  public enum OperationalStatus {
+    SCHEDULED,
+    OPERATING,
+    STOPPED
+  }
+
+  public OperationalStatus operationalStatusAt(Instant at) {
+    if (operationalUntil != null && !operationalUntil.isAfter(at)) return OperationalStatus.STOPPED;
+    if (at.isBefore(operationalFrom)) return OperationalStatus.SCHEDULED;
+    return OperationalStatus.OPERATING;
   }
 
   // Phòng còn phục vụ khi chưa có mốc kết thúc hoặc mốc kết thúc nằm sau thời điểm xét.

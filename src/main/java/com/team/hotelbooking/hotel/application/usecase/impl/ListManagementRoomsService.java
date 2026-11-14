@@ -13,6 +13,8 @@ import com.team.hotelbooking.hotel.domain.repository.HotelRepository;
 import com.team.hotelbooking.hotel.domain.repository.RoomRepository;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
+import java.time.Clock;
+import java.time.Instant;
 
 public class ListManagementRoomsService implements ListManagementRoomsUseCase {
 
@@ -20,9 +22,14 @@ public class ListManagementRoomsService implements ListManagementRoomsUseCase {
   private final RoomRepository rooms;
   private final IdentityAccounts accounts;
   private final int maxPageSize;
+  private final Clock clock;
 
   public ListManagementRoomsService(
-      HotelRepository hotels, RoomRepository rooms, IdentityAccounts accounts, int maxPageSize) {
+      HotelRepository hotels,
+      RoomRepository rooms,
+      IdentityAccounts accounts,
+      int maxPageSize,
+      Clock clock) {
     if (maxPageSize < 1) {
       throw new IllegalArgumentException("Maximum page size must be positive.");
     }
@@ -30,6 +37,7 @@ public class ListManagementRoomsService implements ListManagementRoomsUseCase {
     this.rooms = rooms;
     this.accounts = accounts;
     this.maxPageSize = maxPageSize;
+    this.clock = clock;
   }
 
   @Override
@@ -76,6 +84,7 @@ public class ListManagementRoomsService implements ListManagementRoomsUseCase {
             ? rooms.findByHotelId(hotel.id(), pagination)
             : rooms.findByHotelIdAndRoomTypeId(hotel.id(), query.roomTypeId(), pagination);
 
-    return result.map(ListManagementRoomsResult::from);
+    Instant at = clock.instant();
+    return result.map(room -> ListManagementRoomsResult.from(room, at));
   }
 }

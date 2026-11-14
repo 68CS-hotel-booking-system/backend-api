@@ -31,10 +31,13 @@ public class GetRoomRatesService implements GetRoomRatesUseCase {
     PricingManagementAccess.require(
         pricingHotelPort, query.hotelId(), query.actorUserId(), query.admin());
 
-    if (!pricingHotelPort.isRoomTypeActiveInHotel(query.roomTypeId(), query.hotelId())) {
-      throw PricingException.roomTypeNotFound(
-          "Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn.");
-    }
+    var roomType =
+        pricingHotelPort
+            .findActiveRoomType(query.roomTypeId(), query.hotelId())
+            .orElseThrow(
+                () ->
+                    PricingException.roomTypeNotFound(
+                        "Không tìm thấy loại phòng hoặc loại phòng không thuộc khách sạn."));
 
     List<RoomRate> ratesFromDb =
         roomRateRepository.findRatesByRoomTypeIdAndDateRange(
@@ -49,11 +52,12 @@ public class GetRoomRatesService implements GetRoomRatesUseCase {
         !date.isAfter(query.endDate());
         date = date.plusDays(1)) {
       RoomRate rate = rateMap.get(date);
-      if (rate != null && rate.amount() != null && rate.amount() > 0) {
-        dailyRates.add(new DailyRate(date, rate.amount(), true, rate.updatedAt()));
-      } else {
-        dailyRates.add(new DailyRate(date, null, false, null));
-      }
+      dailyRates.add(
+          DailyRate.resolve(
+              date,
+              roomType.basePrice(),
+              rate != null ? rate.amount() : null,
+              rate != null ? rate.updatedAt() : null));
     }
 
     RoomTypeRates domain =

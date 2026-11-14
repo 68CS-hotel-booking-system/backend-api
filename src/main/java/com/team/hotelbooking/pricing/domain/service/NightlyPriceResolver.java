@@ -1,6 +1,7 @@
 package com.team.hotelbooking.pricing.domain.service;
 
 import com.team.hotelbooking.pricing.domain.exception.PricingException;
+import com.team.hotelbooking.pricing.domain.model.PriceSource;
 import com.team.hotelbooking.pricing.domain.model.StayQuote.NightlyPrice;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -22,6 +23,17 @@ public final class NightlyPriceResolver {
   public static final int MAX_STAY_NIGHTS = 30;
 
   private NightlyPriceResolver() {}
+
+  // Giá riêng không hợp lệ không được thay bằng giá cơ bản.
+  public static EffectivePrice resolveNight(long basePrice, Long customRate) {
+    long amount = customRate != null ? customRate : basePrice;
+    if (amount <= 0L) {
+      return new EffectivePrice(null, PriceSource.NONE);
+    }
+    return new EffectivePrice(amount, customRate != null ? PriceSource.RATE : PriceSource.BASE);
+  }
+
+  public record EffectivePrice(Long amount, PriceSource source) {}
 
   public static void validateStay(LocalDate checkIn, LocalDate checkOut, LocalDate today) {
     if (checkIn == null || checkOut == null) {
@@ -48,12 +60,11 @@ public final class NightlyPriceResolver {
       long basePrice, Map<LocalDate, Long> dailyAmounts, LocalDate checkIn, LocalDate checkOut) {
     List<NightlyPrice> nightlyPrices = new ArrayList<>();
     for (LocalDate date = checkIn; date.isBefore(checkOut); date = date.plusDays(1)) {
-      Long customRate = dailyAmounts.get(date);
-      long unitPrice = customRate != null ? customRate : basePrice;
-      if (unitPrice <= 0L) {
+      EffectivePrice price = resolveNight(basePrice, dailyAmounts.get(date));
+      if (price.amount() == null) {
         return new Resolution(List.copyOf(nightlyPrices), date);
       }
-      nightlyPrices.add(new NightlyPrice(date, unitPrice));
+      nightlyPrices.add(new NightlyPrice(date, price.amount()));
     }
     return new Resolution(List.copyOf(nightlyPrices), null);
   }
