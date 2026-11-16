@@ -88,7 +88,30 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
 
   @Override
   public void closePending(UUID bookingId, Booking.Status status, UUID actorId, Instant now) {
+    close(
+        bookingId,
+        status,
+        actorId,
+        status == Booking.Status.EXPIRED ? "Đơn hết hạn giữ chỗ." : "Khách hủy đơn.",
+        status == Booking.Status.CANCELLED ? Boolean.FALSE : null,
+        now);
+  }
+
+  @Override
+  public void cancelConfirmed(
+      UUID bookingId, UUID actorId, String reason, boolean cancelledByHotel, Instant now) {
+    close(bookingId, Booking.Status.CANCELLED, actorId, reason, cancelledByHotel, now);
+  }
+
+  private void close(
+      UUID bookingId,
+      Booking.Status status,
+      UUID actorId,
+      String reason,
+      Boolean cancelledByHotel,
+      Instant now) {
     BookingJpaEntity entity = bookingJpaRepository.findById(bookingId).orElseThrow();
+    BookingJpaEntity.DbStatus fromStatus = entity.getStatus();
     BookingJpaEntity.DbStatus target = BookingJpaEntity.DbStatus.valueOf(status.name());
     entity.setStatus(target);
     entity.setUpdatedAt(now);
@@ -97,10 +120,11 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
     BookingStatusHistoryJpaEntity history = new BookingStatusHistoryJpaEntity();
     history.setId(UUID.randomUUID());
     history.setBookingId(bookingId);
-    history.setFromStatus(BookingJpaEntity.DbStatus.PENDING_PAYMENT);
+    history.setFromStatus(fromStatus);
     history.setToStatus(target);
     history.setChangedByUserId(actorId);
-    history.setReason(status == Booking.Status.EXPIRED ? "Đơn hết hạn giữ chỗ." : "Khách hủy đơn.");
+    history.setReason(reason);
+    history.setCancelledByHotel(cancelledByHotel);
     history.setCreatedAt(now);
     bookingStatusHistoryJpaRepository.saveAndFlush(history);
   }

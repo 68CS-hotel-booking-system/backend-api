@@ -17,6 +17,9 @@ public interface BookingRepository {
 
   void closePending(UUID bookingId, Booking.Status status, UUID actorId, Instant now);
 
+  void cancelConfirmed(
+      UUID bookingId, UUID actorId, String reason, boolean cancelledByHotel, Instant now);
+
   Optional<Booking> findByIdAndCustomerId(UUID bookingId, UUID customerId);
 
   Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId);

@@ -1,5 +1,6 @@
 package com.team.hotelbooking.booking.infrastructure.config;
 
+import com.team.hotelbooking.booking.BookingCancellationPaymentGateway;
 import com.team.hotelbooking.booking.BookingCheckoutDirectory;
 import com.team.hotelbooking.booking.application.port.BookingCreationRequestPort;
 import com.team.hotelbooking.booking.application.port.BookingHotelPort;
@@ -8,6 +9,7 @@ import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort;
 import com.team.hotelbooking.booking.application.service.VoucherApplicationService;
 import com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase;
+import com.team.hotelbooking.booking.application.usecase.CancelHotelBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetCustomerBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetManagementBookingDetailUseCase;
@@ -16,6 +18,7 @@ import com.team.hotelbooking.booking.application.usecase.ListManagementBookingsU
 import com.team.hotelbooking.booking.application.usecase.QuoteVoucherUseCase;
 import com.team.hotelbooking.booking.application.usecase.SaveVoucherUseCase;
 import com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService;
+import com.team.hotelbooking.booking.application.usecase.impl.CancelHotelBookingService;
 import com.team.hotelbooking.booking.application.usecase.impl.CreateBookingService;
 import com.team.hotelbooking.booking.application.usecase.impl.GetCustomerBookingDetailService;
 import com.team.hotelbooking.booking.application.usecase.impl.GetManagementBookingDetailService;
@@ -76,9 +79,10 @@ public class BookingConfig {
       BookingRepository bookings,
       BookingInventoryPort inventory,
       VoucherRepository vouchers,
+      BookingCancellationPaymentGateway payments,
       Clock clock,
       PlatformTransactionManager transactionManager) {
-    var service = new CancelBookingService(bookings, inventory, vouchers, clock);
+    var service = new CancelBookingService(bookings, inventory, vouchers, payments, clock);
     var transaction = new TransactionTemplate(transactionManager);
     return (customerId, bookingId) ->
         Objects.requireNonNull(
@@ -86,13 +90,34 @@ public class BookingConfig {
   }
 
   @Bean
+  public CancelHotelBookingUseCase cancelHotelBookingUseCase(
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      VoucherRepository vouchers,
+      BookingCancellationPaymentGateway payments,
+      Clock clock,
+      BookingIdentityPort accounts,
+      BookingHotelPort hotels,
+      PlatformTransactionManager transactionManager) {
+    var service =
+        new CancelHotelBookingService(
+            new CancelBookingService(bookings, inventory, vouchers, payments, clock),
+            accounts,
+            hotels);
+    var transaction = new TransactionTemplate(transactionManager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
   public VoucherHoldExpiryJob voucherHoldExpiryJob(
       BookingRepository bookings,
       BookingInventoryPort inventory,
       VoucherRepository vouchers,
+      BookingCancellationPaymentGateway payments,
       Clock clock,
       PlatformTransactionManager transactionManager) {
-    var service = new CancelBookingService(bookings, inventory, vouchers, clock);
+    var service = new CancelBookingService(bookings, inventory, vouchers, payments, clock);
     var transaction = new TransactionTemplate(transactionManager);
     return new VoucherHoldExpiryJob(
         vouchers,
@@ -200,6 +225,12 @@ public class BookingConfig {
     TransactionTemplate writeTx = new TransactionTemplate(transactionManager);
 
     return new BookingCheckoutDirectory() {
+      @Override
+      public boolean lockForStayOperation(UUID bookingId) {
+        // Inventory giữ transaction mở đến khi hoàn tất phân công hoặc thay đổi trạng thái.
+        return adapter.lockForStayOperation(bookingId);
+      }
+
       @Override
       public Optional<BookingCheckoutSnapshot> findById(UUID bookingId) {
         return Objects.requireNonNull(readOnlyTx.execute(status -> adapter.findById(bookingId)));

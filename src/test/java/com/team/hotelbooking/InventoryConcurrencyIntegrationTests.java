@@ -1,10 +1,12 @@
 package com.team.hotelbooking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.team.hotelbooking.booking.application.command.CancelHotelBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.BookingItemInput;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
@@ -12,6 +14,7 @@ import com.team.hotelbooking.booking.application.command.SaveVoucherCommand;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteCriteria;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteItemCriteria;
 import com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase;
+import com.team.hotelbooking.booking.application.usecase.CancelHotelBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.QuoteVoucherUseCase;
 import com.team.hotelbooking.booking.application.usecase.SaveVoucherUseCase;
@@ -39,8 +42,11 @@ import com.team.hotelbooking.inventory.application.usecase.MarkNoShowUseCase;
 import com.team.hotelbooking.inventory.application.usecase.UpdateRoomReadinessUseCase;
 import com.team.hotelbooking.inventory.domain.exception.InventoryErrorCode;
 import com.team.hotelbooking.inventory.domain.exception.InventoryException;
+import com.team.hotelbooking.payment.VerifiedBookingPaymentRecorder;
+import com.team.hotelbooking.payment.VerifiedBookingPaymentRecorder.VerifiedCapture;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +61,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -116,6 +124,8 @@ class InventoryConcurrencyIntegrationTests {
   @Autowired private JdbcTemplate jdbc;
   @Autowired private CreateBookingUseCase createBookingUseCase;
   @Autowired private CancelBookingUseCase cancelBookingUseCase;
+  @Autowired private CancelHotelBookingUseCase cancelHotelBookingUseCase;
+  @Autowired private VerifiedBookingPaymentRecorder verifiedBookingPaymentRecorder;
   @Autowired private QuoteVoucherUseCase quoteVoucherUseCase;
   @Autowired private SaveVoucherUseCase saveVoucherUseCase;
   @Autowired private VoucherHoldExpiryJob voucherHoldExpiryJob;
@@ -134,6 +144,7 @@ class InventoryConcurrencyIntegrationTests {
         TWO_ROOM_TYPE_ID);
     jdbc.update("DELETE FROM room_blocks WHERE hotel_id = ?", HOTEL_ID);
     jdbc.update("DELETE FROM bookings WHERE hotel_id = ?", HOTEL_ID);
+    jdbc.update("DELETE FROM hotel_contracts WHERE hotel_id = ?", HOTEL_ID);
 
     jdbc.update(
         """
@@ -240,6 +251,125 @@ class InventoryConcurrencyIntegrationTests {
             now.plusSeconds(3600),
             "ACTIVE",
             "HOTEL"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"true, false", "false, false", "false, true"})
+  @DisplayName("Hủy đơn đã xác nhận dùng khoản thực thu và tỷ lệ đã chốt, chỉ ghi một lần")
+  void shouldSettleConfirmedCancellationOnce(boolean beforeCutoff, boolean cancelledByHotel) {
+    // Given
+    createVoucher();
+    var today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+    var booking =
+        createBookingUseCase.execute(
+            voucherBooking(
+                beforeCutoff ? today.plusDays(10) : today.plusDays(2),
+                SINGLE_ROOM_TYPE_ID,
+                "paid-cancellation"));
+    inventoryReservationDirectory.confirm(booking.id());
+    jdbc.update("UPDATE bookings SET status = 'CONFIRMED' WHERE id = ?", booking.id());
+    assignRoomsUseCase.execute(
+        new AssignRoomsCommand(
+            OWNER_ID,
+            HOTEL_ID,
+            booking.id(),
+            List.of(
+                new AssignRoomsCommand.RoomAssignmentItem(
+                    booking.items().getFirst().id(), List.of(ROOM_101_ID))),
+            "Phân phòng trước khi hủy"));
+    assertThatThrownBy(() -> cancelBookingUseCase.execute(OWNER_ID, booking.id()))
+        .isInstanceOfSatisfying(
+            BookingException.class,
+            error ->
+                assertThat(error.code())
+                    .isEqualTo(BookingErrorCode.CANCELLATION_PAYMENT_UNVERIFIED));
+    if (!beforeCutoff) {
+      jdbc.update(
+          "UPDATE bookings SET check_in = ?, check_out = ? WHERE id = ?",
+          today,
+          today.plusDays(2),
+          booking.id());
+    }
+    jdbc.update(
+        "INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE role_key = 'HOTEL_OWNER' ON CONFLICT DO NOTHING",
+        OWNER_ID);
+    UUID contractId = UUID.randomUUID();
+    jdbc.update(
+        """
+        INSERT INTO hotel_contracts (id, contract_code, hotel_id, owner_user_id, commission_rate,
+          commission_basis, starts_at, ends_at, status, created_by_user_id)
+        VALUES (?, ?, ?, ?, 12.50, 'BEFORE_DISCOUNT', now() - interval '1 day',
+          now() + interval '1 day', 'ACTIVE', ?)
+        """,
+        contractId,
+        contractId.toString(),
+        HOTEL_ID,
+        OWNER_ID,
+        OWNER_ID);
+    var capture =
+        new VerifiedCapture(
+            booking.id(),
+            "integration-test",
+            booking.id().toString(),
+            booking.totalAmount(),
+            booking.currency(),
+            Instant.now());
+    verifiedBookingPaymentRecorder.record(capture);
+    jdbc.update("UPDATE hotel_contracts SET status = 'TERMINATED' WHERE id = ?", contractId);
+    verifiedBookingPaymentRecorder.record(capture);
+
+    // When
+    var cancelled =
+        cancelledByHotel
+            ? cancelHotelBookingUseCase.execute(
+                new CancelHotelBookingCommand(
+                    OWNER_ID, HOTEL_ID, booking.id(), "Khách sạn không thể phục vụ."))
+            : cancelBookingUseCase.execute(OWNER_ID, booking.id());
+    var retry = cancelBookingUseCase.execute(OWNER_ID, booking.id());
+
+    // Then
+    boolean freeCancellation = beforeCutoff || cancelledByHotel;
+    assertThat(cancelled).isEqualTo(retry);
+    assertThat(cancelled.status()).isEqualTo("CANCELLED");
+    assertThat(cancelled.cancellationFeeAmount()).isEqualTo(freeCancellation ? 0 : 2_250_000);
+    assertThat(cancelled.refundAmount()).isEqualTo(freeCancellation ? 2_250_000 : 0);
+    assertThat(cancelled.refundStatus()).isEqualTo(freeCancellation ? "PENDING" : "NOT_REQUIRED");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT commission_amount FROM booking_cancellation_settlements WHERE booking_id = ?",
+                Long.class,
+                booking.id()))
+        .isEqualTo(freeCancellation ? 0L : 281_250L);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM booking_status_history WHERE booking_id = ? AND to_status = 'CANCELLED'",
+                Integer.class,
+                booking.id()))
+        .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT cancelled_by_hotel FROM booking_status_history WHERE booking_id = ? AND to_status = 'CANCELLED'",
+                Boolean.class,
+                booking.id()))
+        .isEqualTo(cancelledByHotel);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM inventory_reservations WHERE booking_id = ? AND status = 'RELEASED'",
+                Integer.class,
+                booking.id()))
+        .isEqualTo(2);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status::text FROM room_assignments WHERE booking_id = ?",
+                String.class,
+                booking.id()))
+        .isEqualTo("RELEASED");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status FROM promotion_redemptions WHERE booking_id = ?",
+                String.class,
+                booking.id()))
+        .isEqualTo("APPLIED");
   }
 
   @Test

@@ -35,6 +35,7 @@ public class BookingExceptionHandler {
           case RATE_NOT_AVAILABLE,
               PRICE_CHANGED,
               BOOKING_NOT_CANCELLABLE,
+              CANCELLATION_PAYMENT_UNVERIFIED,
               BOOKING_REQUEST_CONFLICT,
               VOUCHER_LIMIT_REACHED,
               VOUCHER_CODE_EXISTS ->

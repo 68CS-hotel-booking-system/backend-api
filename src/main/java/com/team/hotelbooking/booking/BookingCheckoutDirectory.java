@@ -11,6 +11,9 @@ public interface BookingCheckoutDirectory {
 
   Optional<BookingCheckoutSnapshot> findById(UUID bookingId);
 
+  /** Khóa đơn nếu tồn tại, và trả false nếu đơn đã hủy. */
+  boolean lockForStayOperation(UUID bookingId);
+
   boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt);
 
   record BookingCheckoutSnapshot(

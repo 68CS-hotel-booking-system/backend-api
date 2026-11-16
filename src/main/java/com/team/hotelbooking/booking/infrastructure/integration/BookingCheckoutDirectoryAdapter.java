@@ -19,6 +19,14 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
   }
 
   @Override
+  public boolean lockForStayOperation(UUID bookingId) {
+    return bookings
+        .lockById(bookingId)
+        .map(booking -> booking.status() != Booking.Status.CANCELLED)
+        .orElse(true);
+  }
+
+  @Override
   public boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt) {
     if (bookingId == null || status == null) {
       return false;
