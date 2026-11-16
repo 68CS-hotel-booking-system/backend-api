@@ -82,6 +82,30 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
   }
 
   @Override
+  public Optional<Booking> lockById(UUID bookingId) {
+    return bookingJpaRepository.lockById(bookingId).map(this::loadFullBooking);
+  }
+
+  @Override
+  public void closePending(UUID bookingId, Booking.Status status, UUID actorId, Instant now) {
+    BookingJpaEntity entity = bookingJpaRepository.findById(bookingId).orElseThrow();
+    BookingJpaEntity.DbStatus target = BookingJpaEntity.DbStatus.valueOf(status.name());
+    entity.setStatus(target);
+    entity.setUpdatedAt(now);
+    bookingJpaRepository.saveAndFlush(entity);
+
+    BookingStatusHistoryJpaEntity history = new BookingStatusHistoryJpaEntity();
+    history.setId(UUID.randomUUID());
+    history.setBookingId(bookingId);
+    history.setFromStatus(BookingJpaEntity.DbStatus.PENDING_PAYMENT);
+    history.setToStatus(target);
+    history.setChangedByUserId(actorId);
+    history.setReason(status == Booking.Status.EXPIRED ? "Đơn hết hạn giữ chỗ." : "Khách hủy đơn.");
+    history.setCreatedAt(now);
+    bookingStatusHistoryJpaRepository.saveAndFlush(history);
+  }
+
+  @Override
   public Optional<Booking> findByIdAndCustomerId(UUID bookingId, UUID customerId) {
     return bookingJpaRepository
         .findByIdAndCustomerId(bookingId, customerId)

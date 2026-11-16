@@ -180,7 +180,8 @@ class BookingControllerResponseTests {
               new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
               new ContactRequest("Trần Thị Ở", "guest@example.com", "0987654321"),
               List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
-              2_700_000L);
+              2_700_000L,
+              null);
 
       given(createBookingUseCase.execute(any())).willReturn(sampleDetailResult());
 
@@ -221,7 +222,8 @@ class BookingControllerResponseTests {
               new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
               null,
               List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
-              2_500_000L);
+              2_500_000L,
+              null);
 
       given(createBookingUseCase.execute(any()))
           .willThrow(new BookingException(BookingErrorCode.PRICE_CHANGED));

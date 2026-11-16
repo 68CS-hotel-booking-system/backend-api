@@ -1,13 +1,20 @@
 package com.team.hotelbooking.booking.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.booking.infrastructure.persistence.entity.BookingJpaEntity;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 
 public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UUID> {
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT b FROM BookingJpaEntity b WHERE b.id = :bookingId")
+  Optional<BookingJpaEntity> lockById(UUID bookingId);
 
   Optional<BookingJpaEntity> findByIdAndCustomerId(UUID id, UUID customerId);
 

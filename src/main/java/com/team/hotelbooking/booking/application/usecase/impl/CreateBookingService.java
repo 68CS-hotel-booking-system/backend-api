@@ -2,6 +2,7 @@ package com.team.hotelbooking.booking.application.usecase.impl;
 
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
+import com.team.hotelbooking.booking.application.port.BookingCreationRequestPort;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort.AccountSnapshot;
 import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
@@ -10,6 +11,7 @@ import com.team.hotelbooking.booking.application.port.BookingPricingPort.Calcula
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteCriteria;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteItemCriteria;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult;
+import com.team.hotelbooking.booking.application.service.VoucherApplicationService;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.domain.exception.BookingErrorCode;
 import com.team.hotelbooking.booking.domain.exception.BookingException;
@@ -18,6 +20,7 @@ import com.team.hotelbooking.booking.domain.model.Booking.BookingItem;
 import com.team.hotelbooking.booking.domain.model.Booking.BookingNightPrice;
 import com.team.hotelbooking.booking.domain.model.Booking.ContactSnapshot;
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
+import com.team.hotelbooking.booking.domain.repository.VoucherRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,6 +40,9 @@ public final class CreateBookingService implements CreateBookingUseCase {
   private final BookingIdentityPort accounts;
   private final BookingPricingPort pricing;
   private final BookingInventoryPort inventory;
+  private final BookingCreationRequestPort requests;
+  private final VoucherRepository vouchers;
+  private final VoucherApplicationService voucherApplication;
   private final Clock clock;
   private final Duration holdTtl;
 
@@ -45,6 +51,9 @@ public final class CreateBookingService implements CreateBookingUseCase {
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
       BookingInventoryPort inventory,
+      BookingCreationRequestPort requests,
+      VoucherRepository vouchers,
+      VoucherApplicationService voucherApplication,
       Clock clock,
       Duration holdTtl) {
 
@@ -56,6 +65,9 @@ public final class CreateBookingService implements CreateBookingUseCase {
     this.accounts = accounts;
     this.pricing = pricing;
     this.inventory = inventory;
+    this.requests = requests;
+    this.vouchers = vouchers;
+    this.voucherApplication = voucherApplication;
     this.clock = clock;
     this.holdTtl = holdTtl;
   }
@@ -86,6 +98,18 @@ public final class CreateBookingService implements CreateBookingUseCase {
     ContactSnapshot booker = resolveBooker(command.booker(), customer);
     ContactSnapshot guest = resolveGuest(command.guest(), booker);
 
+    UUID bookingId = UUID.randomUUID();
+    if (command.idempotencyKey() != null) {
+      if (!command.idempotencyKey().matches("[!-~]{1,100}")) {
+        throw new BookingException(
+            BookingErrorCode.VALIDATION_FAILED, "Khóa tạo đơn không hợp lệ.");
+      }
+      UUID claimedId = requests.claim(command, bookingId);
+      if (!bookingId.equals(claimedId)) {
+        return BookingDetailResult.from(bookings.findById(claimedId).orElseThrow());
+      }
+    }
+
     List<StayQuoteItemCriteria> quoteItems =
         command.items().stream()
             .map(
@@ -104,12 +128,22 @@ public final class CreateBookingService implements CreateBookingUseCase {
                 command.expectedCheckOutTime(),
                 quoteItems));
 
-    if (command.quotedTotalAmount() != null && command.quotedTotalAmount() != quote.totalAmount()) {
+    VoucherApplicationService.Application applied =
+        command.voucherCode() == null
+            ? null
+            : voucherApplication.evaluate(
+                command.voucherCode(),
+                quote.hotelId(),
+                customer.id(),
+                quote.subtotalAmount(),
+                true);
+    long discount = applied == null ? quote.discountAmount() : applied.discount();
+    long total = applied == null ? quote.totalAmount() : quote.subtotalAmount() - discount;
+    if (command.quotedTotalAmount() != null && command.quotedTotalAmount() != total) {
       throw new BookingException(BookingErrorCode.PRICE_CHANGED);
     }
 
-    UUID bookingId = UUID.randomUUID();
-    Instant now = clock.instant();
+    Instant now = applied == null ? clock.instant() : applied.evaluatedAt();
     Instant expiresAt = now.plus(holdTtl);
     String bookingCode = generateBookingCode(bookingId, now);
 
@@ -166,8 +200,8 @@ public final class CreateBookingService implements CreateBookingUseCase {
             quote.extraGuestSurchargeAmount(),
             quote.surchargeAmount(),
             quote.subtotalAmount(),
-            quote.discountAmount(),
-            quote.totalAmount(),
+            discount,
+            total,
             expiresAt,
             now,
             domainItems);
@@ -175,6 +209,9 @@ public final class CreateBookingService implements CreateBookingUseCase {
     Booking saved = bookings.add(booking);
     // Giữ phòng liên tục trong cùng transaction; hết phòng phải rollback cả đơn và giá chốt.
     inventory.hold(saved);
+    if (applied != null) {
+      vouchers.record(saved, applied.voucher());
+    }
     return BookingDetailResult.from(saved);
   }
 

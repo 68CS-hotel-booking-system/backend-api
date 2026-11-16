@@ -13,6 +13,10 @@ public interface BookingRepository {
 
   Optional<Booking> findById(UUID bookingId);
 
+  Optional<Booking> lockById(UUID bookingId);
+
+  void closePending(UUID bookingId, Booking.Status status, UUID actorId, Instant now);
+
   Optional<Booking> findByIdAndCustomerId(UUID bookingId, UUID customerId);
 
   Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId);

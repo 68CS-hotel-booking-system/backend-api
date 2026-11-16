@@ -5,6 +5,7 @@ import com.team.hotelbooking.booking.BookingRoomHoldGateway.HoldItem;
 import com.team.hotelbooking.booking.BookingRoomHoldGateway.HoldRequest;
 import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.domain.model.Booking;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +14,11 @@ import org.springframework.stereotype.Component;
 public class BookingInventoryAdapter implements BookingInventoryPort {
 
   private final BookingRoomHoldGateway inventory;
+
+  @Override
+  public void release(UUID bookingId, boolean expired) {
+    inventory.release(bookingId, expired);
+  }
 
   @Override
   public void hold(Booking booking) {

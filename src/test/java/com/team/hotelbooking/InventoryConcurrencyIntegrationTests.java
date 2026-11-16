@@ -8,7 +8,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.BookingItemInput;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
+import com.team.hotelbooking.booking.application.command.SaveVoucherCommand;
+import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteCriteria;
+import com.team.hotelbooking.booking.application.port.BookingPricingPort.StayQuoteItemCriteria;
+import com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
+import com.team.hotelbooking.booking.application.usecase.QuoteVoucherUseCase;
+import com.team.hotelbooking.booking.application.usecase.SaveVoucherUseCase;
+import com.team.hotelbooking.booking.domain.exception.BookingErrorCode;
+import com.team.hotelbooking.booking.domain.exception.BookingException;
+import com.team.hotelbooking.booking.infrastructure.config.VoucherHoldExpiryJob;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory.HoldItemRequest;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory.HoldRequest;
@@ -106,9 +115,17 @@ class InventoryConcurrencyIntegrationTests {
   @Autowired private MockMvc mvc;
   @Autowired private JdbcTemplate jdbc;
   @Autowired private CreateBookingUseCase createBookingUseCase;
+  @Autowired private CancelBookingUseCase cancelBookingUseCase;
+  @Autowired private QuoteVoucherUseCase quoteVoucherUseCase;
+  @Autowired private SaveVoucherUseCase saveVoucherUseCase;
+  @Autowired private VoucherHoldExpiryJob voucherHoldExpiryJob;
 
   @BeforeEach
   void setUp() {
+    jdbc.update(
+        "DELETE FROM promotion_redemptions WHERE booking_id IN (SELECT id FROM bookings WHERE hotel_id = ?)",
+        HOTEL_ID);
+    jdbc.update("DELETE FROM promotions WHERE hotel_id = ?", HOTEL_ID);
     jdbc.update("DELETE FROM room_assignments WHERE hotel_id = ?", HOTEL_ID);
     jdbc.update("DELETE FROM booking_stay_operations WHERE hotel_id = ?", HOTEL_ID);
     jdbc.update(
@@ -183,6 +200,190 @@ class InventoryConcurrencyIntegrationTests {
         null,
         List.of(new BookingItemInput(roomTypeId, 1, 2, 0)),
         amount);
+  }
+
+  private CreateBookingCommand voucherBooking(LocalDate checkIn, UUID roomTypeId, String key) {
+    var base = bookingRequest(checkIn, roomTypeId, 2_400_000L);
+    return new CreateBookingCommand(
+        base.customerId(),
+        base.hotelId(),
+        base.checkIn(),
+        base.checkOut(),
+        base.expectedCheckInTime(),
+        base.expectedCheckOutTime(),
+        base.booker(),
+        base.guest(),
+        base.items(),
+        null,
+        "  stay10  ",
+        key);
+  }
+
+  private void createVoucher() {
+    jdbc.update("UPDATE users SET email_verified_at = now() WHERE id = ?", OWNER_ID);
+    Instant now = Instant.now();
+    saveVoucherUseCase.execute(
+        new SaveVoucherCommand(
+            OWNER_ID,
+            HOTEL_ID,
+            "STAY10",
+            true,
+            "Giảm giá đặt phòng",
+            "PERCENTAGE",
+            new java.math.BigDecimal("10.25"),
+            null,
+            150_000L,
+            1_000_000L,
+            1,
+            null,
+            now.minusSeconds(60),
+            now.plusSeconds(3600),
+            "ACTIVE",
+            "HOTEL"));
+  }
+
+  @Test
+  @DisplayName("Báo giá không giữ lượt, tạo lại cùng khóa giữ đúng một lượt và hủy trả lượt")
+  void shouldQuoteApplyReplayAndReleaseVoucher() {
+    // Given
+    createVoucher();
+    LocalDate checkIn = LocalDate.now().plusDays(10);
+    var command = voucherBooking(checkIn, SINGLE_ROOM_TYPE_ID, "voucher-create");
+    var quoteCriteria =
+        new StayQuoteCriteria(
+            HOTEL_ID,
+            checkIn,
+            checkIn.plusDays(2),
+            command.expectedCheckInTime(),
+            command.expectedCheckOutTime(),
+            List.of(new StayQuoteItemCriteria(SINGLE_ROOM_TYPE_ID, 1, 2, 0)));
+
+    // When & Then
+    assertThat(quoteVoucherUseCase.execute(OWNER_ID, "stay10", quoteCriteria).totalAmount())
+        .isEqualTo(2_250_000L);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM promotion_redemptions WHERE user_id = ?",
+                Integer.class,
+                OWNER_ID))
+        .isZero();
+
+    var booking = createBookingUseCase.execute(command);
+    assertThat(booking.discountAmount()).isEqualTo(150_000L);
+    assertThat(booking.paymentHandoff().payableAmount()).isEqualTo(2_250_000L);
+    assertThat(createBookingUseCase.execute(command).id()).isEqualTo(booking.id());
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                createBookingUseCase.execute(
+                    voucherBooking(checkIn.plusDays(2), SINGLE_ROOM_TYPE_ID, "voucher-create")))
+        .isInstanceOfSatisfying(
+            BookingException.class,
+            error -> assertThat(error.code()).isEqualTo(BookingErrorCode.BOOKING_REQUEST_CONFLICT));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> quoteVoucherUseCase.execute(OWNER_ID, "stay10", quoteCriteria))
+        .isInstanceOfSatisfying(
+            BookingException.class,
+            error -> assertThat(error.code()).isEqualTo(BookingErrorCode.VOUCHER_LIMIT_REACHED));
+
+    assertThat(cancelBookingUseCase.execute(OWNER_ID, booking.id()).status())
+        .isEqualTo("CANCELLED");
+    assertThat(cancelBookingUseCase.execute(OWNER_ID, booking.id()).status())
+        .isEqualTo("CANCELLED");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status FROM promotion_redemptions WHERE booking_id = ?",
+                String.class,
+                booking.id()))
+        .isEqualTo("CANCELLED");
+    assertThat(
+            createBookingUseCase
+                .execute(voucherBooking(checkIn, SINGLE_ROOM_TYPE_ID, "voucher-new"))
+                .id())
+        .isNotEqualTo(booking.id());
+  }
+
+  @Test
+  @DisplayName("Hết phòng rollback lượt voucher và cho phép thử lại cùng khóa")
+  void shouldRollbackVoucherAndIdempotencyClaimWhenInventoryHoldFails() {
+    // Given
+    createVoucher();
+    LocalDate checkIn = LocalDate.now().plusDays(10);
+    var blocker =
+        createBookingUseCase.execute(bookingRequest(checkIn, SINGLE_ROOM_TYPE_ID, 2_400_000L));
+    var command = voucherBooking(checkIn, SINGLE_ROOM_TYPE_ID, "retry-after-inventory");
+
+    // When & Then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> createBookingUseCase.execute(command))
+        .isInstanceOfSatisfying(
+            InventoryException.class,
+            error -> assertThat(error.code()).isEqualTo(InventoryErrorCode.INSUFFICIENT_INVENTORY));
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM promotion_redemptions WHERE user_id = ?",
+                Integer.class,
+                OWNER_ID))
+        .isZero();
+    cancelBookingUseCase.execute(OWNER_ID, blocker.id());
+    assertThat(createBookingUseCase.execute(command).discountAmount()).isEqualTo(150_000L);
+  }
+
+  @Test
+  @DisplayName("Hai yêu cầu song song chỉ giữ được một lượt voucher và đơn hết hạn trả lượt")
+  void shouldSerializeLastUseAndReleaseItAtExpiry() throws Exception {
+    // Given
+    createVoucher();
+    LocalDate checkIn = LocalDate.now().plusDays(10);
+    var gate = new CountDownLatch(1);
+
+    // When
+    List<UUID> booked = new ArrayList<>();
+    try (var pool = Executors.newFixedThreadPool(2)) {
+      List<Future<UUID>> futures = new ArrayList<>();
+      for (String key : List.of("first", "second")) {
+        futures.add(
+            pool.submit(
+                () -> {
+                  gate.await();
+                  try {
+                    return createBookingUseCase
+                        .execute(voucherBooking(checkIn, TWO_ROOM_TYPE_ID, key))
+                        .id();
+                  } catch (BookingException exception) {
+                    assertThat(exception.code()).isEqualTo(BookingErrorCode.VOUCHER_LIMIT_REACHED);
+                    return null;
+                  }
+                }));
+      }
+      gate.countDown();
+      for (Future<UUID> future : futures) {
+        UUID id = future.get(10, TimeUnit.SECONDS);
+        if (id != null) {
+          booked.add(id);
+        }
+      }
+    }
+
+    // Then
+    assertThat(booked).hasSize(1);
+    UUID bookingId = booked.getFirst();
+    jdbc.update(
+        "UPDATE bookings SET expires_at = now() - interval '1 second' WHERE id = ?", bookingId);
+    voucherHoldExpiryJob.expireDueBookings();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status::text FROM bookings WHERE id = ?", String.class, bookingId))
+        .isEqualTo("EXPIRED");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status FROM promotion_redemptions WHERE booking_id = ?",
+                String.class,
+                bookingId))
+        .isEqualTo("CANCELLED");
+    assertThat(
+            createBookingUseCase
+                .execute(voucherBooking(checkIn, TWO_ROOM_TYPE_ID, "after-expiry"))
+                .id())
+        .isNotEqualTo(bookingId);
   }
 
   @Test

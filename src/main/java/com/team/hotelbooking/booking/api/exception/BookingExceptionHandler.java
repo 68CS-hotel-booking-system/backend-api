@@ -23,11 +23,22 @@ public class BookingExceptionHandler {
   public ResponseEntity<ProblemDetail> handle(BookingException exception, WebRequest request) {
     HttpStatus status =
         switch (exception.code()) {
-          case VALIDATION_FAILED, INVALID_DATE_RANGE, MAX_STAY_EXCEEDED, INVALID_OCCUPANCY ->
+          case VALIDATION_FAILED,
+              INVALID_DATE_RANGE,
+              MAX_STAY_EXCEEDED,
+              INVALID_OCCUPANCY,
+              VOUCHER_INVALID ->
               HttpStatus.BAD_REQUEST;
           case ACCESS_DENIED, EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
-          case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND, BOOKING_NOT_FOUND -> HttpStatus.NOT_FOUND;
-          case RATE_NOT_AVAILABLE, PRICE_CHANGED -> HttpStatus.CONFLICT;
+          case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND, BOOKING_NOT_FOUND, VOUCHER_NOT_FOUND ->
+              HttpStatus.NOT_FOUND;
+          case RATE_NOT_AVAILABLE,
+              PRICE_CHANGED,
+              BOOKING_NOT_CANCELLABLE,
+              BOOKING_REQUEST_CONFLICT,
+              VOUCHER_LIMIT_REACHED,
+              VOUCHER_CODE_EXISTS ->
+              HttpStatus.CONFLICT;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);
