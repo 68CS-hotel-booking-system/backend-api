@@ -109,13 +109,27 @@ public class BookingConfig {
 
   @Bean
   public BookingCheckoutDirectory bookingCheckoutDirectory(
-      BookingRepository bookings, PlatformTransactionManager transactionManager) {
-    BookingCheckoutDirectoryAdapter adapter = new BookingCheckoutDirectoryAdapter(bookings);
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      PlatformTransactionManager transactionManager) {
+    BookingCheckoutDirectoryAdapter adapter =
+        new BookingCheckoutDirectoryAdapter(bookings, inventory);
     TransactionTemplate readOnlyTx = new TransactionTemplate(transactionManager);
     readOnlyTx.setReadOnly(true);
     TransactionTemplate writeTx = new TransactionTemplate(transactionManager);
 
     return new BookingCheckoutDirectory() {
+      @Override
+      public Optional<BookingCheckoutSnapshot> lockById(UUID bookingId) {
+        return Objects.requireNonNull(writeTx.execute(status -> adapter.lockById(bookingId)));
+      }
+
+      @Override
+      public boolean confirmPayment(UUID bookingId, Instant now) {
+        return Boolean.TRUE.equals(
+            writeTx.execute(status -> adapter.confirmPayment(bookingId, now)));
+      }
+
       @Override
       public Optional<BookingCheckoutSnapshot> findById(UUID bookingId) {
         return Objects.requireNonNull(readOnlyTx.execute(status -> adapter.findById(bookingId)));

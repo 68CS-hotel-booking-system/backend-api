@@ -9,6 +9,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UUID> {
 
+  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @org.springframework.data.jpa.repository.Query(
+      "select b from BookingJpaEntity b where b.id = :id")
+  Optional<BookingJpaEntity> lockById(
+      @org.springframework.data.repository.query.Param("id") UUID id);
+
   Optional<BookingJpaEntity> findByIdAndCustomerId(UUID id, UUID customerId);
 
   Optional<BookingJpaEntity> findByIdAndHotelId(UUID id, UUID hotelId);

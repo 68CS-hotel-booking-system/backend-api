@@ -13,6 +13,10 @@ public interface BookingRepository {
 
   Optional<Booking> findById(UUID bookingId);
 
+  Optional<Booking> lockById(UUID bookingId);
+
+  boolean confirmPayment(UUID bookingId, Instant now);
+
   Optional<Booking> findByIdAndCustomerId(UUID bookingId, UUID customerId);
 
   Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId);

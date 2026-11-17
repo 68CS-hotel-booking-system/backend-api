@@ -23,13 +23,20 @@ public class FinanceExceptionHandler {
   public ResponseEntity<ProblemDetail> handle(FinanceException exception, WebRequest request) {
     HttpStatus status =
         switch (exception.code()) {
-          case INVALID_CONTRACT_PERIOD, INVALID_COMMISSION_RATE -> HttpStatus.BAD_REQUEST;
+          case INVALID_CONTRACT_PERIOD, INVALID_COMMISSION_RATE, INVALID_PAYMENT_AMOUNT ->
+              HttpStatus.BAD_REQUEST;
+          case PAYMENT_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+          case BOOKING_NOT_PAYABLE -> HttpStatus.CONFLICT;
           case CONTRACT_CODE_ALREADY_EXISTS,
               ACTIVE_CONTRACT_PERIOD_OVERLAP,
               CONCURRENT_MODIFICATION_DETECTED,
               INVALID_CONTRACT_STATUS_TRANSITION ->
               HttpStatus.CONFLICT;
-          case HOTEL_NOT_FOUND, USER_NOT_FOUND, FINANCIAL_ACCESS_NOT_FOUND, CONTRACT_NOT_FOUND ->
+          case HOTEL_NOT_FOUND,
+              USER_NOT_FOUND,
+              FINANCIAL_ACCESS_NOT_FOUND,
+              CONTRACT_NOT_FOUND,
+              PAYMENT_NOT_FOUND ->
               HttpStatus.NOT_FOUND;
           case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
         };

@@ -28,6 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
+@org.springframework.boot.context.properties.EnableConfigurationProperties(VnpayProperties.class)
 public class PaymentConfig {
 
   @Bean
