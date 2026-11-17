@@ -1,6 +1,8 @@
 package com.team.hotelbooking;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -9,6 +11,7 @@ import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.BookingItemInput;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
+import com.team.hotelbooking.payment.application.port.VnpayGateway;
 import com.team.hotelbooking.payment.application.service.VnpayPaymentService;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +34,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -57,6 +61,7 @@ class VnpayPaymentIntegrationTests {
   @Autowired MockMvc mvc;
   @Autowired CreateBookingUseCase createBooking;
   @Autowired VnpayPaymentService payments;
+  @MockitoSpyBean VnpayGateway gateway;
 
   @DynamicPropertySource
   static void database(DynamicPropertyRegistry registry) {
@@ -236,6 +241,43 @@ class VnpayPaymentIntegrationTests {
     mvc.perform(get("/api/v1/payments/vnpay/ipn"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.RspCode").value("97"));
+  }
+
+  @Test
+  void ownedQrIsPersistedReusedAndConfirmedOnlyBySignedIpn() throws Exception {
+    UUID booking = booking();
+    doReturn("000201-test-qr")
+        .when(gateway)
+        .createQr(any(), anyLong(), anyString(), any(), any(), anyString());
+    mvc.perform(post("/api/v1/payments/bookings/{id}/vnpay", booking).param("qr", "true"))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(
+            post("/api/v1/payments/bookings/{id}/vnpay", booking)
+                .param("qr", "true")
+                .with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))))
+        .andExpect(status().isNotFound());
+    for (int repeat = 0; repeat < 2; repeat++) {
+      mvc.perform(
+              post("/api/v1/payments/bookings/{id}/vnpay", booking)
+                  .param("qr", "true")
+                  .with(jwt().jwt(j -> j.subject(CUSTOMER.toString()))))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.qrContent").value("000201-test-qr"))
+          .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+    verify(gateway, times(1)).createQr(any(), anyLong(), anyString(), any(), any(), anyString());
+    var payment = payments.create(CUSTOMER, booking, "127.0.0.1");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT qr_content FROM payment_transactions WHERE id = ?",
+                String.class,
+                payment.id()))
+        .isEqualTo("000201-test-qr");
+    assertThat(bookingStatus(booking)).isEqualTo("PENDING_PAYMENT");
+    mvc.perform(get("/api/v1/payments/vnpay/ipn").queryParams(ipn(payment.id(), "00", "00")))
+        .andExpect(jsonPath("$.RspCode").value("00"));
+    assertThat(payments.get(CUSTOMER, payment.id()).qrContent()).isNull();
+    assertThat(bookingStatus(booking)).isEqualTo("CONFIRMED");
   }
 
   @Test
