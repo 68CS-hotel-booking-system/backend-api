@@ -11,6 +11,12 @@ public interface BookingCheckoutDirectory {
 
   Optional<BookingCheckoutSnapshot> findById(UUID bookingId);
 
+  /** Khóa đơn trong transaction của bên gọi, tuần tự hóa tạo thanh toán và IPN. */
+  Optional<BookingCheckoutSnapshot> lockById(UUID bookingId);
+
+  /** Chỉ xác nhận đơn chờ thanh toán khi giữ phòng vẫn còn hiệu lực. */
+  boolean confirmPayment(UUID bookingId, Instant now);
+
   boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt);
 
   record BookingCheckoutSnapshot(
