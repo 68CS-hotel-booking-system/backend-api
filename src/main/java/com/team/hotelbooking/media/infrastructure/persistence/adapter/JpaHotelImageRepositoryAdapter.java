@@ -45,6 +45,29 @@ public class JpaHotelImageRepositoryAdapter implements HotelImageRepository {
   }
 
   @Override
+  public List<HotelImage> findPublicByHotelId(UUID hotelId) {
+    return entityManager
+        .createQuery(
+            """
+        select i from HotelImageJpaEntity i, MediaJpaEntity m
+        where i.id.hotelId = :hotelId and m.id = i.id.mediaId
+          and m.hotelId = :hotelId and m.status = :ready and m.purpose = :purpose
+        order by i.displayOrder asc, i.id.mediaId asc
+        """,
+            HotelImageJpaEntity.class)
+        .setParameter("hotelId", hotelId)
+        .setParameter("ready", MediaJpaEntity.DbStatus.READY)
+        .setParameter("purpose", "HOTEL_IMAGE")
+        .getResultList()
+        .stream()
+        .map(
+            i ->
+                new HotelImage(
+                    i.getId().getMediaId(), i.getAlbumId(), i.getDisplayOrder(), i.isCover()))
+        .toList();
+  }
+
+  @Override
   public List<MediaObject> lockMedia(List<UUID> mediaIds) {
     if (mediaIds.isEmpty()) {
       return List.of();

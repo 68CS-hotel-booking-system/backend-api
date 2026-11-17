@@ -69,6 +69,28 @@ class HotelSearchIntegrationTests {
   @Autowired private JdbcTemplate jdbc;
   @Autowired private EntityManagerFactory entityManagerFactory;
 
+  @Test
+  void shouldReadPublicGalleryAndFilterPendingMediaWithoutAuthentication() throws Exception {
+    mvc.perform(get("/api/v1/hotels/" + ALPHA + "/gallery"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.hotelId").value(ALPHA.toString()))
+        .andExpect(jsonPath("$.data.images", hasSize(1)))
+        .andExpect(jsonPath("$.data.images[0].mediaId").value(ALPHA_COVER.toString()))
+        .andExpect(jsonPath("$.data.images[0].cover").value(true))
+        .andExpect(jsonPath("$.data.images[0].albumId").value(nullValue()))
+        .andExpect(jsonPath("$.data.albums", hasSize(0)));
+    mvc.perform(get("/api/v1/hotels/" + DELTA + "/gallery"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.images", hasSize(0)));
+  }
+
+  @Test
+  void shouldHideDraftSuspendedAndMissingHotelGalleries() throws Exception {
+    for (UUID id : java.util.List.of(ECHO, FOXTROT, UUID.randomUUID())) {
+      mvc.perform(get("/api/v1/hotels/" + id + "/gallery")).andExpect(status().isNotFound());
+    }
+  }
+
   // Số câu SQL Hibernate chuẩn bị trong một lần tìm kiếm (thống kê bật tạm cho riêng phép đo).
   private long statementsFor(MockHttpServletRequestBuilder request, int expectedHotels)
       throws Exception {
