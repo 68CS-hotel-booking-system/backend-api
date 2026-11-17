@@ -184,45 +184,54 @@ public class InventoryReservationDirectoryAdapter implements InventoryReservatio
 
   @Override
   public void confirm(UUID bookingId) {
+    if (!confirmIfHeld(bookingId)) {
+      throw InventoryException.holdExpired(
+          "Giữ phòng không tồn tại, đã hết hạn hoặc đã giải phóng.");
+    }
+  }
+
+  @Override
+  public boolean confirmIfHeld(UUID bookingId) {
     if (bookingId == null) {
       throw InventoryException.invalidDateRange("Mã đơn đặt phòng không được để trống.");
     }
 
-    transactionTemplate.executeWithoutResult(
-        status -> {
-          List<InventoryReservationJpaEntity> reservations =
-              reservationJpaRepository.lockAllByBookingIdOrderByStayDateAscIdAsc(bookingId);
-          Instant now = clock.instant();
+    return Boolean.TRUE.equals(
+        transactionTemplate.execute(
+            status -> {
+              List<InventoryReservationJpaEntity> reservations =
+                  reservationJpaRepository.lockAllByBookingIdOrderByStayDateAscIdAsc(bookingId);
+              Instant now = clock.instant();
 
-          if (reservations.isEmpty()) {
-            throw InventoryException.holdExpired(
-                "Không tìm thấy dữ liệu giữ chỗ cho đơn đặt phòng.");
-          }
+              if (reservations.isEmpty()) {
+                return false;
+              }
 
-          boolean allConfirmed =
-              reservations.stream().allMatch(r -> r.getStatus() == DbReservationStatus.CONFIRMED);
-          if (allConfirmed) {
-            return;
-          }
+              boolean allConfirmed =
+                  reservations.stream()
+                      .allMatch(r -> r.getStatus() == DbReservationStatus.CONFIRMED);
+              if (allConfirmed) {
+                return true;
+              }
 
-          for (InventoryReservationJpaEntity row : reservations) {
-            if (row.getStatus() == DbReservationStatus.RELEASED
-                || (row.getStatus() == DbReservationStatus.HELD
-                    && (row.getExpiresAt() == null || !row.getExpiresAt().isAfter(now)))) {
-              throw InventoryException.holdExpired(
-                  "Thời gian giữ chỗ đặt phòng đã hết hạn hoặc không còn hiệu lực.");
-            }
-          }
+              for (InventoryReservationJpaEntity row : reservations) {
+                if (row.getStatus() == DbReservationStatus.RELEASED
+                    || (row.getStatus() == DbReservationStatus.HELD
+                        && (row.getExpiresAt() == null || !row.getExpiresAt().isAfter(now)))) {
+                  return false;
+                }
+              }
 
-          for (InventoryReservationJpaEntity row : reservations) {
-            if (row.getStatus() == DbReservationStatus.HELD) {
-              row.setStatus(DbReservationStatus.CONFIRMED);
-              row.setConfirmedAt(now);
-            }
-          }
+              for (InventoryReservationJpaEntity row : reservations) {
+                if (row.getStatus() == DbReservationStatus.HELD) {
+                  row.setStatus(DbReservationStatus.CONFIRMED);
+                  row.setConfirmedAt(now);
+                }
+              }
 
-          reservationJpaRepository.saveAll(reservations);
-        });
+              reservationJpaRepository.saveAll(reservations);
+              return true;
+            }));
   }
 
   @Override
