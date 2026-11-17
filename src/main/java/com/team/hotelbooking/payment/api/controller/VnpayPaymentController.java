@@ -27,14 +27,17 @@ public class VnpayPaymentController {
   @PostMapping("/bookings/{bookingId}/vnpay")
   @Operation(summary = "Tạo hoặc lấy lại URL VNPAY đang chờ của đơn thuộc tài khoản hiện tại")
   public ResponseEntity<ApiResponse<PaymentResult>> create(
-      @PathVariable("bookingId") UUID bookingId, Principal principal, HttpServletRequest request) {
+      @PathVariable("bookingId") UUID bookingId,
+      @RequestParam(name = "qr", defaultValue = "false") boolean qr,
+      Principal principal,
+      HttpServletRequest request) {
     String ip = request.getRemoteAddr();
     if ("::1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip)) ip = "127.0.0.1";
     return ResponseEntity.ok()
         .header("Cache-Control", "no-store")
         .body(
             ApiResponse.success(
-                payments.create(UUID.fromString(principal.getName()), bookingId, ip)));
+                payments.create(UUID.fromString(principal.getName()), bookingId, ip, qr)));
   }
 
   @GetMapping("/{paymentId}")
