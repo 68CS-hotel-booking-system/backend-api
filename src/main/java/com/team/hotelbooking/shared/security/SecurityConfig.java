@@ -41,6 +41,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/hotels/*/availability")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/payments/vnpay/ipn")
+                    .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/hotels/*/quote")
                     .permitAll()
                     .requestMatchers(
