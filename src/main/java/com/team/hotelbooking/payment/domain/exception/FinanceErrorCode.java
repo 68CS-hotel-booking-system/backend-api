@@ -5,6 +5,7 @@ import com.team.hotelbooking.shared.exception.ErrorCode;
 public enum FinanceErrorCode implements ErrorCode {
   PAYMENT_NOT_FOUND("Không tìm thấy giao dịch hoặc đơn đặt phòng của bạn."),
   PAYMENT_UNAVAILABLE("Thanh toán VNPAY chưa được cấu hình hoặc chưa được bật."),
+  PAYMENT_QR_UNAVAILABLE("Chưa thể tạo mã QR VNPAY. Vui lòng thử lại sau."),
   BOOKING_NOT_PAYABLE("Đơn đã hết hạn, đã thanh toán hoặc không ở trạng thái chờ thanh toán."),
   INVALID_PAYMENT_AMOUNT(
       "VNPAY chỉ hỗ trợ VND, số tiền tối thiểu 5.000 đồng và trong giới hạn cho phép."),
