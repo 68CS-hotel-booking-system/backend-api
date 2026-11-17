@@ -23,6 +23,7 @@ target/
 !/docs/api/
 /docs/api/*
 !/docs/api/hotel-review-requests.md
+!/docs/api/vnpay-sandbox.md
 !/docs/business/
 /docs/business/*
 !/docs/business/module-scope-and-rules-draft.md
