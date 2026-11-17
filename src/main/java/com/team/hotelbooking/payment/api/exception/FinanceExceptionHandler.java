@@ -26,6 +26,7 @@ public class FinanceExceptionHandler {
           case INVALID_CONTRACT_PERIOD, INVALID_COMMISSION_RATE, INVALID_PAYMENT_AMOUNT ->
               HttpStatus.BAD_REQUEST;
           case PAYMENT_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+          case PAYMENT_QR_UNAVAILABLE -> HttpStatus.BAD_GATEWAY;
           case BOOKING_NOT_PAYABLE -> HttpStatus.CONFLICT;
           case CONTRACT_CODE_ALREADY_EXISTS,
               ACTIVE_CONTRACT_PERIOD_OVERLAP,
