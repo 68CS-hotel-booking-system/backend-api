@@ -52,6 +52,10 @@ public class VnpayPaymentService {
   }
 
   public PaymentResult create(UUID customerId, UUID bookingId, String ipAddress) {
+    return create(customerId, bookingId, ipAddress, false);
+  }
+
+  public PaymentResult create(UUID customerId, UUID bookingId, String ipAddress, boolean qr) {
     if (!gateway.enabled()) throw new FinanceException(FinanceErrorCode.PAYMENT_UNAVAILABLE);
     return Objects.requireNonNull(
         writeTx.execute(
@@ -78,7 +82,14 @@ public class VnpayPaymentService {
               var pending =
                   payments.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(
                       bookingId, Status.PENDING);
-              if (pending.isPresent()) return PaymentResult.from(pending.get(), now);
+              if (pending.isPresent()) {
+                var payment = pending.get();
+                if (qr && payment.getQrContent() == null) {
+                  attachQr(payment, booking.bookingCode(), ipAddress);
+                  payments.saveAndFlush(payment);
+                }
+                return PaymentResult.from(payment, clock.instant());
+              }
 
               var payment = new PaymentTransactionJpaEntity();
               payment.setId(UUID.randomUUID());
@@ -97,8 +108,23 @@ public class VnpayPaymentService {
                       now,
                       payment.getExpiresAt(),
                       ipAddress));
-              return PaymentResult.from(payments.saveAndFlush(payment), now);
+              if (qr) attachQr(payment, booking.bookingCode(), ipAddress);
+              return PaymentResult.from(payments.saveAndFlush(payment), clock.instant());
             }));
+  }
+
+  private void attachQr(PaymentTransactionJpaEntity payment, String bookingCode, String ipAddress) {
+    payment.setQrContent(
+        gateway.createQr(
+            payment.getId(),
+            payment.getAmountVnd(),
+            bookingCode,
+            payment.getCreatedAt(),
+            payment.getExpiresAt(),
+            ipAddress));
+    if (!payment.getExpiresAt().isAfter(clock.instant())) {
+      throw new FinanceException(FinanceErrorCode.BOOKING_NOT_PAYABLE);
+    }
   }
 
   public PaymentResult get(UUID customerId, UUID paymentId) {
