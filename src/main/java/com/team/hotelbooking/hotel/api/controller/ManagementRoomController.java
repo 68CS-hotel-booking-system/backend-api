@@ -93,7 +93,8 @@ public class ManagementRoomController {
             request.roomNumber(),
             request.floor(),
             request.operationalFrom(),
-            request.operationalUntil());
+            request.operationalUntil(),
+            request.readiness());
 
     CreateRoomResult result = createRoomUseCase.execute(command);
 

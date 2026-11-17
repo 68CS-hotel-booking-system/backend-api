@@ -55,6 +55,87 @@ class GetRoomRatesServiceTests {
         .willReturn(Optional.of(new HotelManagement(level, status)));
   }
 
+  private void givenRoomType(UUID hotelId, UUID roomTypeId, long basePrice) {
+    given(pricingHotelPort.findActiveRoomType(roomTypeId, hotelId))
+        .willReturn(
+            Optional.of(
+                new PricingHotelPort.RoomTypePricingSnapshot(
+                    roomTypeId, hotelId, "Deluxe", 2, 1, 3, basePrice)));
+  }
+
+  @Test
+  @DisplayName("Lưới 7 ngày dùng giá cơ bản và hai giá riêng, đọc lại phản ánh giá cơ bản mới")
+  void shouldResolveSevenDayGridAndReflectBasePriceChanges() {
+    LocalDate start = LocalDate.of(2026, 11, 12);
+    LocalDate end = start.plusDays(6);
+    Instant updatedAt = Instant.parse("2026-11-12T00:00:00Z");
+    givenAccess(hotelId, Level.OWNER, HotelStatus.DRAFT);
+    givenRoomType(hotelId, roomTypeId, 500_000L);
+    given(roomRateRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, end))
+        .willReturn(
+            List.of(
+                new RoomRate(
+                    roomTypeId, start.plusDays(1), 700_000L, "VND", ACTOR_ID, updatedAt, updatedAt),
+                new RoomRate(
+                    roomTypeId,
+                    start.plusDays(2),
+                    700_000L,
+                    "VND",
+                    ACTOR_ID,
+                    updatedAt,
+                    updatedAt)));
+    var query = new GetRoomRatesQuery(ACTOR_ID, false, hotelId, roomTypeId, start, end);
+
+    var first = service.execute(query);
+
+    assertThat(first.rates())
+        .extracting(r -> r.effectivePrice())
+        .containsExactly(500_000L, 700_000L, 700_000L, 500_000L, 500_000L, 500_000L, 500_000L);
+    assertThat(first.rates())
+        .extracting(r -> r.source())
+        .containsExactly("BASE", "RATE", "RATE", "BASE", "BASE", "BASE", "BASE");
+    assertThat(first.rates().get(0).price()).isNull();
+    assertThat(first.rates().get(0).hasRate()).isFalse();
+    assertThat(first.rates().get(0).updatedAt()).isNull();
+    assertThat(first.rates().get(1).price()).isEqualTo(700_000L);
+    assertThat(first.rates().get(1).updatedAt()).isEqualTo(updatedAt);
+
+    givenRoomType(hotelId, roomTypeId, 600_000L);
+    assertThat(service.execute(query).rates())
+        .extracting(r -> r.effectivePrice())
+        .containsExactly(600_000L, 700_000L, 700_000L, 600_000L, 600_000L, 600_000L, 600_000L);
+  }
+
+  @Test
+  @DisplayName("Trả đủ lịch dù thiếu giá; giá riêng không hợp lệ không dùng giá gốc thay thế")
+  void shouldReturnAllDaysIncludingUnpricedAndInvalidOverrides() {
+    LocalDate start = LocalDate.of(2020, 1, 1);
+    LocalDate end = start.plusDays(2);
+    givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
+    givenRoomType(hotelId, roomTypeId, 0L);
+    given(roomRateRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, end))
+        .willReturn(List.of(new RoomRate(roomTypeId, end, 700_000L, "VND", ACTOR_ID, null, null)));
+    var query = new GetRoomRatesQuery(ACTOR_ID, false, hotelId, roomTypeId, start, end);
+
+    var result = service.execute(query);
+
+    assertThat(result.rates()).extracting(r -> r.source()).containsExactly("NONE", "NONE", "RATE");
+    assertThat(result.rates())
+        .extracting(r -> r.effectivePrice())
+        .containsExactly(null, null, 700_000L);
+
+    givenRoomType(hotelId, roomTypeId, 500_000L);
+    given(roomRateRepository.findRatesByRoomTypeIdAndDateRange(roomTypeId, start, end))
+        .willReturn(List.of(new RoomRate(roomTypeId, start, 0L, "VND", ACTOR_ID, null, null)));
+    var withInvalidOverride = service.execute(query);
+    assertThat(withInvalidOverride.rates())
+        .extracting(r -> r.source())
+        .containsExactly("NONE", "BASE", "BASE");
+    assertThat(withInvalidOverride.rates().get(0).effectivePrice()).isNull();
+    assertThat(withInvalidOverride.rates().get(0).price()).isNull();
+    then(roomRateRepository).should(never()).saveAll(any());
+  }
+
   @Nested
   @DisplayName("GetRoomRatesUseCase.execute")
   class ExecuteTests {
@@ -113,7 +194,7 @@ class GetRoomRatesServiceTests {
 
       // Given - Khách sạn tồn tại nhưng loại phòng không thuộc khách sạn
       givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
-      given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(false);
+      given(pricingHotelPort.findActiveRoomType(roomTypeId, hotelId)).willReturn(Optional.empty());
 
       // When & Then - Không thấy loại phòng
       PricingException roomTypeError =
@@ -136,7 +217,7 @@ class GetRoomRatesServiceTests {
       Instant now = Instant.parse("2026-11-01T08:00:00Z");
 
       givenAccess(hotelId, Level.OWNER, HotelStatus.ACTIVE);
-      given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
+      givenRoomType(hotelId, roomTypeId, 500_000L);
 
       RoomRate rate =
           new RoomRate(roomTypeId, start, 1_500_000L, "VND", UUID.randomUUID(), now, now);
@@ -192,7 +273,7 @@ class GetRoomRatesServiceTests {
               ex ->
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.ACCESS_DENIED));
-      then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
+      then(pricingHotelPort).should(never()).findActiveRoomType(any(), any());
       then(roomRateRepository).shouldHaveNoInteractions();
     }
 
@@ -220,7 +301,7 @@ class GetRoomRatesServiceTests {
               ex ->
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_NOT_FOUND));
-      then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
+      then(pricingHotelPort).should(never()).findActiveRoomType(any(), any());
       then(roomRateRepository).shouldHaveNoInteractions();
     }
 
@@ -269,7 +350,7 @@ class GetRoomRatesServiceTests {
               ex ->
                   assertThat(((PricingException) ex).code())
                       .isEqualTo(PricingErrorCode.HOTEL_LOCKED));
-      then(pricingHotelPort).should(never()).isRoomTypeActiveInHotel(any(), any());
+      then(pricingHotelPort).should(never()).findActiveRoomType(any(), any());
       then(roomRateRepository).shouldHaveNoInteractions();
     }
 
@@ -278,7 +359,7 @@ class GetRoomRatesServiceTests {
     void shouldAllowManagerWhenHotelIsSuspended() {
       // Given
       givenAccess(hotelId, Level.MANAGER, HotelStatus.SUSPENDED);
-      given(pricingHotelPort.isRoomTypeActiveInHotel(roomTypeId, hotelId)).willReturn(true);
+      givenRoomType(hotelId, roomTypeId, 500_000L);
 
       // When
       RoomTypeRatesResult result =

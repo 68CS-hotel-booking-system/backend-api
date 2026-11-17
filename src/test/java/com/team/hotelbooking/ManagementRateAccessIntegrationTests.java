@@ -1,5 +1,6 @@
 package com.team.hotelbooking;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -77,6 +78,8 @@ class ManagementRateAccessIntegrationTests {
         ROOM_TYPE_ID,
         HOTEL_ID);
     jdbc.update("DELETE FROM room_rates WHERE room_type_id = ?", ROOM_TYPE_ID);
+    jdbc.update(
+        "UPDATE room_types SET base_price = 0, is_active = true WHERE id = ?", ROOM_TYPE_ID);
     insertMember(HOTEL_ID, MANAGER_ID, "HOTEL_MANAGER");
     insertMember(OTHER_HOTEL_ID, OTHER_MANAGER_ID, "HOTEL_MANAGER");
     insertMember(HOTEL_ID, RECEPTIONIST_ID, "RECEPTIONIST");
@@ -206,6 +209,88 @@ class ManagementRateAccessIntegrationTests {
       getRates(actor(CUSTOMER_ID, "CUSTOMER"))
           .andExpect(status().isNotFound())
           .andExpect(jsonPath("$.code").value("HOTEL_NOT_FOUND"));
+    }
+  }
+
+  @Nested
+  @DisplayName("Giá hiệu lực của lịch quản lý")
+  class EffectivePriceTests {
+
+    @Test
+    @DisplayName(
+        "Lịch DRAFT hiển thị năm giá gốc và hai giá riêng, đổi giá gốc không ghi đè giá riêng")
+    void shouldResolveGridAndReflectBasePriceUpdate() throws Exception {
+      setHotelStatus("DRAFT");
+      jdbc.update("UPDATE room_types SET base_price = 500000 WHERE id = ?", ROOM_TYPE_ID);
+
+      mvc.perform(
+              put(RATES_PATH)
+                  .with(actor(OWNER_ID, "HOTEL_OWNER"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      "{\"startDate\":\"2027-06-02\",\"endDateExclusive\":\"2027-06-04\",\"amount\":700000}"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.rates", hasSize(2)))
+          .andExpect(jsonPath("$.data.rates[0].price").value(700000))
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").value(700000))
+          .andExpect(jsonPath("$.data.rates[0].source").value("RATE"))
+          .andExpect(jsonPath("$.data.rates[1].source").value("RATE"));
+
+      mvc.perform(
+              get(RATES_PATH)
+                  .with(actor(OWNER_ID, "HOTEL_OWNER"))
+                  .param("startDate", "2027-06-01")
+                  .param("endDate", "2027-06-07"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.rates", hasSize(7)))
+          .andExpect(jsonPath("$.data.rates[?(@.source == 'BASE')]", hasSize(5)))
+          .andExpect(jsonPath("$.data.rates[?(@.source == 'RATE')]", hasSize(2)))
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").value(500000))
+          .andExpect(jsonPath("$.data.rates[0].hasRate").value(false))
+          .andExpect(jsonPath("$.data.rates[0].price").isEmpty())
+          .andExpect(jsonPath("$.data.rates[0].updatedAt").isEmpty());
+
+      jdbc.update("UPDATE room_types SET base_price = 600000 WHERE id = ?", ROOM_TYPE_ID);
+      getRates(actor(OWNER_ID, "HOTEL_OWNER"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").value(600000))
+          .andExpect(jsonPath("$.data.rates[0].source").value("BASE"))
+          .andExpect(jsonPath("$.data.rates[1].effectivePrice").value(700000))
+          .andExpect(jsonPath("$.data.rates[1].source").value("RATE"));
+      assertEquals(2, countRates());
+    }
+
+    @Test
+    @DisplayName("Giá gốc bằng 0 và không có giá riêng trả NONE cho đủ mọi ngày")
+    void shouldReturnNoneWithoutCreatingDailyRates() throws Exception {
+      getRates(actor(OWNER_ID, "HOTEL_OWNER"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.rates", hasSize(2)))
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").isEmpty())
+          .andExpect(jsonPath("$.data.rates[0].source").value("NONE"))
+          .andExpect(jsonPath("$.data.rates[1].source").value("NONE"));
+      assertEquals(0, countRates());
+    }
+
+    @Test
+    @DisplayName("Được xem giá ngày quá khứ nhưng không được sửa giá ngày quá khứ")
+    void shouldAllowPastCalendarReadAndRejectPastWrite() throws Exception {
+      jdbc.update("UPDATE room_types SET base_price = 500000 WHERE id = ?", ROOM_TYPE_ID);
+      mvc.perform(
+              get(RATES_PATH)
+                  .with(actor(OWNER_ID, "HOTEL_OWNER"))
+                  .param("startDate", "2020-01-01")
+                  .param("endDate", "2020-01-02"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.rates[0].effectivePrice").value(500000))
+          .andExpect(jsonPath("$.data.rates[0].source").value("BASE"));
+      mvc.perform(
+              put(RATES_PATH)
+                  .with(actor(OWNER_ID, "HOTEL_OWNER"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"startDate\":\"2020-01-01\",\"amount\":700000}"))
+          .andExpect(status().isBadRequest());
+      assertEquals(0, countRates());
     }
   }
 

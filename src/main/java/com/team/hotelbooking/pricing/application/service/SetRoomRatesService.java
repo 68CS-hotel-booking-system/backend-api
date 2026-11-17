@@ -96,7 +96,8 @@ public class SetRoomRatesService implements SetRoomRatesUseCase {
               command.actorUserId(),
               createdAt,
               now));
-      dailyRates.add(new DailyRate(date, command.amount(), true, now));
+      // Giá riêng vừa lưu luôn hợp lệ nên không cần đọc giá cơ bản để tính response.
+      dailyRates.add(DailyRate.resolve(date, 0L, command.amount(), now));
     }
 
     roomRateRepository.saveAll(ratesToSave);

@@ -92,6 +92,7 @@ class ManagementRoomTypeControllerResponseTests {
                       null,
                       (short) 2,
                       (short) 1,
+                      0L,
                       false,
                       CREATED_AT,
                       UPDATED_AT,
@@ -107,17 +108,43 @@ class ManagementRoomTypeControllerResponseTests {
           .andExpect(header().string("Cache-Control", "no-store"))
           .andExpect(jsonPath("$.message").value("Lấy danh sách loại phòng quản lý thành công."))
           .andExpect(jsonPath("$.data", hasSize(1)))
-          .andExpect(jsonPath("$.data[0].*", hasSize(9)))
+          .andExpect(jsonPath("$.data[0].*", hasSize(10)))
           .andExpect(jsonPath("$.data[0].id").value(ROOM_TYPE_ID.toString()))
           .andExpect(jsonPath("$.data[0].name").value("Deluxe King"))
           .andExpect(jsonPath("$.data[0].description").isEmpty())
           .andExpect(jsonPath("$.data[0].maxAdults").value(2))
           .andExpect(jsonPath("$.data[0].maxChildren").value(1))
+          .andExpect(jsonPath("$.data[0].basePrice").value(0))
           .andExpect(jsonPath("$.data[0].active").value(false))
           .andExpect(jsonPath("$.data[0].createdAt").value("2026-11-04T01:02:03Z"))
           .andExpect(jsonPath("$.data[0].updatedAt").value("2026-11-04T04:05:06Z"))
           .andExpect(jsonPath("$.data[0].version").value(3))
           .andExpect(jsonPath("$.data[0].hotelId").doesNotExist());
+    }
+
+    @Test
+    void shouldExposeSavedBasePriceThroughManagementListMapping() throws Exception {
+      var type =
+          new com.team.hotelbooking.hotel.domain.model.RoomType(
+              ROOM_TYPE_ID,
+              HOTEL_ID,
+              "Deluxe",
+              null,
+              (short) 2,
+              (short) 1,
+              (short) 3,
+              300_000L,
+              true,
+              CREATED_AT,
+              UPDATED_AT,
+              0L);
+      given(
+              listManagementRoomTypesUseCase.execute(
+                  new ListManagementRoomTypesQuery(ACTOR_ID, HOTEL_ID)))
+          .willReturn(List.of(ListManagementRoomTypesResult.from(type)));
+      mvc.perform(get(PATH).principal(ACTOR))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data[0].basePrice").value(300_000));
     }
 
     @Test

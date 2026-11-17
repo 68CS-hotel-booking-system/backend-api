@@ -11,6 +11,7 @@ public record CreateRoomResult(
     String roomNumber,
     String floor,
     String readiness,
+    String operationalStatus,
     Instant readinessUpdatedAt,
     UUID readinessUpdatedBy,
     Instant operationalFrom,
@@ -19,7 +20,7 @@ public record CreateRoomResult(
     Instant updatedAt,
     long version) {
 
-  public static CreateRoomResult from(Room room) {
+  public static CreateRoomResult from(Room room, Instant at) {
     return new CreateRoomResult(
         room.id(),
         room.hotelId(),
@@ -27,6 +28,7 @@ public record CreateRoomResult(
         room.roomNumber(),
         room.floor(),
         room.readiness().name(),
+        room.operationalStatusAt(at).name(),
         room.readinessUpdatedAt(),
         room.readinessUpdatedBy(),
         room.operationalFrom(),

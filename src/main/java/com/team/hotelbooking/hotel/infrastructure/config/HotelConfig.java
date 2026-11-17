@@ -5,6 +5,7 @@ import com.team.hotelbooking.hotel.application.port.RoomInventoryPort;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomTypeUseCase;
 import com.team.hotelbooking.hotel.application.usecase.CreateRoomUseCase;
+import com.team.hotelbooking.hotel.application.usecase.GetHotelPublishReadinessUseCase;
 import com.team.hotelbooking.hotel.application.usecase.GetManagementHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.GetPublicHotelUseCase;
 import com.team.hotelbooking.hotel.application.usecase.ListAmenitiesUseCase;
@@ -26,6 +27,7 @@ import com.team.hotelbooking.hotel.application.usecase.UpdateRoomUseCase;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomService;
 import com.team.hotelbooking.hotel.application.usecase.impl.CreateRoomTypeService;
+import com.team.hotelbooking.hotel.application.usecase.impl.GetHotelPublishReadinessService;
 import com.team.hotelbooking.hotel.application.usecase.impl.GetManagementHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.GetPublicHotelService;
 import com.team.hotelbooking.hotel.application.usecase.impl.ListAmenitiesService;
@@ -60,6 +62,19 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class HotelConfig {
+
+  @Bean
+  public GetHotelPublishReadinessUseCase hotelPublishReadinessUseCase(
+      HotelRepository hotels,
+      RoomRepository rooms,
+      RoomTypeRepository types,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    var service = new GetHotelPublishReadinessService(hotels, rooms, types, clock);
+    var transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
 
   @Bean
   public CreateRoomUseCase createRoomUseCase(
@@ -229,9 +244,10 @@ public class HotelConfig {
       RoomRepository rooms,
       IdentityAccounts accounts,
       PaginationProperties pagination,
+      Clock clock,
       PlatformTransactionManager transactionManager) {
     ListManagementRoomsService service =
-        new ListManagementRoomsService(hotels, rooms, accounts, pagination.maxSize());
+        new ListManagementRoomsService(hotels, rooms, accounts, pagination.maxSize(), clock);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 

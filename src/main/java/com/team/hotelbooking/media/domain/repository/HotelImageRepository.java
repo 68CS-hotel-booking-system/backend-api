@@ -10,6 +10,8 @@ public interface HotelImageRepository {
 
   List<HotelImage> findByHotelId(UUID hotelId);
 
+  List<HotelImage> findPublicByHotelId(UUID hotelId);
+
   List<MediaObject> lockMedia(List<UUID> mediaIds);
 
   boolean isLinked(UUID hotelId, UUID mediaId);

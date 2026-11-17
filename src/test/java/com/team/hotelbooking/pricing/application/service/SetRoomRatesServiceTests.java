@@ -92,6 +92,8 @@ class SetRoomRatesServiceTests {
       assertThat(result.startDate()).isEqualTo(start);
       assertThat(result.endDate()).isEqualTo(LocalDate.of(2026, 11, 12));
       assertThat(result.rates()).hasSize(3);
+      assertThat(result.rates()).extracting(r -> r.effectivePrice()).containsOnly(1_500_000L);
+      assertThat(result.rates()).extracting(r -> r.source()).containsOnly("RATE");
       assertThat(result.rates().get(0).price()).isEqualTo(1_500_000L);
 
       then(pricingHotelPort).should().findManagementAccess(hotelId, ACTOR_ID, false);

@@ -42,7 +42,9 @@ public class ManagementRateController {
       summary = "[PR01] Tra cứu giá phòng chi tiết theo dải ngày",
       description =
           "Lấy danh sách giá từng ngày cho loại phòng trong khoảng từ startDate đến endDate (tối đa 90 ngày). "
-              + "Nếu ngày nào chưa được thiết lập giá riêng, trường hasRate sẽ mang giá trị false.")
+              + "Nếu ngày nào chưa được thiết lập giá riêng, trường hasRate sẽ mang giá trị false. "
+              + "effectivePrice và source trả giá hiệu lực theo quy tắc giá riêng trước, không có thì dùng giá cơ bản; "
+              + "source=NONE khi giá được chọn không hợp lệ. Không ghi thêm giá riêng khi tra cứu.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",

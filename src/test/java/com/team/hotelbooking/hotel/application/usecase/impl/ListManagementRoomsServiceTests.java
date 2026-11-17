@@ -55,7 +55,9 @@ class ListManagementRoomsServiceTests {
 
   @BeforeEach
   void setUp() {
-    service = new ListManagementRoomsService(hotels, rooms, accounts, 100);
+    service =
+        new ListManagementRoomsService(
+            hotels, rooms, accounts, 100, java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
     hotel =
         new Hotel(
             HOTEL_ID,
@@ -121,7 +123,18 @@ class ListManagementRoomsServiceTests {
       assertEquals(
           List.of(
               new ListManagementRoomsResult(
-                  room.id(), ROOM_TYPE_ID, "101", "1", "DIRTY", NOW, NOW, null, NOW, NOW, 2L)),
+                  room.id(),
+                  ROOM_TYPE_ID,
+                  "101",
+                  "1",
+                  "DIRTY",
+                  "OPERATING",
+                  NOW,
+                  NOW,
+                  null,
+                  NOW,
+                  NOW,
+                  2L)),
           result.content());
       assertEquals(1, result.totalElements());
     }

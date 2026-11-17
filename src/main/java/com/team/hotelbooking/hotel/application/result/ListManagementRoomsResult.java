@@ -10,6 +10,7 @@ public record ListManagementRoomsResult(
     String roomNumber,
     String floor,
     String readiness,
+    String operationalStatus,
     Instant readinessUpdatedAt,
     Instant operationalFrom,
     Instant operationalUntil,
@@ -17,13 +18,14 @@ public record ListManagementRoomsResult(
     Instant updatedAt,
     long version) {
 
-  public static ListManagementRoomsResult from(Room room) {
+  public static ListManagementRoomsResult from(Room room, Instant at) {
     return new ListManagementRoomsResult(
         room.id(),
         room.roomTypeId(),
         room.roomNumber(),
         room.floor(),
         room.readiness().name(),
+        room.operationalStatusAt(at).name(),
         room.readinessUpdatedAt(),
         room.operationalFrom(),
         room.operationalUntil(),

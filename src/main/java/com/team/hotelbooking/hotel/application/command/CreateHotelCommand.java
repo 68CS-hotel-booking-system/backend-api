@@ -11,6 +11,8 @@ public record CreateHotelCommand(
     String name,
     String description,
     String address,
+    String contactPhone,
+    String contactEmail,
     BigDecimal latitude,
     BigDecimal longitude,
     Short starRating,

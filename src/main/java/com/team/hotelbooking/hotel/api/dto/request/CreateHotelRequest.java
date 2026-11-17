@@ -1,12 +1,15 @@
 package com.team.hotelbooking.hotel.api.dto.request;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalTime;
@@ -22,6 +25,13 @@ public record CreateHotelRequest(
     @NotBlank(message = "Địa chỉ không được để trống.")
         @Size(max = 255, message = "Địa chỉ không được vượt quá 255 ký tự.")
         String address,
+    @Pattern(
+            regexp = "\\+?[0-9]{8,15}",
+            message = "Số điện thoại liên hệ cần 8–15 chữ số, có thể bắt đầu bằng +.")
+        String contactPhone,
+    @Size(max = 255, message = "Email liên hệ tối đa 255 ký tự.")
+        @Email(message = "Email liên hệ không hợp lệ.")
+        String contactEmail,
     @DecimalMin(value = "-90", message = "Vĩ độ phải lớn hơn hoặc bằng -90.")
         @DecimalMax(value = "90", message = "Vĩ độ phải nhỏ hơn hoặc bằng 90.")
         @Digits(integer = 3, fraction = 6, message = "Vĩ độ chỉ được có tối đa 6 chữ số thập phân.")
@@ -40,7 +50,14 @@ public record CreateHotelRequest(
     @NotNull(message = "Giờ trả phòng không được để trống.") LocalTime checkOutTime) {
 
   public CreateHotelRequest {
+    contactPhone = contactPhone == null || contactPhone.isBlank() ? null : contactPhone.trim();
+    contactEmail = contactEmail == null || contactEmail.isBlank() ? null : contactEmail.trim();
     latitude = latitude == null ? null : latitude.stripTrailingZeros();
     longitude = longitude == null ? null : longitude.stripTrailingZeros();
+  }
+
+  @AssertTrue(message = "Nhập ít nhất số điện thoại hoặc email liên hệ khách sạn.")
+  public boolean isContactProvided() {
+    return contactPhone != null || contactEmail != null;
   }
 }
