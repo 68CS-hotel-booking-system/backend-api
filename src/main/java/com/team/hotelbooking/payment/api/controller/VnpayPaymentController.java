@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Payments - VNPAY")
 public class VnpayPaymentController {
   private static final Logger log = LoggerFactory.getLogger(VnpayPaymentController.class);
+  private static final Pattern TXN_REF =
+      Pattern.compile("[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}");
   private final VnpayPaymentService payments;
 
   @PostMapping("/bookings/{bookingId}/vnpay")
@@ -60,6 +63,12 @@ public class VnpayPaymentController {
       log.error("Không thể lưu IPN VNPAY; yêu cầu sẽ được gọi lại.", exception);
       result = VnpayIpnResult.of("99");
     }
+    var references = parameters.get("vnp_TxnRef");
+    String reference = references != null && references.size() == 1 ? references.getFirst() : null;
+    log.info(
+        "VNPAY IPN txnRef={} rspCode={}",
+        reference != null && TXN_REF.matcher(reference).matches() ? reference : "(missing/invalid)",
+        result.code());
     return ResponseEntity.ok().header("Cache-Control", "no-store").body(result);
   }
 }

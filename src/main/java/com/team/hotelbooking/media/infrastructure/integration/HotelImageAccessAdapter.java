@@ -32,4 +32,19 @@ public class HotelImageAccessAdapter implements HotelImageAccess {
   public boolean isPublished(UUID hotelId) {
     return hotels.isPublished(hotelId);
   }
+
+  @Override
+  public boolean roomTypeExists(UUID hotelId, UUID roomTypeId) {
+    return hotels.roomTypeExists(hotelId, roomTypeId);
+  }
+
+  @Override
+  public boolean isRoomTypePublished(UUID hotelId, UUID roomTypeId) {
+    return hotels.isRoomTypePublished(hotelId, roomTypeId);
+  }
+
+  @Override
+  public void lockRoomTypeForImageUpdate(UUID actorId, UUID hotelId, UUID roomTypeId) {
+    hotels.lockRoomTypeForImageUpdate(actorId, hotelId, roomTypeId);
+  }
 }
