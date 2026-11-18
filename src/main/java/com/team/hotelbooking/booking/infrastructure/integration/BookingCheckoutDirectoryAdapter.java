@@ -15,11 +15,15 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
 
   private final BookingRepository bookings;
   private final BookingInventoryPort inventory;
+  private final BookingEmailNotifications emails;
 
   public BookingCheckoutDirectoryAdapter(
-      BookingRepository bookings, BookingInventoryPort inventory) {
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      BookingEmailNotifications emails) {
     this.bookings = bookings;
     this.inventory = inventory;
+    this.emails = emails;
   }
 
   @Override
@@ -38,7 +42,16 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
     if (!bookings.confirmPayment(bookingId, now)) {
       throw new IllegalStateException("Không thể xác nhận đơn đã khóa.");
     }
+    emails.enqueueConfirmation(booking.get(), now);
     return true;
+  }
+
+  @Override
+  public boolean lockForStayOperation(UUID bookingId) {
+    return bookings
+        .lockById(bookingId)
+        .map(booking -> booking.status() != Booking.Status.CANCELLED)
+        .orElse(true);
   }
 
   @Override

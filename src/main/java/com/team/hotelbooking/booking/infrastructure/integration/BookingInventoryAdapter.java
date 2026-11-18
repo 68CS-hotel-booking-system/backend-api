@@ -5,6 +5,8 @@ import com.team.hotelbooking.booking.BookingRoomHoldGateway.HoldItem;
 import com.team.hotelbooking.booking.BookingRoomHoldGateway.HoldRequest;
 import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.domain.model.Booking;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +22,16 @@ public class BookingInventoryAdapter implements BookingInventoryPort {
         booking.id(),
         booking.hotelId(),
         booking.items().stream().map(Booking.BookingItem::roomTypeId).distinct().sorted().toList());
+  }
+
+  @Override
+  public void release(UUID bookingId, boolean expired) {
+    inventory.release(bookingId, expired);
+  }
+
+  @Override
+  public void releaseConfirmed(UUID bookingId, UUID actorId, Instant now) {
+    inventory.releaseConfirmed(bookingId, actorId, now);
   }
 
   @Override

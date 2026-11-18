@@ -20,11 +20,15 @@ import com.team.hotelbooking.booking.application.result.BookingDetailResult.Cont
 import com.team.hotelbooking.booking.application.result.BookingDetailResult.NightlyPriceResult;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult.PaymentHandoffResult;
 import com.team.hotelbooking.booking.application.result.BookingSummaryResult;
+import com.team.hotelbooking.booking.application.result.CancelBookingResult;
+import com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase;
+import com.team.hotelbooking.booking.application.usecase.CancelHotelBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetCustomerBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetManagementBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.ListCustomerBookingsUseCase;
 import com.team.hotelbooking.booking.application.usecase.ListManagementBookingsUseCase;
+import com.team.hotelbooking.booking.application.usecase.QuoteVoucherUseCase;
 import com.team.hotelbooking.booking.domain.exception.BookingErrorCode;
 import com.team.hotelbooking.booking.domain.exception.BookingException;
 import com.team.hotelbooking.shared.config.JacksonConfig;
@@ -68,6 +72,10 @@ class BookingControllerResponseTests {
   @Mock private ListManagementBookingsUseCase listManagementBookingsUseCase;
   @Mock private GetManagementBookingDetailUseCase getManagementBookingDetailUseCase;
 
+  @Mock private CancelHotelBookingUseCase cancelHotelBookingUseCase;
+  @Mock private CancelBookingUseCase cancelBookingUseCase;
+  @Mock private QuoteVoucherUseCase quoteVoucherUseCase;
+
   private MockMvc mvc;
   private JsonMapper jsonMapper;
 
@@ -86,15 +94,34 @@ class BookingControllerResponseTests {
                     listCustomerBookingsUseCase,
                     getCustomerBookingDetailUseCase,
                     paginationSupport),
+                new BookingCheckoutController(quoteVoucherUseCase, cancelBookingUseCase),
                 new ManagementBookingController(
                     listManagementBookingsUseCase,
                     getManagementBookingDetailUseCase,
+                    cancelHotelBookingUseCase,
                     paginationSupport))
             .setMessageConverters(converter)
             .setControllerAdvice(
                 new BookingExceptionHandler(new ProblemDetailFactory()),
                 new GlobalExceptionHandler(new ProblemDetailFactory()))
             .build();
+  }
+
+  @Test
+  @DisplayName("POST hủy đơn giữ dạng chi tiết đơn và bổ sung khoản hoàn đang chờ")
+  void shouldReturnCancellationAlongsideBookingFields() throws Exception {
+    // Given
+    given(cancelBookingUseCase.execute(CUSTOMER_ID, BOOKING_ID))
+        .willReturn(new CancelBookingResult(sampleDetailResult(), 0, 500_000, "PENDING"));
+
+    // When / Then
+    mvc.perform(post("/api/v1/bookings/{bookingId}/cancel", BOOKING_ID).principal(PRINCIPAL))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Cache-Control", "no-store"))
+        .andExpect(jsonPath("$.data.id").value(BOOKING_ID.toString()))
+        .andExpect(jsonPath("$.data.cancellation.cancellationFeeAmount").value(0))
+        .andExpect(jsonPath("$.data.cancellation.refundAmount").value(500_000))
+        .andExpect(jsonPath("$.data.cancellation.refundStatus").value("PENDING"));
   }
 
   private BookingDetailResult sampleDetailResult() {
@@ -180,7 +207,8 @@ class BookingControllerResponseTests {
               new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
               new ContactRequest("Trần Thị Ở", "guest@example.com", "0987654321"),
               List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
-              2_700_000L);
+              2_700_000L,
+              null);
 
       given(createBookingUseCase.execute(any())).willReturn(sampleDetailResult());
 
@@ -221,7 +249,8 @@ class BookingControllerResponseTests {
               new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
               null,
               List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
-              2_500_000L);
+              2_500_000L,
+              null);
 
       given(createBookingUseCase.execute(any()))
           .willThrow(new BookingException(BookingErrorCode.PRICE_CHANGED));

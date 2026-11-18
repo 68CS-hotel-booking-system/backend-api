@@ -1,8 +1,11 @@
 package com.team.hotelbooking.payment.infrastructure.config;
 
 import com.team.hotelbooking.payment.ContractDirectory;
+import com.team.hotelbooking.payment.VerifiedBookingPaymentRecorder;
+import com.team.hotelbooking.payment.application.port.PaymentBookingPort;
 import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
 import com.team.hotelbooking.payment.application.port.PaymentIdentityPort;
+import com.team.hotelbooking.payment.application.port.VerifiedBookingPaymentRepository;
 import com.team.hotelbooking.payment.application.service.CreateContractService;
 import com.team.hotelbooking.payment.application.service.GetContractsService;
 import com.team.hotelbooking.payment.application.service.GetFinancialAccessService;
@@ -14,6 +17,7 @@ import com.team.hotelbooking.payment.application.usecase.GetFinancialAccessUseCa
 import com.team.hotelbooking.payment.application.usecase.TerminateContractUseCase;
 import com.team.hotelbooking.payment.application.usecase.UpdateFinancialAccessUseCase;
 import com.team.hotelbooking.payment.application.usecase.impl.ActivateContractService;
+import com.team.hotelbooking.payment.application.usecase.impl.RecordVerifiedBookingPaymentService;
 import com.team.hotelbooking.payment.application.usecase.impl.TerminateContractService;
 import com.team.hotelbooking.payment.domain.repository.HotelContractRepository;
 import com.team.hotelbooking.payment.infrastructure.integration.PaymentContractDirectoryAdapter;
@@ -30,6 +34,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration
 @org.springframework.boot.context.properties.EnableConfigurationProperties(VnpayProperties.class)
 public class PaymentConfig {
+
+  @Bean
+  public VerifiedBookingPaymentRecorder verifiedBookingPaymentRecorder(
+      PaymentBookingPort bookings,
+      ContractDirectory contracts,
+      VerifiedBookingPaymentRepository payments,
+      PlatformTransactionManager transactionManager) {
+    var service = new RecordVerifiedBookingPaymentService(bookings, contracts, payments);
+    var transaction = new TransactionTemplate(transactionManager);
+    return capture -> transaction.executeWithoutResult(status -> service.record(capture));
+  }
 
   @Bean
   public CreateContractUseCase createContractUseCase(

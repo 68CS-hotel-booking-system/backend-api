@@ -1,11 +1,15 @@
 package com.team.hotelbooking.booking.api.controller;
 
+import com.team.hotelbooking.booking.api.dto.request.CancelHotelBookingRequest;
 import com.team.hotelbooking.booking.api.dto.response.BookingDetailResponse;
 import com.team.hotelbooking.booking.api.dto.response.BookingSummaryResponse;
+import com.team.hotelbooking.booking.api.dto.response.CancelBookingResponse;
+import com.team.hotelbooking.booking.application.command.CancelHotelBookingCommand;
 import com.team.hotelbooking.booking.application.command.GetManagementBookingDetailQuery;
 import com.team.hotelbooking.booking.application.command.ListManagementBookingsQuery;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult;
 import com.team.hotelbooking.booking.application.result.BookingSummaryResult;
+import com.team.hotelbooking.booking.application.usecase.CancelHotelBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetManagementBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.ListManagementBookingsUseCase;
 import com.team.hotelbooking.shared.pagination.PageQuery;
@@ -15,6 +19,7 @@ import com.team.hotelbooking.shared.web.PageResponse;
 import com.team.hotelbooking.shared.web.PaginationSupport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +27,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,7 +44,23 @@ public class ManagementBookingController {
 
   private final ListManagementBookingsUseCase listManagementBookingsUseCase;
   private final GetManagementBookingDetailUseCase getManagementBookingDetailUseCase;
+  private final CancelHotelBookingUseCase cancelHotelBookingUseCase;
   private final PaginationSupport paginationSupport;
+
+  @PostMapping("/{bookingId}/cancel")
+  public ResponseEntity<ApiResponse<CancelBookingResponse>> cancelHotelBooking(
+      @PathVariable("hotelId") UUID hotelId,
+      @PathVariable("bookingId") UUID bookingId,
+      @Valid @RequestBody CancelHotelBookingRequest request,
+      Principal principal) {
+    var result =
+        cancelHotelBookingUseCase.execute(
+            new CancelHotelBookingCommand(
+                UUID.fromString(principal.getName()), hotelId, bookingId, request.reason()));
+    return ResponseEntity.ok()
+        .header("Cache-Control", "no-store")
+        .body(ApiResponse.success("Đã hủy đơn đặt phòng.", CancelBookingResponse.from(result)));
+  }
 
   @Operation(
       summary = "[BK04] Xem danh sách đơn đặt phòng của khách sạn",

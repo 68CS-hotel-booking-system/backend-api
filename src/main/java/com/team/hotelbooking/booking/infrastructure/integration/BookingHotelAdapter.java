@@ -21,4 +21,17 @@ public class BookingHotelAdapter implements BookingHotelPort {
         .findById(hotelId)
         .map(h -> new HotelSnapshot(h.id(), h.ownerId(), h.name(), h.active()));
   }
+
+  @Override
+  public boolean canManageVouchers(UUID hotelId, UUID actorId, boolean admin) {
+    return hotelDirectory
+        .findManagementAccess(hotelId, actorId, admin)
+        .map(
+            access ->
+                switch (access.level()) {
+                  case ADMIN, OWNER, MANAGER -> true;
+                  case RECEPTIONIST, NONE -> false;
+                })
+        .orElse(false);
+  }
 }

@@ -2,7 +2,10 @@ package com.team.hotelbooking.inventory.infrastructure.integration;
 
 import com.team.hotelbooking.booking.BookingRoomHoldGateway;
 import com.team.hotelbooking.inventory.InventoryReservationDirectory;
+import com.team.hotelbooking.inventory.InventoryReservationDirectory.ReleaseReason;
 import com.team.hotelbooking.inventory.application.port.HotelCatalogPort;
+import com.team.hotelbooking.inventory.infrastructure.persistence.repository.RoomAssignmentJpaRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +18,7 @@ public class BookingRoomHoldGatewayAdapter implements BookingRoomHoldGateway {
 
   private final InventoryReservationDirectory inventory;
   private final HotelCatalogPort hotels;
+  private final RoomAssignmentJpaRepository assignments;
 
   @Override
   @Transactional
@@ -23,6 +27,17 @@ public class BookingRoomHoldGatewayAdapter implements BookingRoomHoldGateway {
     if (hotels.lockRoomTypesInHotel(hotelId, roomTypeIds).size() != roomTypeIds.size())
       return false;
     return inventory.confirmIfHeld(bookingId);
+  }
+
+  @Override
+  public void release(UUID bookingId, boolean expired) {
+    inventory.release(bookingId, expired ? ReleaseReason.EXPIRED : ReleaseReason.CANCELLED);
+  }
+
+  @Override
+  public void releaseConfirmed(UUID bookingId, UUID actorId, Instant now) {
+    inventory.release(bookingId, ReleaseReason.CANCELLED);
+    assignments.releaseForCancellation(bookingId, actorId, now);
   }
 
   @Override

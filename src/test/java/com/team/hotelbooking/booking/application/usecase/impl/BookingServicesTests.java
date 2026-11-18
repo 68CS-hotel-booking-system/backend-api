@@ -13,6 +13,7 @@ import com.team.hotelbooking.booking.application.command.GetCustomerBookingDetai
 import com.team.hotelbooking.booking.application.command.GetManagementBookingDetailQuery;
 import com.team.hotelbooking.booking.application.command.ListCustomerBookingsQuery;
 import com.team.hotelbooking.booking.application.command.ListManagementBookingsQuery;
+import com.team.hotelbooking.booking.application.port.BookingCreationRequestPort;
 import com.team.hotelbooking.booking.application.port.BookingHotelPort;
 import com.team.hotelbooking.booking.application.port.BookingHotelPort.HotelSnapshot;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort;
@@ -24,12 +25,16 @@ import com.team.hotelbooking.booking.application.port.BookingPricingPort.Calcula
 import com.team.hotelbooking.booking.application.port.BookingPricingPort.CalculatedStayQuote;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult;
 import com.team.hotelbooking.booking.application.result.BookingSummaryResult;
+import com.team.hotelbooking.booking.application.service.VoucherApplicationService;
 import com.team.hotelbooking.booking.domain.exception.BookingErrorCode;
 import com.team.hotelbooking.booking.domain.exception.BookingException;
 import com.team.hotelbooking.booking.domain.model.Booking;
+import com.team.hotelbooking.booking.domain.model.Voucher;
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
+import com.team.hotelbooking.booking.domain.repository.VoucherRepository;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -62,6 +67,8 @@ class BookingServicesTests {
   @Mock private BookingHotelPort hotels;
   @Mock private BookingPricingPort pricing;
   @Mock private BookingInventoryPort inventory;
+  @Mock private BookingCreationRequestPort creationRequests;
+  @Mock private VoucherRepository vouchers;
 
   private Clock clock;
   private CreateBookingService createBookingService;
@@ -75,7 +82,15 @@ class BookingServicesTests {
     clock = Clock.fixed(Instant.parse("2026-11-09T02:00:00Z"), ZoneOffset.UTC);
     createBookingService =
         new CreateBookingService(
-            bookings, accounts, pricing, inventory, clock, Duration.ofMinutes(15));
+            bookings,
+            accounts,
+            pricing,
+            inventory,
+            creationRequests,
+            vouchers,
+            new VoucherApplicationService(vouchers, clock),
+            clock,
+            Duration.ofMinutes(15));
     listCustomerBookingsService = new ListCustomerBookingsService(bookings, accounts, 50);
     getCustomerBookingDetailService = new GetCustomerBookingDetailService(bookings, accounts);
     listManagementBookingsService =
@@ -126,6 +141,72 @@ class BookingServicesTests {
   @Nested
   @DisplayName("CreateBookingUseCase.execute")
   class CreateBookingTests {
+
+    @Test
+    @DisplayName("Áp trần giảm voucher và bàn giao số tiền sau giảm")
+    void shouldApplyVoucherAndPersistDiscountedPayableAmount() {
+      // Given
+      given(accounts.findById(CUSTOMER_ID))
+          .willReturn(
+              Optional.of(
+                  new AccountSnapshot(
+                      CUSTOMER_ID,
+                      "Người đặt",
+                      "booker@example.com",
+                      true,
+                      true,
+                      Set.of("CUSTOMER"))));
+      given(pricing.calculateQuote(any())).willReturn(sampleQuote());
+      given(bookings.add(any(Booking.class))).willAnswer(invocation -> invocation.getArgument(0));
+      Voucher voucher =
+          new Voucher(
+              UUID.randomUUID(),
+              HOTEL_ID,
+              "STAY",
+              "Voucher",
+              Voucher.DiscountType.PERCENTAGE,
+              new BigDecimal("10.25"),
+              null,
+              150_000L,
+              0,
+              2,
+              1,
+              clock.instant(),
+              clock.instant().plusSeconds(60),
+              Voucher.Status.ACTIVE,
+              Voucher.FundingSource.HOTEL);
+      given(vouchers.findByCode("STAY", true)).willReturn(Optional.of(voucher));
+      given(vouchers.countUsage(voucher.id(), CUSTOMER_ID, clock.instant()))
+          .willReturn(new VoucherRepository.Usage(0, 0));
+      var command =
+          new CreateBookingCommand(
+              CUSTOMER_ID,
+              HOTEL_ID,
+              LocalDate.of(2026, 11, 10),
+              LocalDate.of(2026, 11, 12),
+              null,
+              null,
+              new ContactInput(null, null, "0912345678"),
+              null,
+              List.of(new BookingItemInput(ROOM_TYPE_ID, 1, 2, 1)),
+              1_850_000L,
+              " stay ",
+              null);
+
+      // When
+      BookingDetailResult result = createBookingService.execute(command);
+
+      // Then
+      assertEquals(150_000L, result.discountAmount());
+      assertEquals(1_850_000L, result.paymentHandoff().payableAmount());
+      org.mockito.Mockito.verify(vouchers)
+          .record(
+              org.mockito.ArgumentMatchers.argThat(
+                  booking ->
+                      booking.id().equals(result.id())
+                          && booking.discountAmount() == result.discountAmount()),
+              org.mockito.ArgumentMatchers.eq(voucher));
+    }
 
     @Test
     @DisplayName(
