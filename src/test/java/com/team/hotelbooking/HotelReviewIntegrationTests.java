@@ -14,6 +14,8 @@ import com.team.hotelbooking.hotel.application.command.ApproveHotelReviewCommand
 import com.team.hotelbooking.hotel.application.usecase.ApproveHotelReviewUseCase;
 import com.team.hotelbooking.hotel.domain.repository.HotelReviewRepository;
 import com.team.hotelbooking.media.application.port.ObjectStorage;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -23,6 +25,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,8 +33,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.context.ActiveProfiles;
@@ -595,6 +600,99 @@ class HotelReviewIntegrationTests {
     mvc.perform(get(path).with(as(admin, "ADMIN"))).andExpect(status().isOk());
     mvc.perform(get(path).with(as(outsider, "HOTEL_OWNER"))).andExpect(status().isNotFound());
     mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void customerCanReplaceAvatarAndOnlyReadTheirCurrentImage() throws Exception {
+    UUID customer = insertUser("CUSTOMER");
+    String path = "/api/v1/users/me/avatar";
+    mvc.perform(multipart(HttpMethod.PUT, path).file(png())).andExpect(status().isUnauthorized());
+
+    String original =
+        uploadedMediaId(
+            mvc.perform(multipart(HttpMethod.PUT, path).file(png()).with(as(customer, "CUSTOMER")))
+                .andExpect(status().isOk()),
+            "mediaId");
+    mvc.perform(get(path).with(as(customer, "CUSTOMER")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.mediaId").value(original));
+    mvc.perform(get("/api/v1/media/{id}/access", original).with(as(customer, "CUSTOMER")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.url").value("https://images.test/signed-photo"));
+    mvc.perform(get("/api/v1/media/{id}/access", original).with(as(outsider, "HOTEL_OWNER")))
+        .andExpect(status().isNotFound());
+
+    String replacement =
+        uploadedMediaId(
+            mvc.perform(multipart(HttpMethod.PUT, path).file(png()).with(as(customer, "CUSTOMER")))
+                .andExpect(status().isOk()),
+            "mediaId");
+    assertThat(replacement).isNotEqualTo(original);
+    mvc.perform(get(path).with(as(customer, "CUSTOMER")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.mediaId").value(replacement));
+    mvc.perform(get("/api/v1/media/{id}/access", original).with(as(customer, "CUSTOMER")))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void roomTypeImageIsScopedAndBecomesPublicOnlyForAnActiveRoomType() throws Exception {
+    String imageId =
+        uploadedMediaId(
+            mvc.perform(
+                    multipart("/api/v1/media")
+                        .file(png())
+                        .param("hotelId", hotel.toString())
+                        .param("purpose", "HOTEL_IMAGE")
+                        .with(as(owner, "HOTEL_OWNER")))
+                .andExpect(status().isCreated()),
+            "id");
+    String relative = "/room-types/" + roomType + "/images";
+    String path = management + relative;
+    String publicPath = "/api/v1/hotels/" + hotel + relative;
+    var body = Map.of("mediaId", imageId);
+
+    send(post(path), outsider, "HOTEL_OWNER", body).andExpect(status().isNotFound());
+    send(
+            post(management + "/room-types/" + UUID.randomUUID() + "/images"),
+            owner,
+            "HOTEL_OWNER",
+            body)
+        .andExpect(status().isNotFound());
+    send(post(path), owner, "HOTEL_OWNER", body).andExpect(status().isOk());
+    send(post(path), owner, "HOTEL_OWNER", body).andExpect(status().isOk());
+    mvc.perform(get(path).with(as(owner, "HOTEL_OWNER")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.length()").value(1))
+        .andExpect(jsonPath("$.data[0].mediaId").value(imageId));
+    mvc.perform(get(publicPath)).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/media/{id}/access", imageId)).andExpect(status().isUnauthorized());
+
+    String review = submit();
+    decision(review, "approve", admin, "ADMIN", Map.of("expectedVersion", 0))
+        .andExpect(status().isOk());
+    mvc.perform(get(publicPath))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].mediaId").value(imageId));
+    mvc.perform(get("/api/v1/media/{id}/access", imageId)).andExpect(status().isOk());
+
+    jdbc.update("UPDATE room_types SET is_active = false WHERE id = ?", roomType);
+    mvc.perform(get(publicPath)).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/media/{id}/access", imageId)).andExpect(status().isUnauthorized());
+  }
+
+  private String uploadedMediaId(ResultActions response, String field) throws Exception {
+    return mapper
+        .readTree(response.andReturn().getResponse().getContentAsString())
+        .get("data")
+        .get(field)
+        .asString();
+  }
+
+  private static MockMultipartFile png() throws Exception {
+    var output = new ByteArrayOutputStream();
+    ImageIO.write(new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB), "png", output);
+    return new MockMultipartFile("file", "image.png", "image/png", output.toByteArray());
   }
 
   @Test

@@ -3,17 +3,22 @@ package com.team.hotelbooking.media.infrastructure.config;
 import com.team.hotelbooking.media.application.port.HotelImageAccess;
 import com.team.hotelbooking.media.application.port.ImageInspector;
 import com.team.hotelbooking.media.application.port.ObjectStorage;
+import com.team.hotelbooking.media.application.usecase.AttachRoomTypeImageUseCase;
 import com.team.hotelbooking.media.application.usecase.GetHotelImagesUseCase;
 import com.team.hotelbooking.media.application.usecase.GetMediaAccessUseCase;
+import com.team.hotelbooking.media.application.usecase.GetUserAvatarUseCase;
+import com.team.hotelbooking.media.application.usecase.ListRoomTypeImagesUseCase;
 import com.team.hotelbooking.media.application.usecase.ReplaceHotelImagesUseCase;
-import com.team.hotelbooking.media.application.usecase.UploadHotelImageUseCase;
 import com.team.hotelbooking.media.application.usecase.impl.GetHotelImagesService;
 import com.team.hotelbooking.media.application.usecase.impl.GetMediaAccessService;
+import com.team.hotelbooking.media.application.usecase.impl.ImageUploadService;
 import com.team.hotelbooking.media.application.usecase.impl.ReplaceHotelImagesService;
-import com.team.hotelbooking.media.application.usecase.impl.UploadHotelImageService;
+import com.team.hotelbooking.media.application.usecase.impl.RoomTypeImagesService;
 import com.team.hotelbooking.media.domain.model.MediaObject;
 import com.team.hotelbooking.media.domain.repository.HotelImageAlbumRepository;
 import com.team.hotelbooking.media.domain.repository.MediaRepository;
+import com.team.hotelbooking.media.domain.repository.RoomTypeImageRepository;
+import com.team.hotelbooking.media.domain.repository.UserAvatarRepository;
 import com.team.hotelbooking.media.infrastructure.persistence.adapter.JpaHotelImageRepositoryAdapter;
 import com.team.hotelbooking.media.infrastructure.persistence.adapter.JpaMediaRepositoryAdapter;
 import java.time.Clock;
@@ -35,8 +40,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class MediaConfig {
 
   @Bean
-  public UploadHotelImageUseCase uploadHotelImageUseCase(
+  public ImageUploadService imageUploadService(
       JpaMediaRepositoryAdapter repository,
+      UserAvatarRepository avatars,
       HotelImageAccess hotels,
       ImageInspector inspector,
       ObjectStorage storage,
@@ -67,7 +73,14 @@ public class MediaConfig {
 
           @Override
           public void markReady(UUID mediaId) {
-            writes.executeWithoutResult(status -> repository.markReady(mediaId));
+            writes.executeWithoutResult(
+                status -> {
+                  repository.markReady(mediaId);
+                  var image = repository.findById(mediaId).orElseThrow();
+                  if (image.purpose() == MediaObject.Purpose.USER_IMAGE) {
+                    avatars.setAvatar(image.createdByUserId(), image.id());
+                  }
+                });
           }
 
           @Override
@@ -77,8 +90,39 @@ public class MediaConfig {
           }
         };
 
-    return new UploadHotelImageService(
+    return new ImageUploadService(
         committedRepository, hotels, inspector, storage, clock, bucket, maxBytes);
+  }
+
+  @Bean
+  public GetUserAvatarUseCase getUserAvatarUseCase(UserAvatarRepository avatars) {
+    return avatars::findMediaId;
+  }
+
+  @Bean
+  public AttachRoomTypeImageUseCase attachRoomTypeImageUseCase(
+      HotelImageAccess hotels,
+      JpaHotelImageRepositoryAdapter hotelImages,
+      RoomTypeImageRepository roomImages,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    var service = new RoomTypeImagesService(hotels, hotelImages, roomImages, clock);
+    var transaction = new TransactionTemplate(transactionManager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public ListRoomTypeImagesUseCase listRoomTypeImagesUseCase(
+      HotelImageAccess hotels,
+      JpaHotelImageRepositoryAdapter hotelImages,
+      RoomTypeImageRepository roomImages,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    var service = new RoomTypeImagesService(hotels, hotelImages, roomImages, clock);
+    var transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
   }
 
   @Bean
@@ -116,6 +160,8 @@ public class MediaConfig {
   public GetMediaAccessUseCase getMediaAccessUseCase(
       JpaMediaRepositoryAdapter media,
       JpaHotelImageRepositoryAdapter images,
+      RoomTypeImageRepository roomImages,
+      UserAvatarRepository avatars,
       HotelImageAccess hotels,
       ObjectStorage storage,
       Clock clock,
@@ -129,7 +175,7 @@ public class MediaConfig {
     }
 
     GetMediaAccessService service =
-        new GetMediaAccessService(media, images, hotels, storage, clock, ttl);
+        new GetMediaAccessService(media, images, roomImages, avatars, hotels, storage, clock, ttl);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);

@@ -1,11 +1,13 @@
 package com.team.hotelbooking.media.application.usecase.impl;
 
 import com.team.hotelbooking.media.application.command.UploadHotelImageCommand;
+import com.team.hotelbooking.media.application.command.UploadUserAvatarCommand;
 import com.team.hotelbooking.media.application.port.HotelImageAccess;
 import com.team.hotelbooking.media.application.port.ImageInspector;
 import com.team.hotelbooking.media.application.port.ObjectStorage;
 import com.team.hotelbooking.media.application.result.MediaResult;
 import com.team.hotelbooking.media.application.usecase.UploadHotelImageUseCase;
+import com.team.hotelbooking.media.application.usecase.UploadUserAvatarUseCase;
 import com.team.hotelbooking.media.domain.exception.MediaErrorCode;
 import com.team.hotelbooking.media.domain.exception.MediaException;
 import com.team.hotelbooking.media.domain.model.MediaObject;
@@ -17,7 +19,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
 
-public final class UploadHotelImageService implements UploadHotelImageUseCase {
+public final class ImageUploadService implements UploadHotelImageUseCase, UploadUserAvatarUseCase {
 
   private final MediaRepository media;
   private final HotelImageAccess hotels;
@@ -27,7 +29,7 @@ public final class UploadHotelImageService implements UploadHotelImageUseCase {
   private final String bucket;
   private final long maxBytes;
 
-  public UploadHotelImageService(
+  public ImageUploadService(
       MediaRepository media,
       HotelImageAccess hotels,
       ImageInspector inspector,
@@ -52,8 +54,19 @@ public final class UploadHotelImageService implements UploadHotelImageUseCase {
     }
 
     hotels.requireUpload(command.actorId(), command.hotelId());
+    return upload(
+        command.actorId(), command.hotelId(), command.originalFilename(), command.content());
+  }
 
-    byte[] content = command.content();
+  @Override
+  public MediaResult execute(UploadUserAvatarCommand command) {
+    if (command == null || command.actorId() == null) {
+      throw new MediaException(MediaErrorCode.UNAUTHORIZED);
+    }
+    return upload(command.actorId(), null, command.originalFilename(), command.content());
+  }
+
+  private MediaResult upload(UUID actorId, UUID hotelId, String originalFilename, byte[] content) {
 
     if (content == null || content.length == 0) {
       throw new MediaException(MediaErrorCode.VALIDATION_FAILED, "Vui lòng chọn ảnh.");
@@ -68,7 +81,9 @@ public final class UploadHotelImageService implements UploadHotelImageUseCase {
     UUID id = UUID.randomUUID();
     Instant now = clock.instant();
 
-    String key = "hotels/" + command.hotelId() + "/images/" + id + "." + info.extension();
+    boolean avatar = hotelId == null;
+    String prefix = avatar ? "users/" + actorId + "/avatars/" : "hotels/" + hotelId + "/images/";
+    String key = prefix + id + "." + info.extension();
 
     MediaObject pending =
         new MediaObject(
@@ -76,14 +91,14 @@ public final class UploadHotelImageService implements UploadHotelImageUseCase {
             "R2",
             bucket,
             key,
-            filename(command.originalFilename()),
+            filename(originalFilename),
             info.contentType(),
             content.length,
             sha256(content),
-            MediaObject.Purpose.HOTEL_IMAGE,
-            command.hotelId(),
+            avatar ? MediaObject.Purpose.USER_IMAGE : MediaObject.Purpose.HOTEL_IMAGE,
+            hotelId,
             MediaObject.Status.PENDING,
-            command.actorId(),
+            actorId,
             now,
             null);
 
