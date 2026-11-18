@@ -77,6 +77,8 @@ media:
     ttl: PT5M
 
 auth:
+  google:
+    client-id: ${AUTH_GOOGLE_CLIENT_ID:}
   cookie:
     secure: ${AUTH_COOKIE_SECURE:false}
   verification-ttl: PT24H

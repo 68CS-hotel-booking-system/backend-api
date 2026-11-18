@@ -11,4 +11,10 @@ public interface HotelMediaDirectory {
   void lockForImageUpdate(UUID actorId, UUID hotelId, long expectedVersion);
 
   boolean isPublished(UUID hotelId);
+
+  boolean roomTypeExists(UUID hotelId, UUID roomTypeId);
+
+  boolean isRoomTypePublished(UUID hotelId, UUID roomTypeId);
+
+  void lockRoomTypeForImageUpdate(UUID actorId, UUID hotelId, UUID roomTypeId);
 }

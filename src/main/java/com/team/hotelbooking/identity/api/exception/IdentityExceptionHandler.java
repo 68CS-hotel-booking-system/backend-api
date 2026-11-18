@@ -46,13 +46,19 @@ public class IdentityExceptionHandler {
           case EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
 
           case INVALID_CREDENTIALS,
+              GOOGLE_TOKEN_INVALID,
               INVALID_REFRESH_TOKEN,
               REFRESH_TOKEN_REUSED,
               ACCOUNT_UNAVAILABLE ->
               HttpStatus.UNAUTHORIZED;
 
-          case TOKEN_INVALID, TOKEN_EXPIRED, TOKEN_ALREADY_USED, NEW_PASSWORD_SAME_AS_CURRENT ->
+          case TOKEN_INVALID,
+              TOKEN_EXPIRED,
+              TOKEN_ALREADY_USED,
+              NEW_PASSWORD_SAME_AS_CURRENT,
+              GOOGLE_PHONE_REQUIRED ->
               HttpStatus.valueOf(422);
+          case GOOGLE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
 
           case RATE_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
           case NOT_IMPLEMENTED -> HttpStatus.NOT_IMPLEMENTED;
