@@ -34,6 +34,12 @@ Với `SERVER_PORT=8080`:
 - [Health](http://localhost:8080/actuator/health)
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html)
 
+## Thanh toán VNPAY sandbox
+
+Đã có API tạo/đọc giao dịch, ký URL, nhận IPN và xác nhận booking/tồn phòng trong cùng transaction.
+Mặc định tắt; bật bằng `VNPAY_ENABLED=true` cùng merchant sandbox trong `.env`.
+Xem [hướng dẫn cấu hình, API và test sandbox từng bước](docs/api/vnpay-sandbox.md).
+
 ## Format và kiểm tra
 
 ```powershell

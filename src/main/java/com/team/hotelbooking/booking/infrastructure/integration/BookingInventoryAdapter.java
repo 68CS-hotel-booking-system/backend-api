@@ -17,6 +17,14 @@ public class BookingInventoryAdapter implements BookingInventoryPort {
   private final BookingRoomHoldGateway inventory;
 
   @Override
+  public boolean confirmIfHeld(Booking booking) {
+    return inventory.confirmIfHeld(
+        booking.id(),
+        booking.hotelId(),
+        booking.items().stream().map(Booking.BookingItem::roomTypeId).distinct().sorted().toList());
+  }
+
+  @Override
   public void release(UUID bookingId, boolean expired) {
     inventory.release(bookingId, expired);
   }

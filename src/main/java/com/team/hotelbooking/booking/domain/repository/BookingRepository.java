@@ -15,6 +15,8 @@ public interface BookingRepository {
 
   Optional<Booking> lockById(UUID bookingId);
 
+  boolean confirmPayment(UUID bookingId, Instant now);
+
   void closePending(UUID bookingId, Booking.Status status, UUID actorId, Instant now);
 
   void cancelConfirmed(

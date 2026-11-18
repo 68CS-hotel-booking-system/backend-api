@@ -29,6 +29,7 @@ import com.team.hotelbooking.booking.application.usecase.impl.SaveVoucherService
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
 import com.team.hotelbooking.booking.domain.repository.VoucherRepository;
 import com.team.hotelbooking.booking.infrastructure.integration.BookingCheckoutDirectoryAdapter;
+import com.team.hotelbooking.booking.infrastructure.integration.BookingEmailNotifications;
 import com.team.hotelbooking.shared.config.PaginationProperties;
 import java.time.Clock;
 import java.time.Duration;
@@ -39,6 +40,8 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -217,14 +220,40 @@ public class BookingConfig {
   }
 
   @Bean
+  public BookingEmailNotifications bookingEmailNotifications(
+      JdbcClient jdbc,
+      JavaMailSender mail,
+      @Value("${auth.mail-from}") String from,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    return new BookingEmailNotifications(
+        jdbc, mail, from, clock, new TransactionTemplate(transactionManager));
+  }
+
+  @Bean
   public BookingCheckoutDirectory bookingCheckoutDirectory(
-      BookingRepository bookings, PlatformTransactionManager transactionManager) {
-    BookingCheckoutDirectoryAdapter adapter = new BookingCheckoutDirectoryAdapter(bookings);
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      BookingEmailNotifications emails,
+      PlatformTransactionManager transactionManager) {
+    BookingCheckoutDirectoryAdapter adapter =
+        new BookingCheckoutDirectoryAdapter(bookings, inventory, emails);
     TransactionTemplate readOnlyTx = new TransactionTemplate(transactionManager);
     readOnlyTx.setReadOnly(true);
     TransactionTemplate writeTx = new TransactionTemplate(transactionManager);
 
     return new BookingCheckoutDirectory() {
+      @Override
+      public Optional<BookingCheckoutSnapshot> lockById(UUID bookingId) {
+        return Objects.requireNonNull(writeTx.execute(status -> adapter.lockById(bookingId)));
+      }
+
+      @Override
+      public boolean confirmPayment(UUID bookingId, Instant now) {
+        return Boolean.TRUE.equals(
+            writeTx.execute(status -> adapter.confirmPayment(bookingId, now)));
+      }
+
       @Override
       public boolean lockForStayOperation(UUID bookingId) {
         // Inventory giữ transaction mở đến khi hoàn tất phân công hoặc thay đổi trạng thái.

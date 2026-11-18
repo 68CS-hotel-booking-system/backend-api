@@ -9,12 +9,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UUID> {
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("SELECT b FROM BookingJpaEntity b WHERE b.id = :bookingId")
-  Optional<BookingJpaEntity> lockById(UUID bookingId);
+  @Query("select b from BookingJpaEntity b where b.id = :id")
+  Optional<BookingJpaEntity> lockById(@Param("id") UUID id);
 
   Optional<BookingJpaEntity> findByIdAndCustomerId(UUID id, UUID customerId);
 

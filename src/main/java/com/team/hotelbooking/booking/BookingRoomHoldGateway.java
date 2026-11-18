@@ -10,6 +10,8 @@ public interface BookingRoomHoldGateway {
 
   void hold(HoldRequest request);
 
+  boolean confirmIfHeld(UUID bookingId, UUID hotelId, List<UUID> roomTypeIds);
+
   void release(UUID bookingId, boolean expired);
 
   void releaseConfirmed(UUID bookingId, UUID actorId, Instant now);

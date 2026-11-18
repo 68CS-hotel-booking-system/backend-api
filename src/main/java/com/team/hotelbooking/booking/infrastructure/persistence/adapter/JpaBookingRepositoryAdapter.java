@@ -87,6 +87,28 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
   }
 
   @Override
+  public boolean confirmPayment(UUID bookingId, Instant now) {
+    var existing = bookingJpaRepository.lockById(bookingId);
+    if (existing.isEmpty()) return false;
+    var booking = existing.get();
+    if (booking.getStatus() != BookingJpaEntity.DbStatus.PENDING_PAYMENT
+        || booking.getExpiresAt() == null
+        || !booking.getExpiresAt().isAfter(now)) return false;
+    booking.setStatus(BookingJpaEntity.DbStatus.CONFIRMED);
+    booking.setUpdatedAt(now);
+    bookingJpaRepository.saveAndFlush(booking);
+    var history = new BookingStatusHistoryJpaEntity();
+    history.setId(UUID.randomUUID());
+    history.setBookingId(bookingId);
+    history.setFromStatus(BookingJpaEntity.DbStatus.PENDING_PAYMENT);
+    history.setToStatus(BookingJpaEntity.DbStatus.CONFIRMED);
+    history.setReason("Xác nhận thanh toán VNPAY qua IPN.");
+    history.setCreatedAt(now);
+    bookingStatusHistoryJpaRepository.saveAndFlush(history);
+    return true;
+  }
+
+  @Override
   public void closePending(UUID bookingId, Booking.Status status, UUID actorId, Instant now) {
     close(
         bookingId,

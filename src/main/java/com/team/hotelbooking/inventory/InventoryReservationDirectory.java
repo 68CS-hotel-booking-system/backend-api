@@ -21,6 +21,9 @@ public interface InventoryReservationDirectory {
    */
   void confirm(UUID bookingId);
 
+  /** Không thay đổi dữ liệu nếu giữ phòng đã hết hạn; dùng để đối soát IPN đến muộn. */
+  boolean confirmIfHeld(UUID bookingId);
+
   /**
    * Giải phóng tồn kho đang giữ hoặc đã xác nhận đúng một lần khi hủy đơn hoặc hết hạn giữ chỗ
    * (IV-07). Gọi lặp trả về releasedRowCount = 0.

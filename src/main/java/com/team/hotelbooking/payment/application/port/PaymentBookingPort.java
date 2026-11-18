@@ -10,6 +10,10 @@ public interface PaymentBookingPort {
 
   Optional<BookingPaymentSnapshot> findBookingForPayment(UUID bookingId);
 
+  Optional<BookingPaymentSnapshot> lockBookingForPayment(UUID bookingId);
+
+  boolean confirmPayment(UUID bookingId, Instant now);
+
   record BookingPaymentSnapshot(
       UUID bookingId,
       String bookingCode,
