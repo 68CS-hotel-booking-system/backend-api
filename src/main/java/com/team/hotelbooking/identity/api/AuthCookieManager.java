@@ -22,6 +22,7 @@ public class AuthCookieManager {
   public static final String AUTH_COOKIE_PATH = "/api/v1/auth";
   public static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
   public static final String CSRF_HEADER_NAME = "X-XSRF-TOKEN";
+  public static final String GOOGLE_NONCE_COOKIE_NAME = "stayhub_google_nonce";
   public static final String REQUESTED_WITH_HEADER = "X-Requested-With";
 
   private final Clock clock;
@@ -93,6 +94,19 @@ public class AuthCookieManager {
 
     response.addHeader(HttpHeaders.SET_COOKIE, clearRefresh.toString());
     response.addHeader(HttpHeaders.SET_COOKIE, clearCsrf.toString());
+  }
+
+  public void setGoogleNonce(
+      HttpServletResponse response, HttpServletRequest request, String nonce, Duration maxAge) {
+    var cookie =
+        ResponseCookie.from(GOOGLE_NONCE_COOKIE_NAME, nonce)
+            .httpOnly(true)
+            .secure(isSecure(request))
+            .path(AUTH_COOKIE_PATH + "/google")
+            .sameSite("Strict")
+            .maxAge(maxAge)
+            .build();
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
   }
 
   public Optional<String> extractRefreshToken(HttpServletRequest request) {

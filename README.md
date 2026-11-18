@@ -34,6 +34,22 @@ Với `SERVER_PORT=8080`:
 - [Health](http://localhost:8080/actuator/health)
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html)
 
+## Đăng nhập và đăng ký bằng Google
+
+Tạo OAuth Client ID loại **Web application** trong Google Cloud. Thêm chính xác origin của
+frontend đang dùng vào **Authorized JavaScript origins**. Khi chạy local, thêm cả
+`http://localhost` và `http://localhost:5173`. Với staging, thêm
+`https://staging.hotelbooking.id.vn`. Nếu ứng dụng Google đang ở chế độ Testing,
+thêm tài khoản kiểm thử vào danh sách Test users. Xem [hướng dẫn của Google](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
+
+Đặt `AUTH_GOOGLE_CLIENT_ID` trong môi trường backend và khởi động lại. Staging lấy giá trị
+này từ file `.env` của môi trường thông qua Docker Compose. Frontend đọc cấu hình từ backend
+khi mở form. Client ID là cấu hình công khai của nút Google. Nếu để trống, form chỉ hiển thị
+đăng nhập và đăng ký bằng email.
+
+Tài khoản mới dùng Gmail hoặc Google Workspace bổ sung số điện thoại trước khi hoàn tất.
+Người dùng đã đăng ký bằng mật khẩu tiếp tục đăng nhập bằng mật khẩu hoặc đặt lại mật khẩu.
+
 ## Thanh toán VNPAY sandbox
 
 Đã có API tạo/đọc giao dịch, ký URL, nhận IPN và xác nhận booking/tồn phòng trong cùng transaction.

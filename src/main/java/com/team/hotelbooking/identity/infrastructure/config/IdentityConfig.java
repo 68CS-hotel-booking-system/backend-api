@@ -33,6 +33,7 @@ import com.team.hotelbooking.identity.application.usecase.impl.GrantRoleService;
 import com.team.hotelbooking.identity.application.usecase.impl.ListAdminUsersService;
 import com.team.hotelbooking.identity.application.usecase.impl.ListRolesService;
 import com.team.hotelbooking.identity.application.usecase.impl.LoginService;
+import com.team.hotelbooking.identity.application.usecase.impl.LoginSessionIssuer;
 import com.team.hotelbooking.identity.application.usecase.impl.LogoutService;
 import com.team.hotelbooking.identity.application.usecase.impl.RefreshTokenService;
 import com.team.hotelbooking.identity.application.usecase.impl.RegisterService;
@@ -138,28 +139,23 @@ public class IdentityConfig {
   }
 
   @Bean
-  public LoginUseCase loginUseCase(
-      UserRepository users,
-      PasswordHasher passwords,
+  public LoginSessionIssuer loginSessionIssuer(
       AccessTokens accessTokens,
       OpaqueTokens opaqueTokens,
       RefreshTokenRepository refreshTokens,
       Clock clock,
-      PlatformTransactionManager transactionManager,
-      @Value("${auth.refresh-ttl}") String refreshTtl) {
+      @Value("${auth.refresh-ttl}") Duration refreshTtl) {
+    return new LoginSessionIssuer(accessTokens, opaqueTokens, refreshTokens, clock, refreshTtl);
+  }
 
+  @Bean
+  public LoginUseCase loginUseCase(
+      UserRepository users,
+      PasswordHasher passwords,
+      LoginSessionIssuer sessionIssuer,
+      PlatformTransactionManager transactionManager) {
     String dummyHash = passwords.hash(UUID.randomUUID().toString());
-
-    LoginService service =
-        new LoginService(
-            users,
-            passwords,
-            accessTokens,
-            opaqueTokens,
-            refreshTokens,
-            clock,
-            Duration.parse(refreshTtl),
-            dummyHash);
+    LoginService service = new LoginService(users, passwords, sessionIssuer, dummyHash);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
