@@ -11,6 +11,14 @@ public interface VnpayGateway {
 
   boolean verify(Map<String, String> parameters);
 
+  String createQr(
+      UUID paymentId,
+      long amountVnd,
+      String bookingCode,
+      Instant createdAt,
+      Instant expiresAt,
+      String ipAddress);
+
   String createUrl(
       UUID paymentId,
       long amountVnd,

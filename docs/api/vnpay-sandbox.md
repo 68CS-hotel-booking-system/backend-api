@@ -2,6 +2,16 @@
 
 Luồng đã triển khai: tạo booking kèm giữ phòng → tạo/lấy lại URL VNPAY → VNPAY gọi IPN → lưu kết quả và xác nhận booking/tồn phòng trong cùng transaction. Trang return chỉ đọc trạng thái từ API, không cập nhật thanh toán từ query string.
 
+### Hiển thị QR ngay trên website
+
+Frontend yêu cầu `POST /api/v1/payments/bookings/{bookingId}/vnpay?qr=true` với phiên đăng nhập của chủ booking. Backend gọi VNPAY Merchant hosted QR bằng `vnp_Command=genqr`, ký HMAC-SHA512 và lưu `qrContent` trong cùng giao dịch thanh toán. Gọi lại trước hạn sẽ dùng lại mã đã lưu; không tạo payment mới chỉ để đổi cách hiển thị.
+
+Frontend vẽ dữ liệu `qrContent` thành QR bằng component Ant Design có sẵn và đọc trạng thái giao dịch mỗi 5 giây tới khi kết thúc hoặc hết hạn. Chỉ IPN hợp lệ mới ghi nhận thanh toán/xác nhận booking. Khi payment thành công, thất bại hoặc hết hạn, API không trả lại QR để tiếp tục thanh toán.
+
+Không truyền `qr=true` vẫn lấy URL thanh toán theo luồng cũ. Nút **Mở cổng thanh toán VNPAY** cho phép chuyển sang trang VNPAY khi muốn dùng phương thức khác. Với sandbox, có thể dùng nút này để tiếp tục test thẻ NCB theo hướng dẫn bên dưới; để quét QR sandbox cần công cụ/ứng dụng thử nghiệm do VNPAY cung cấp.
+
+Merchant phải được VNPAY hỗ trợ Merchant hosted QR. Lỗi mạng, phản hồi không hợp lệ hoặc merchant không sinh được QR trả HTTP 502 `PAYMENT_QR_UNAVAILABLE`; không giả lập QR/thành công. Khi triển khai bản này cần chạy migration thêm `qr_content` qua Flyway trước khi frontend dùng tính năng.
+
 ## 1. Cấu hình merchant
 
 Đăng ký merchant sandbox tại <https://sandbox.vnpayment.vn/devreg/> nếu chưa có mã kết nối. Điền `.env` trong thư mục backend; không đưa secret vào frontend hoặc Git:

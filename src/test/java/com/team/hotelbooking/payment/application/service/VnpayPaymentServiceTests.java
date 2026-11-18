@@ -130,6 +130,30 @@ class VnpayPaymentServiceTests {
   }
 
   @Test
+  void cachesQrForPendingPaymentAndDoesNotRegenerateItOnRepeatedRequests() {
+    when(gateway.enabled()).thenReturn(true);
+    doReturn(Optional.of(booking())).when(bookings).lockBookingForPayment(bookingId);
+    doReturn(Optional.empty())
+        .when(payments)
+        .findFirstByBookingIdAndStatusOrderByCreatedAtDesc(bookingId, Status.SUCCEEDED);
+    when(payments.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(bookingId, Status.PENDING))
+        .thenReturn(Optional.of(payment));
+    when(gateway.createQr(
+            eq(paymentId),
+            eq(123456L),
+            eq("BK-TEST"),
+            eq(payment.getCreatedAt()),
+            eq(payment.getExpiresAt()),
+            eq("127.0.0.1")))
+        .thenReturn("000201-test-qr");
+    assertThat(service.create(customerId, bookingId, "127.0.0.1", true).qrContent())
+        .isEqualTo("000201-test-qr");
+    assertThat(service.create(customerId, bookingId, "127.0.0.1", true).id()).isEqualTo(paymentId);
+    verify(gateway, times(1)).createQr(any(), anyLong(), anyString(), any(), any(), anyString());
+    verify(payments, times(1)).saveAndFlush(payment);
+  }
+
+  @Test
   void rejectsExpiredOrNonPayableBooking() {
     when(gateway.enabled()).thenReturn(true);
     var booking = booking();

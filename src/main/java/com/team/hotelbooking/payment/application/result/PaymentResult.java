@@ -11,6 +11,7 @@ public record PaymentResult(
     String currency,
     String status,
     String paymentUrl,
+    String qrContent,
     Instant expiresAt,
     boolean bookingConfirmed,
     boolean expired) {
@@ -27,6 +28,7 @@ public record PaymentResult(
         payment.getCurrency(),
         payment.getStatus().name(),
         url,
+        url != null ? payment.getQrContent() : null,
         payment.getExpiresAt(),
         payment.isBookingConfirmed(),
         !payment.getExpiresAt().isAfter(now));

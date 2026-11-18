@@ -40,6 +40,9 @@ public class PaymentTransactionJpaEntity {
   @Column(nullable = false, length = 4096)
   private String paymentUrl;
 
+  @Column(length = 2048)
+  private String qrContent;
+
   @Column(nullable = false)
   private Instant createdAt;
 

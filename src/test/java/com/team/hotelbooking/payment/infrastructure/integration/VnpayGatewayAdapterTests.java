@@ -1,17 +1,105 @@
 package com.team.hotelbooking.payment.infrastructure.integration;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+import com.team.hotelbooking.payment.domain.exception.FinanceErrorCode;
+import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.infrastructure.config.VnpayProperties;
 import java.net.URLDecoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 
 class VnpayGatewayAdapterTests {
+  @Test
+  @SuppressWarnings("unchecked")
+  void requestsSignedMerchantHostedQrWithoutFollowingPaymentPage() throws Exception {
+    var http = mock(HttpClient.class);
+    HttpResponse<String> response = mock(HttpResponse.class);
+    when(response.statusCode()).thenReturn(200);
+    when(response.body())
+        .thenReturn("{\"code\":\"00\",\"message\":\"Success\",\"qrcontent\":\"000201-test-qr\"}");
+    when(http.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(response);
+    var qrGateway =
+        new VnpayGatewayAdapter(
+            new VnpayProperties(
+                true,
+                "TESTCODE",
+                "sandbox-test-secret",
+                "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                "http://localhost:5173/payment/return"),
+            http);
+    var id = UUID.randomUUID();
+    var now = Instant.parse("2026-11-15T03:00:00Z");
+    assertThat(qrGateway.createQr(id, 123456, "BK/123", now, now.plusSeconds(900), "127.0.0.1"))
+        .isEqualTo("000201-test-qr");
+    var request = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(http).send(request.capture(), any(HttpResponse.BodyHandler.class));
+    var parameters = new HashMap<String, String>();
+    for (var part : request.getValue().uri().getRawQuery().split("&")) {
+      var pair = part.split("=", 2);
+      parameters.put(pair[0], URLDecoder.decode(pair[1], StandardCharsets.UTF_8));
+    }
+    assertThat(parameters)
+        .containsEntry("vnp_Command", "genqr")
+        .containsEntry("vnp_Amount", "12345600")
+        .containsEntry("vnp_TxnRef", id.toString());
+    assertThat(qrGateway.verify(parameters)).isTrue();
+    assertThat(request.getValue().timeout()).contains(java.time.Duration.ofSeconds(5));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "{\"code\":\"02\",\"qrcontent\":\"\"}",
+        "{\"code\":\"00\",\"qrcontent\":\"\"}",
+        "{\"code\":\"00\",\"qrcontent\":123}",
+        "<html>payment page</html>",
+        "null"
+      })
+  @SuppressWarnings("unchecked")
+  void rejectsProviderErrorsAndMalformedQrResponses(String body) throws Exception {
+    var http = mock(HttpClient.class);
+    HttpResponse<String> response = mock(HttpResponse.class);
+    when(response.statusCode()).thenReturn(200);
+    when(response.body()).thenReturn(body);
+    when(http.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(response);
+    var qrGateway =
+        new VnpayGatewayAdapter(
+            new VnpayProperties(
+                true,
+                "TESTCODE",
+                "secret",
+                "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                "http://localhost:5173/payment/return"),
+            http);
+    assertThatThrownBy(
+            () ->
+                qrGateway.createQr(
+                    UUID.randomUUID(),
+                    5000,
+                    "BK",
+                    Instant.now(),
+                    Instant.now().plusSeconds(900),
+                    "127.0.0.1"))
+        .isInstanceOfSatisfying(
+            FinanceException.class,
+            error -> assertThat(error.code()).isEqualTo(FinanceErrorCode.PAYMENT_QR_UNAVAILABLE));
+  }
+
   private final VnpayGatewayAdapter gateway =
       new VnpayGatewayAdapter(
           new VnpayProperties(

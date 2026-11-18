@@ -1,12 +1,20 @@
 package com.team.hotelbooking.payment.infrastructure.integration;
 
 import com.team.hotelbooking.payment.application.port.VnpayGateway;
+import com.team.hotelbooking.payment.domain.exception.FinanceErrorCode;
+import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.infrastructure.config.VnpayProperties;
 import com.team.hotelbooking.shared.time.BusinessTime;
+import java.io.IOException;
+import java.net.URI;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
@@ -16,16 +24,26 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class VnpayGatewayAdapter implements VnpayGateway {
   private static final DateTimeFormatter DATE =
       DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(BusinessTime.ZONE);
   private final VnpayProperties properties;
+  private final HttpClient http;
+  private final JsonMapper json = JsonMapper.builder().build();
 
+  @Autowired
   public VnpayGatewayAdapter(VnpayProperties properties) {
+    this(properties, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
+  }
+
+  VnpayGatewayAdapter(VnpayProperties properties, HttpClient http) {
     this.properties = properties;
+    this.http = http;
   }
 
   @Override
@@ -46,10 +64,62 @@ public class VnpayGatewayAdapter implements VnpayGateway {
       Instant createdAt,
       Instant expiresAt,
       String ipAddress) {
+    return signedUrl("pay", paymentId, amountVnd, bookingCode, createdAt, expiresAt, ipAddress);
+  }
+
+  @Override
+  public String createQr(
+      UUID paymentId,
+      long amountVnd,
+      String bookingCode,
+      Instant createdAt,
+      Instant expiresAt,
+      String ipAddress) {
+    var uri =
+        URI.create(
+            signedUrl("genqr", paymentId, amountVnd, bookingCode, createdAt, expiresAt, ipAddress));
+    var request =
+        HttpRequest.newBuilder(uri)
+            .timeout(Duration.ofSeconds(5))
+            .header("Accept", "application/json")
+            .GET()
+            .build();
+    try {
+      var response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      if (response.statusCode() != 200
+          || response.body() == null
+          || response.body().length() > 16384) {
+        throw new FinanceException(FinanceErrorCode.PAYMENT_QR_UNAVAILABLE);
+      }
+      var body = json.readTree(response.body());
+      var content = body.path("qrcontent");
+      if (!"00".equals(body.path("code").asText())
+          || !content.isString()
+          || content.asText().isBlank()
+          || content.asText().length() > 2048) {
+        throw new FinanceException(FinanceErrorCode.PAYMENT_QR_UNAVAILABLE);
+      }
+      return content.asText();
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new FinanceException(FinanceErrorCode.PAYMENT_QR_UNAVAILABLE);
+    } catch (IOException | tools.jackson.core.JacksonException exception) {
+      throw new FinanceException(FinanceErrorCode.PAYMENT_QR_UNAVAILABLE);
+    }
+  }
+
+  private String signedUrl(
+      String command,
+      UUID paymentId,
+      long amountVnd,
+      String bookingCode,
+      Instant createdAt,
+      Instant expiresAt,
+      String ipAddress) {
     if (!enabled()) throw new IllegalStateException("VNPAY chưa được bật.");
     Map<String, String> parameters = new TreeMap<>();
     parameters.put("vnp_Version", "2.1.0");
-    parameters.put("vnp_Command", "pay");
+    parameters.put("vnp_Command", command);
     parameters.put("vnp_TmnCode", properties.tmnCode());
     parameters.put("vnp_Amount", Long.toString(Math.multiplyExact(amountVnd, 100)));
     parameters.put("vnp_CurrCode", "VND");
