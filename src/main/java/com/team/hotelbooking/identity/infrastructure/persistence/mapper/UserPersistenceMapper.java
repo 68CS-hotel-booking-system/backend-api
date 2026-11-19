@@ -42,6 +42,7 @@ public final class UserPersistenceMapper {
         roles,
         entity.getCreatedAt(),
         entity.getUpdatedAt(),
+        entity.getAuthVersion(),
         entity.getVersion());
   }
 }

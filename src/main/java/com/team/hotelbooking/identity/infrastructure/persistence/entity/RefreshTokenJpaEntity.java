@@ -33,4 +33,7 @@ public class RefreshTokenJpaEntity {
 
   @Column(nullable = false)
   private boolean revoked;
+
+  @Column(name = "remember_me", nullable = false)
+  private boolean rememberMe;
 }

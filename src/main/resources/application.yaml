@@ -1,14 +1,35 @@
 server:
   port: ${SERVER_PORT:8080}
 
+app:
+  pagination:
+    default-size: 20
+    max-size: 100
+
+payment:
+  vnpay:
+    enabled: ${VNPAY_ENABLED:false}
+    tmn-code: ${VNPAY_TMN_CODE:}
+    hash-secret: ${VNPAY_HASH_SECRET:}
+    payment-url: ${VNPAY_PAYMENT_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+    return-url: ${VNPAY_RETURN_URL:http://localhost:5173/payment/return}
+
 spring:
   application:
     name: hotel-booking-backend
+  config:
+    import: "optional:file:./.env[.properties]"
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+      file-size-threshold: 0
 
   jpa:
     open-in-view: false
@@ -28,15 +49,40 @@ spring:
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     default-encoding: UTF-8
 
     properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:false}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS_ENABLE:false}
+      "[mail.smtp.starttls.required]": ${MAIL_STARTTLS_REQUIRED:false}
       "[mail.smtp.connectiontimeout]": 5000
       "[mail.smtp.timeout]": 3000
       "[mail.smtp.writetimeout]": 5000
 
+storage:
+  r2:
+    enabled: ${R2_ENABLED:false}
+    endpoint: ${R2_ENDPOINT:}
+    access-key-id: ${R2_ACCESS_KEY_ID:}
+    secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+    bucket: ${R2_BUCKET:}
+
+media:
+  upload:
+    max-bytes: 5242880
+    max-pixels: 16000000
+  access:
+    ttl: PT5M
+
 auth:
+  google:
+    client-id: ${AUTH_GOOGLE_CLIENT_ID:}
+  cookie:
+    secure: ${AUTH_COOKIE_SECURE:false}
   verification-ttl: PT24H
+  verification-resend-cooldown: PT1M
   verification-url: ${AUTH_VERIFICATION_URL}
   mail-from: ${AUTH_MAIL_FROM}
 
@@ -51,6 +97,10 @@ auth:
   register:
     max-requests: 5
     window-seconds: 60
+
+  password-reset-url: ${AUTH_PASSWORD_RESET_URL}
+  password-reset-ttl: PT15M
+  password-reset-cooldown: PT1M
 
 management:
   endpoints:

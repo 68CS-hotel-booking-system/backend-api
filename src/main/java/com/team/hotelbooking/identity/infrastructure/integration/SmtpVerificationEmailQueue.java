@@ -2,14 +2,17 @@ package com.team.hotelbooking.identity.infrastructure.integration;
 
 import com.team.hotelbooking.identity.application.port.VerificationEmailQueue;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -19,6 +22,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
 
   private static final Logger log = LoggerFactory.getLogger(SmtpVerificationEmailQueue.class);
+
+  private static final DateTimeFormatter EXPIRY_FORMAT =
+      DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy")
+          .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
   private final JavaMailSender mail;
   private final String from;
@@ -71,15 +78,47 @@ public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
             .encode()
             .toUriString();
 
-    SimpleMailMessage message = new SimpleMailMessage();
-    message.setFrom(from);
-    message.setTo(recipient);
-    message.setSubject("Xác minh tài khoản Hotel Booking");
-    message.setText(
-        "Mở liên kết để xác minh email:\n" + link + "\n\nLiên kết hết hạn lúc: " + expiresAt);
+    String plainText =
+        """
+        Xin chào,
+
+        Cảm ơn bạn đã đăng ký tài khoản tại Hotel Booking.
+
+        Để hoàn tất đăng ký và xác minh địa chỉ email, vui lòng mở liên kết dưới đây:
+        %s
+
+        Liên kết có hiệu lực đến %s (giờ Việt Nam, UTC+7).
+        Nếu không mở được liên kết, bạn có thể sao chép và dán vào thanh địa chỉ trình duyệt.
+
+        Vui lòng không chia sẻ liên kết này với người khác.
+        Nếu bạn không thực hiện đăng ký, bạn có thể bỏ qua email này.
+
+        Trân trọng,
+        Đội ngũ Hotel Booking
+
+        Đây là email tự động. Vui lòng không trả lời email này.
+        """
+            .formatted(link, EXPIRY_FORMAT.format(expiresAt));
 
     try {
-      mail.send(message);
+      mail.send(
+          mimeMessage -> {
+            MimeMessageHelper message =
+                new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.name());
+            message.setFrom(from, "Hotel Booking");
+            message.setTo(recipient);
+            message.setSubject("[Hotel Booking] Xác minh địa chỉ email của bạn");
+            message.setText(
+                plainText,
+                AccountEmailTemplate.render(
+                    "Xác minh email",
+                    "Cảm ơn bạn đã đăng ký tài khoản tại Hotel Booking. "
+                        + "Vui lòng xác minh địa chỉ email để hoàn tất đăng ký.",
+                    "Xác minh email",
+                    link,
+                    EXPIRY_FORMAT.format(expiresAt),
+                    "Nếu bạn không thực hiện đăng ký, bạn có thể bỏ qua email này."));
+          });
     } catch (MailException exception) {
       // User đã commit. Không ném lỗi làm client tưởng
       // toàn bộ đăng ký đã rollback.

@@ -24,19 +24,44 @@ public class IdentityExceptionHandler {
 
     HttpStatus status =
         switch (exception.code()) {
-          case VALIDATION_FAILED -> HttpStatus.BAD_REQUEST;
+          case VALIDATION_FAILED, CURRENT_PASSWORD_INCORRECT -> HttpStatus.BAD_REQUEST;
 
-          case EMAIL_ALREADY_USED, PHONE_ALREADY_USED, CONFLICT -> HttpStatus.CONFLICT;
+          case EMAIL_ALREADY_USED,
+              PHONE_ALREADY_USED,
+              CONFLICT,
+              ROLE_UNAVAILABLE,
+              CUSTOMER_ROLE_REMOVAL_FORBIDDEN,
+              SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN,
+              STALE_USER_VERSION,
+              LAST_ACTIVE_ADMIN_STATUS_CHANGE_FORBIDDEN,
+              INVALID_USER_STATUS_TRANSITION,
+              EMAIL_ALREADY_VERIFIED,
+              LAST_ACTIVE_ADMIN ->
+              HttpStatus.CONFLICT;
 
-          case ACCOUNT_LOCKED -> HttpStatus.FORBIDDEN;
+          case ACCOUNT_LOCKED, ACCESS_DENIED, SELF_STATUS_CHANGE_FORBIDDEN -> HttpStatus.FORBIDDEN;
+
+          case USER_NOT_FOUND -> HttpStatus.NOT_FOUND;
 
           case EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
 
-          case INVALID_CREDENTIALS -> HttpStatus.UNAUTHORIZED;
+          case INVALID_CREDENTIALS,
+              GOOGLE_TOKEN_INVALID,
+              INVALID_REFRESH_TOKEN,
+              REFRESH_TOKEN_REUSED,
+              ACCOUNT_UNAVAILABLE ->
+              HttpStatus.UNAUTHORIZED;
 
-          case TOKEN_INVALID, TOKEN_EXPIRED, TOKEN_ALREADY_USED -> HttpStatus.valueOf(422);
+          case TOKEN_INVALID,
+              TOKEN_EXPIRED,
+              TOKEN_ALREADY_USED,
+              NEW_PASSWORD_SAME_AS_CURRENT,
+              GOOGLE_PHONE_REQUIRED ->
+              HttpStatus.valueOf(422);
+          case GOOGLE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
 
           case RATE_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
+          case NOT_IMPLEMENTED -> HttpStatus.NOT_IMPLEMENTED;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);

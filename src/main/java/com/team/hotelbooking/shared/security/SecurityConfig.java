@@ -34,7 +34,65 @@ public class SecurityConfig {
                         HttpMethod.POST,
                         "/api/v1/auth/register",
                         "/api/v1/auth/email-verifications",
-                        "/api/v1/auth/login")
+                        "/api/v1/auth/login",
+                        "/api/v1/auth/google",
+                        "/api/v1/auth/refresh",
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/reset-password")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/auth/google")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/hotels/*/availability")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/payments/vnpay/ipn")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/hotels/*/quote")
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/cities",
+                        "/api/v1/amenities",
+                        "/api/v1/hotels/*",
+                        "/api/v1/hotels",
+                        "/api/v1/hotels/**",
+                        "/api/v1/hotels/*/room-types")
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/admin/roles",
+                        "/api/v1/admin/users",
+                        "/api/v1/admin/users/*/roles")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/admin/users",
+                        "/api/v1/admin/users/*/email-verification-requests")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/users/*/roles/*",
+                        "/api/v1/admin/users/*/status")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/users/*/roles/*")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        HttpMethod.POST, "/api/v1/admin/hotels", "/api/v1/management/hotels")
+                    .hasAnyRole("ADMIN", "HOTEL_OWNER")
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/management/hotels/*/room-types",
+                        "/api/v1/management/hotels/*/rooms")
+                    .hasAnyRole("ADMIN", "HOTEL_OWNER")
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/management/hotels",
+                        "/api/v1/management/hotels/*",
+                        "/api/v1/management/hotels/*/room-types",
+                        "/api/v1/management/hotels/*/rooms",
+                        "/api/v1/management/hotels/*/bookings",
+                        "/api/v1/management/hotels/*/bookings/*")
+                    .hasAnyRole("ADMIN", "HOTEL_OWNER")
+                    .requestMatchers(HttpMethod.GET, "/api/v1/media/*/access")
                     .permitAll()
                     .anyRequest()
                     .authenticated())

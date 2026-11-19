@@ -18,6 +18,7 @@ public record User(
     Set<String> roles,
     Instant createdAt,
     Instant updatedAt,
+    long authVersion,
     long version) {
 
   public enum Status {
@@ -51,7 +52,8 @@ public record User(
         Set.of("CUSTOMER"),
         now,
         now,
-        0L);
+        0L, // authVersion
+        0L); // version
   }
 
   public static String normalizeEmail(String raw) {
@@ -111,6 +113,7 @@ public record User(
         roles,
         createdAt,
         now,
+        authVersion,
         version);
   }
 
@@ -122,6 +125,62 @@ public record User(
     if (status == Status.PENDING || emailVerifiedAt == null) {
       throw new IdentityException(IdentityErrorCode.EMAIL_NOT_VERIFIED);
     }
+  }
+
+  public User resetPassword(String newPasswordHash, Instant now) {
+    if (status == Status.BANNED || status == Status.INACTIVE) {
+      throw new IdentityException(IdentityErrorCode.ACCOUNT_LOCKED);
+    }
+
+    return new User(
+        id,
+        email,
+        newPasswordHash,
+        fullName,
+        phone,
+        status,
+        emailVerifiedAt,
+        roles,
+        createdAt,
+        now,
+        authVersion + 1,
+        version);
+  }
+
+  public User changeStatus(Status newStatus, Instant now) {
+    if (newStatus == null) {
+      throw IdentityException.invalid("Trạng thái đích là bắt buộc.");
+    }
+
+    if (newStatus == Status.ACTIVE && emailVerifiedAt == null) {
+      throw new IdentityException(
+          IdentityErrorCode.INVALID_USER_STATUS_TRANSITION,
+          "Tài khoản chưa xác minh email chỉ có thể mở khóa về pending.");
+    }
+
+    if (newStatus == Status.PENDING && emailVerifiedAt != null) {
+      throw new IdentityException(
+          IdentityErrorCode.INVALID_USER_STATUS_TRANSITION,
+          "Không thể chuyển tài khoản đã xác minh email về pending.");
+    }
+
+    if (newStatus == status) {
+      return this;
+    }
+
+    return new User(
+        id,
+        email,
+        passwordHash,
+        fullName,
+        phone,
+        newStatus,
+        emailVerifiedAt,
+        roles,
+        createdAt,
+        now,
+        authVersion + 1,
+        version);
   }
 
   @Override

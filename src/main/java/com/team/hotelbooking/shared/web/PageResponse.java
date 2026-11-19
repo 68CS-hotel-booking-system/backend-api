@@ -1,9 +1,8 @@
 package com.team.hotelbooking.shared.web;
 
+import com.team.hotelbooking.shared.pagination.PageResult;
 import java.util.List;
-import org.springframework.data.domain.Page;
 
-/** Stable pagination response with zero-based page numbers. Map entities to DTOs first. */
 public record PageResponse<T>(
     List<T> content,
     int page,
@@ -17,14 +16,14 @@ public record PageResponse<T>(
     content = List.copyOf(content);
   }
 
-  public static <T> PageResponse<T> from(Page<T> source) {
+  public static <T> PageResponse<T> from(PageResult<T> source) {
     return new PageResponse<>(
-        source.getContent(),
-        source.getNumber(),
-        source.getSize(),
-        source.getTotalElements(),
-        source.getTotalPages(),
-        source.isFirst(),
-        source.isLast());
+        source.content(),
+        source.page(),
+        source.size(),
+        source.totalElements(),
+        source.totalPages(),
+        source.first(),
+        source.last());
   }
 }
