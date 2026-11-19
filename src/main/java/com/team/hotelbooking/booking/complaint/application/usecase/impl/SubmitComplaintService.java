@@ -43,7 +43,8 @@ public final class SubmitComplaintService implements SubmitComplaintUseCase {
             .findByIdAndCustomerId(command.bookingId(), command.customerId())
             .orElseThrow(() -> new ComplaintException(ComplaintErrorCode.BOOKING_NOT_FOUND));
 
-    if (booking.status() == Booking.Status.PENDING_PAYMENT) {
+    var now = clock.instant();
+    if (booking.statusAt(now) == Booking.Status.PENDING_PAYMENT) {
       throw new ComplaintException(ComplaintErrorCode.BOOKING_NOT_COMPLAINABLE);
     }
 
@@ -56,7 +57,7 @@ public final class SubmitComplaintService implements SubmitComplaintUseCase {
             command.category(),
             command.content(),
             // PostgreSQL lưu tới micro giây: cắt trước để response POST trùng với lúc đọc lại.
-            clock.instant().truncatedTo(ChronoUnit.MICROS));
+            now.truncatedTo(ChronoUnit.MICROS));
 
     // Kiểm trước để trả id đang mở; request đồng thời vượt qua bước này vẫn bị index unique chặn.
     complaints

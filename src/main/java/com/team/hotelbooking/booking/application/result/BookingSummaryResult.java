@@ -32,6 +32,10 @@ public record BookingSummaryResult(
     Instant createdAt) {
 
   public static BookingSummaryResult from(Booking booking) {
+    return from(booking, booking.status());
+  }
+
+  public static BookingSummaryResult from(Booking booking, Booking.Status status) {
     return new BookingSummaryResult(
         booking.id(),
         booking.bookingCode(),
@@ -47,7 +51,7 @@ public record BookingSummaryResult(
         booking.expectedCheckOutTime(),
         booking.adults(),
         booking.children(),
-        booking.status().name(),
+        status.name(),
         booking.currency(),
         booking.roomSubtotalAmount(),
         booking.surchargeAmount(),

@@ -9,15 +9,19 @@ import com.team.hotelbooking.booking.domain.exception.BookingErrorCode;
 import com.team.hotelbooking.booking.domain.exception.BookingException;
 import com.team.hotelbooking.booking.domain.model.Booking;
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
+import java.time.Clock;
 
 public final class GetCustomerBookingDetailService implements GetCustomerBookingDetailUseCase {
 
   private final BookingRepository bookings;
   private final BookingIdentityPort accounts;
+  private final Clock clock;
 
-  public GetCustomerBookingDetailService(BookingRepository bookings, BookingIdentityPort accounts) {
+  public GetCustomerBookingDetailService(
+      BookingRepository bookings, BookingIdentityPort accounts, Clock clock) {
     this.bookings = bookings;
     this.accounts = accounts;
+    this.clock = clock;
   }
 
   @Override
@@ -40,6 +44,6 @@ public final class GetCustomerBookingDetailService implements GetCustomerBooking
             .findByIdAndCustomerId(query.bookingId(), customer.id())
             .orElseThrow(() -> new BookingException(BookingErrorCode.BOOKING_NOT_FOUND));
 
-    return BookingDetailResult.from(booking);
+    return BookingDetailResult.from(booking, booking.statusAt(clock.instant()));
   }
 }
