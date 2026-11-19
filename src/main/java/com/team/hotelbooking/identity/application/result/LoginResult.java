@@ -6,10 +6,21 @@ import java.util.Locale;
 import java.util.UUID;
 
 public record LoginResult(
-    String accessToken, String refreshToken, String tokenType, Instant expiresAt, UserInfo user) {
+    String accessToken,
+    String refreshToken,
+    String tokenType,
+    Instant expiresAt,
+    UserInfo user,
+    boolean rememberMe,
+    Instant refreshExpiresAt) {
 
   public static LoginResult from(
-      User user, String accessToken, String refreshToken, Instant expiresAt) {
+      User user,
+      String accessToken,
+      String refreshToken,
+      Instant expiresAt,
+      boolean rememberMe,
+      Instant refreshExpiresAt) {
 
     return new LoginResult(
         accessToken,
@@ -23,7 +34,14 @@ public record LoginResult(
             user.phone(),
             user.status().name().toLowerCase(Locale.ROOT),
             user.emailVerifiedAt() != null,
-            user.version()));
+            user.version()),
+        rememberMe,
+        refreshExpiresAt);
+  }
+
+  public static LoginResult from(
+      User user, String accessToken, String refreshToken, Instant expiresAt) {
+    return from(user, accessToken, refreshToken, expiresAt, false, expiresAt);
   }
 
   public record UserInfo(

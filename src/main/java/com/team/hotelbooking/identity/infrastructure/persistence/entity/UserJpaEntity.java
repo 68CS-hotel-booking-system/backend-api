@@ -54,6 +54,9 @@ public class UserJpaEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @Column(name = "auth_version", nullable = false)
+  private long authVersion;
+
   @Version
   @Column(nullable = false)
   private Long version;

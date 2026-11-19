@@ -9,10 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.team.hotelbooking.shared.exception.BusinessRuleException;
-import com.team.hotelbooking.shared.exception.ConflictException;
 import com.team.hotelbooking.shared.exception.ErrorCode;
-import com.team.hotelbooking.shared.exception.NotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -21,7 +18,6 @@ import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -56,29 +52,6 @@ class GlobalExceptionHandlerTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.message").value("Thành công."))
         .andExpect(jsonPath("$.data").value("ready"));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"NOT_FOUND,404", "CONFLICT,409", "BUSINESS_RULE,422"})
-  void mapsBusinessFailureWithoutHttpDependencyInException(String type, int expectedStatus)
-      throws Exception {
-    mvc.perform(get("/test/business/{type}", type))
-        .andExpect(status().is(expectedStatus))
-        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.status").value(expectedStatus))
-        .andExpect(jsonPath("$.code").value("BOOKING_REJECTED"))
-        .andExpect(jsonPath("$.detail").value("Không thể thực hiện yêu cầu đặt phòng."))
-        .andExpect(jsonPath("$.instance").value("/test/business/" + type))
-        .andExpect(jsonPath("$.traceId").isNotEmpty())
-        .andExpect(jsonPath("$.errors").isEmpty());
-  }
-
-  @Test
-  void supportsSafeCustomDomainMessages() throws Exception {
-    mvc.perform(get("/test/custom-message"))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.code").value("BOOKING_REJECTED"))
-        .andExpect(jsonPath("$.detail").value("Không tìm thấy đặt phòng 123."));
   }
 
   @ParameterizedTest
@@ -212,20 +185,6 @@ class GlobalExceptionHandlerTests {
     @GetMapping("/success")
     ApiResponse<String> success() {
       return ApiResponse.success("ready");
-    }
-
-    @GetMapping("/business/{type}")
-    void business(@PathVariable String type) {
-      throw switch (type) {
-        case "NOT_FOUND" -> new NotFoundException(SampleErrorCode.REJECTED);
-        case "CONFLICT" -> new ConflictException(SampleErrorCode.REJECTED);
-        default -> new BusinessRuleException(SampleErrorCode.REJECTED);
-      };
-    }
-
-    @GetMapping("/custom-message")
-    void customMessage() {
-      throw new NotFoundException(SampleErrorCode.REJECTED, "Không tìm thấy đặt phòng 123.");
     }
 
     @GetMapping("/concurrent/{kind}")

@@ -16,6 +16,9 @@ public class RoleJpaEntity {
   @Column(name = "role_key", nullable = false, length = 50)
   private String roleKey;
 
+  @Column(name = "role_name", nullable = false, length = 150)
+  private String roleName;
+
   @Column(name = "is_active", nullable = false)
   private boolean active;
 }

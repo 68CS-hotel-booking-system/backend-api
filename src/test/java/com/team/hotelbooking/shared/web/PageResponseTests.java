@@ -4,20 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.team.hotelbooking.shared.pagination.PageResult;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 
 class PageResponseTests {
 
   @Test
-  void preservesPaginationMetadataAfterMappingToDtos() {
-    Page<Integer> source = new PageImpl<>(List.of(3, 4), PageRequest.of(1, 2), 7);
+  void copiesPageResultMetadata() {
+    PageResult<String> source =
+        new PageResult<>(List.of("hotel-3", "hotel-4"), 1, 2, 7, 4, false, false);
 
-    PageResponse<String> response = PageResponse.from(source.map(id -> "hotel-" + id));
+    PageResponse<String> response = PageResponse.from(source);
 
     assertEquals(List.of("hotel-3", "hotel-4"), response.content());
     assertEquals(1, response.page());
@@ -30,7 +29,9 @@ class PageResponseTests {
 
   @Test
   void supportsEmptyPages() {
-    PageResponse<String> response = PageResponse.from(Page.empty(PageRequest.of(0, 10)));
+    PageResult<String> source = new PageResult<>(List.of(), 0, 10, 0, 0, true, true);
+
+    PageResponse<String> response = PageResponse.from(source);
 
     assertTrue(response.content().isEmpty());
     assertEquals(10, response.size());
