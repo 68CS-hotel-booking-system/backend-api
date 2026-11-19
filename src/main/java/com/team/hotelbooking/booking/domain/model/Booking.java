@@ -52,6 +52,12 @@ public record Booking(
     NO_SHOW
   }
 
+  public Status statusAt(Instant now) {
+    return status == Status.PENDING_PAYMENT && expiresAt != null && !expiresAt.isAfter(now)
+        ? Status.EXPIRED
+        : status;
+  }
+
   public record ContactSnapshot(String fullName, String email, String phone) {
     public static ContactSnapshot create(
         String fullName, String email, String phone, String roleLabel) {
