@@ -116,6 +116,14 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
   }
 
   @Override
+  public Optional<Booking> findByCustomerIdAndIdempotencyKey(
+      UUID customerId, String idempotencyKey) {
+    return bookingJpaRepository
+        .findByCustomerIdAndIdempotencyKey(customerId, idempotencyKey)
+        .map(this::loadFullBooking);
+  }
+
+  @Override
   public Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId) {
     return bookingJpaRepository.findByIdAndHotelId(bookingId, hotelId).map(this::loadFullBooking);
   }

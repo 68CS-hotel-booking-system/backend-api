@@ -39,6 +39,9 @@ public class BookingJpaEntity {
   @Column(name = "booking_code", nullable = false, length = 20, unique = true)
   private String bookingCode;
 
+  @Column(name = "idempotency_key", length = 100)
+  private String idempotencyKey;
+
   @Column(name = "customer_id", nullable = false)
   private UUID customerId;
 

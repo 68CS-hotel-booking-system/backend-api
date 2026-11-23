@@ -27,7 +27,9 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
@@ -46,9 +48,22 @@ public class BookingConfig {
         new CreateBookingService(
             bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl));
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    TransactionTemplate replayLookupTransaction = new TransactionTemplate(transactionManager);
+    replayLookupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    replayLookupTransaction.setReadOnly(true);
 
-    return command ->
-        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+    return command -> {
+      try {
+        return Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+      } catch (DataIntegrityViolationException exception) {
+        if (command == null || command.idempotencyKey() == null) {
+          throw exception;
+        }
+        return Objects.requireNonNull(
+            replayLookupTransaction.execute(
+                status -> service.resolveIdempotentReplay(command).orElseThrow(() -> exception)));
+      }
+    };
   }
 
   @Bean
