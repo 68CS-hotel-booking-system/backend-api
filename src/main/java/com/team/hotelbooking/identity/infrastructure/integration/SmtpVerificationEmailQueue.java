@@ -10,8 +10,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -29,11 +30,13 @@ public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
           .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
   private final JavaMailSender mail;
+  private final TaskExecutor taskExecutor;
   private final String from;
   private final URI verificationUrl;
 
   public SmtpVerificationEmailQueue(
       JavaMailSender mail,
+      @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
       @Value("${auth.mail-from}") String from,
       @Value("${auth.verification-url}") String verificationUrl) {
 
@@ -49,6 +52,7 @@ public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
     }
 
     this.mail = mail;
+    this.taskExecutor = taskExecutor;
     this.from = from;
     this.verificationUrl = uri;
   }
@@ -65,7 +69,17 @@ public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
         new TransactionSynchronization() {
           @Override
           public void afterCommit() {
-            send(userId, recipient, rawToken, expiresAt);
+            // ponytail: async TaskExecutor handoff has no retry or delivery guarantee; upgrade to a
+            // transactional outbox if durable delivery is required.
+            try {
+              taskExecutor.execute(() -> send(userId, recipient, rawToken, expiresAt));
+            } catch (RuntimeException exception) {
+              log.warn(
+                  "Verification email dispatch failed for userId={} ({}: {})",
+                  userId,
+                  exception.getClass().getSimpleName(),
+                  exception.getMessage());
+            }
           }
         });
   }
@@ -120,11 +134,12 @@ public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
                     EXPIRY_FORMAT.format(expiresAt),
                     "Nếu bạn không thực hiện đăng ký, bạn có thể bỏ qua email này."));
           });
-    } catch (MailException exception) {
-      // User đã commit. Không ném lỗi làm client tưởng
-      // toàn bộ đăng ký đã rollback.
-      // Không log token, URL hoặc nội dung SMTP exception.
-      log.warn("Verification email delivery failed for userId={}", userId);
+    } catch (Exception exception) {
+      log.warn(
+          "Verification email delivery failed for userId={} ({}: {})",
+          userId,
+          exception.getClass().getSimpleName(),
+          exception.getMessage());
     }
   }
 }
