@@ -37,6 +37,9 @@ public class BookingStayAdapter implements BookingStayPort {
 
   @Override
   public Optional<BookingStayInfo> findBookingForStayOperation(UUID hotelId, UUID bookingId) {
+    if (!bookingCheckoutDirectory.lockForStayOperation(bookingId)) {
+      return Optional.empty();
+    }
     List<InventoryReservationJpaEntity> reservations =
         inventoryReservationJpaRepository.lockAllByBookingIdOrderByStayDateAscIdAsc(bookingId);
     if (reservations.isEmpty()) {

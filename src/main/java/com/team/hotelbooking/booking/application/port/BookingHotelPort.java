@@ -7,5 +7,7 @@ public interface BookingHotelPort {
 
   Optional<HotelSnapshot> findById(UUID hotelId);
 
+  boolean canManageVouchers(UUID hotelId, UUID actorId, boolean admin);
+
   record HotelSnapshot(UUID id, UUID ownerId, String name, boolean active) {}
 }

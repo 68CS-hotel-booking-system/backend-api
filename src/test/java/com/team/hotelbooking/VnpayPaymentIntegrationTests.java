@@ -11,6 +11,7 @@ import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.BookingItemInput;
 import com.team.hotelbooking.booking.application.command.CreateBookingCommand.ContactInput;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
+import com.team.hotelbooking.booking.infrastructure.integration.BookingEmailNotifications;
 import com.team.hotelbooking.payment.application.port.VnpayGateway;
 import com.team.hotelbooking.payment.application.service.VnpayPaymentService;
 import java.net.URLEncoder;
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -26,14 +28,19 @@ import java.util.stream.Collectors;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.LinkedMultiValueMap;
@@ -47,7 +54,8 @@ import org.testcontainers.utility.DockerImageName;
       "payment.vnpay.tmn-code=TESTCODE",
       "payment.vnpay.hash-secret=sandbox-test-secret",
       "payment.vnpay.payment-url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-      "payment.vnpay.return-url=http://localhost:5173/payment/return"
+      "payment.vnpay.return-url=http://localhost:5173/payment/return",
+      "booking.email-poll-delay=PT24H"
     })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -61,6 +69,8 @@ class VnpayPaymentIntegrationTests {
   @Autowired MockMvc mvc;
   @Autowired CreateBookingUseCase createBooking;
   @Autowired VnpayPaymentService payments;
+  @Autowired BookingEmailNotifications notifications;
+  @MockitoBean JavaMailSender mail;
   @MockitoSpyBean VnpayGateway gateway;
 
   @DynamicPropertySource
@@ -129,7 +139,7 @@ class VnpayPaymentIntegrationTests {
                 LocalTime.of(14, 0),
                 LocalTime.of(12, 0),
                 new ContactInput("Khach test", "vnpay-customer@test.local", "+84980008881"),
-                null,
+                new ContactInput("Khach luu tru", "guest@test.local", "+84980008882"),
                 List.of(new BookingItemInput(ROOM_TYPE, 1, 2, 0)),
                 123456L))
         .id();
@@ -192,6 +202,21 @@ class VnpayPaymentIntegrationTests {
         id);
   }
 
+  private int queuedEmails(UUID id) {
+    return jdbc.queryForObject(
+        "SELECT count(*) FROM booking_email_notifications WHERE booking_id = ?", Integer.class, id);
+  }
+
+  private void makeEmailDue(UUID id, boolean reminder) {
+    jdbc.update(
+        """
+        UPDATE booking_email_notifications SET due_at = now() - interval '1 minute'
+        WHERE booking_id = ? AND is_reminder = ?
+        """,
+        id,
+        reminder);
+  }
+
   @Test
   void authenticatedCreateAndReadThenPublicIpnConfirmBookingAndInventoryExactlyOnce()
       throws Exception {
@@ -221,6 +246,78 @@ class VnpayPaymentIntegrationTests {
     assertThat(bookingStatus(booking)).isEqualTo("CONFIRMED");
     assertThat(confirmedReservations(booking)).isEqualTo(1);
     assertThat(confirmations(booking)).isEqualTo(1);
+    assertThat(queuedEmails(booking)).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("Gửi xác nhận đúng số tiền và nhắc đúng người sau khi giao dịch commit")
+  void shouldSendConfirmationAndReminderToTheirRecipients() throws Exception {
+    // Given
+    UUID booking = booking();
+    var payment = payments.create(CUSTOMER, booking, "127.0.0.1");
+    assertThat(payments.receiveIpn(ipn(payment.id(), "00", "00")).code()).isEqualTo("00");
+    var expectedReminder =
+        LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
+            .plusDays(9)
+            .atTime(14, 0)
+            .atZone(ZoneId.of("Asia/Ho_Chi_Minh"))
+            .toInstant();
+    assertThat(
+            jdbc.queryForObject(
+                    "SELECT due_at FROM booking_email_notifications WHERE booking_id = ? AND is_reminder",
+                    (rs, row) -> rs.getObject(1, OffsetDateTime.class),
+                    booking)
+                .toInstant())
+        .isEqualTo(expectedReminder);
+    var messages = org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+
+    // When
+    notifications.deliverDueEmails();
+
+    // Then
+    verify(mail).send(messages.capture());
+    assertThat(messages.getValue().getTo()).containsExactly("vnpay-customer@test.local");
+    assertThat(messages.getValue().getText()).contains("Đã thanh toán: 123456 VND");
+    assertThat(queuedEmails(booking)).isEqualTo(1);
+
+    makeEmailDue(booking, true);
+    notifications.deliverDueEmails();
+    notifications.deliverDueEmails();
+    verify(mail, times(2)).send(messages.capture());
+    assertThat(messages.getValue().getTo()).containsExactly("guest@test.local");
+    assertThat(messages.getValue().getSubject()).contains("Nhắc nhận phòng");
+    assertThat(queuedEmails(booking)).isZero();
+  }
+
+  @Test
+  @DisplayName("Giữ email để thử lại khi SMTP lỗi và bỏ nhắc của đơn đã hủy")
+  void shouldRetryFailedEmailAndSkipReminderWhenBookingIsCancelled() throws Exception {
+    // Given
+    UUID booking = booking();
+    var payment = payments.create(CUSTOMER, booking, "127.0.0.1");
+    payments.receiveIpn(ipn(payment.id(), "00", "00"));
+    doThrow(new MailSendException("SMTP unavailable"))
+        .doNothing()
+        .when(mail)
+        .send(any(SimpleMailMessage.class));
+
+    // When
+    notifications.deliverDueEmails();
+    notifications.deliverDueEmails();
+
+    // Then
+    verify(mail).send(any(SimpleMailMessage.class));
+    assertThat(queuedEmails(booking)).isEqualTo(2);
+    assertThat(bookingStatus(booking)).isEqualTo("CONFIRMED");
+    assertThat(payments.get(CUSTOMER, payment.id()).status()).isEqualTo("SUCCEEDED");
+
+    makeEmailDue(booking, false);
+    notifications.deliverDueEmails();
+    jdbc.update("UPDATE bookings SET status = 'CANCELLED' WHERE id = ?", booking);
+    makeEmailDue(booking, true);
+    notifications.deliverDueEmails();
+    verify(mail, times(2)).send(any(SimpleMailMessage.class));
+    assertThat(queuedEmails(booking)).isZero();
   }
 
   @Test
@@ -296,6 +393,7 @@ class VnpayPaymentIntegrationTests {
     assertThat(payments.get(CUSTOMER, payment.id()).status()).isEqualTo("PENDING");
     assertThat(bookingStatus(booking)).isEqualTo("PENDING_PAYMENT");
     assertThat(confirmedReservations(booking)).isZero();
+    assertThat(queuedEmails(booking)).isZero();
   }
 
   @Test
@@ -304,6 +402,7 @@ class VnpayPaymentIntegrationTests {
     var first = payments.create(CUSTOMER, booking, "127.0.0.1");
     assertThat(payments.receiveIpn(ipn(first.id(), "24", "02")).code()).isEqualTo("00");
     assertThat(payments.get(CUSTOMER, first.id()).status()).isEqualTo("FAILED");
+    assertThat(queuedEmails(booking)).isZero();
     var second = payments.create(CUSTOMER, booking, "127.0.0.1");
     assertThat(second.id()).isNotEqualTo(first.id());
     assertThat(payments.receiveIpn(ipn(second.id(), "00", "00")).code()).isEqualTo("00");
@@ -325,6 +424,7 @@ class VnpayPaymentIntegrationTests {
     assertThat(result.bookingConfirmed()).isFalse();
     assertThat(bookingStatus(booking)).isEqualTo("PENDING_PAYMENT");
     assertThat(confirmedReservations(booking)).isZero();
+    assertThat(queuedEmails(booking)).isZero();
   }
 
   @Test
@@ -347,6 +447,7 @@ class VnpayPaymentIntegrationTests {
     }
     assertThat(confirmations(booking)).isEqualTo(1);
     assertThat(confirmedReservations(booking)).isEqualTo(1);
+    assertThat(queuedEmails(booking)).isEqualTo(2);
   }
 
   @Test
@@ -358,10 +459,10 @@ class VnpayPaymentIntegrationTests {
         """
         CREATE FUNCTION vnpay_test_reject_confirmation() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
-          IF NEW.to_status = 'CONFIRMED' THEN RAISE EXCEPTION 'simulated confirmation failure'; END IF;
+          IF NEW.booking_confirmed THEN RAISE EXCEPTION 'simulated confirmation failure'; END IF;
           RETURN NEW;
         END $$;
-        CREATE TRIGGER vnpay_test_failure BEFORE INSERT ON booking_status_history
+        CREATE TRIGGER vnpay_test_failure BEFORE UPDATE ON payment_transactions
         FOR EACH ROW EXECUTE FUNCTION vnpay_test_reject_confirmation();
         """);
     try {
@@ -371,11 +472,13 @@ class VnpayPaymentIntegrationTests {
       assertThat(payments.get(CUSTOMER, payment.id()).status()).isEqualTo("PENDING");
       assertThat(bookingStatus(booking)).isEqualTo("PENDING_PAYMENT");
       assertThat(confirmedReservations(booking)).isZero();
+      assertThat(queuedEmails(booking)).isZero();
     } finally {
       jdbc.execute(
-          "DROP TRIGGER vnpay_test_failure ON booking_status_history; DROP FUNCTION vnpay_test_reject_confirmation();");
+          "DROP TRIGGER vnpay_test_failure ON payment_transactions; DROP FUNCTION vnpay_test_reject_confirmation();");
     }
     assertThat(payments.receiveIpn(parameters).code()).isEqualTo("00");
     assertThat(bookingStatus(booking)).isEqualTo("CONFIRMED");
+    assertThat(queuedEmails(booking)).isEqualTo(2);
   }
 }

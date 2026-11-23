@@ -42,6 +42,9 @@ public class BookingStatusHistoryJpaEntity {
   @Column(length = 255)
   private String reason;
 
+  @Column(name = "cancelled_by_hotel")
+  private Boolean cancelledByHotel;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 }

@@ -77,6 +77,20 @@ riêng.
 [Hợp đồng API xét duyệt](docs/api/hotel-review-requests.md): Owner gửi snapshot, Admin xét duyệt,
 quyền truy cập, lỗi, ví dụ request/response và tương thích với API approve cũ.
 
+## Voucher
+
+| Method | Endpoint | Hành vi |
+| --- | --- | --- |
+| POST | `/api/v1/bookings/voucher-quote` | Tài khoản đăng nhập gửi `hotelId`, `checkIn`, `checkOut`, `items`, `voucherCode` và giờ nhận/trả dự kiến nếu có. Trả tiền trước giảm, khoản giảm và tiền phải trả. Báo giá chưa giữ lượt. |
+| POST | `/api/v1/bookings` | Có thể gửi thêm `voucherCode`. Nếu gửi `quotedTotalAmount`, dùng tổng sau giảm. Gửi lại cùng nội dung với cùng header `Idempotency-Key` sẽ nhận lại đơn cũ. Dùng lại khóa cho nội dung khác trả `409`. |
+| POST | `/api/v1/bookings/{bookingId}/cancel` | Người đặt hủy đơn chờ thanh toán. Hủy và hết hạn trả phòng lẫn lượt voucher. |
+| POST / PUT | `/api/v1/admin/vouchers/{code}` | Quản trị tạo hoặc cập nhật voucher toàn hệ thống. |
+| POST / PUT | `/api/v1/management/hotels/{hotelId}/vouchers/{code}` | Quản trị, chủ khách sạn hoặc quản lý được phân công tạo hoặc cập nhật voucher của khách sạn. Quản lý và chủ khách sạn dùng nguồn tài trợ `HOTEL`. |
+
+Body cấu hình gồm `name`, `discountType`, `startsAt`, `endsAt` và một trong `percentageOff` hoặc `fixedAmount` tương ứng với `PERCENTAGE` hoặc `FIXED_AMOUNT`. Có thể cấu hình `maxDiscountAmount`, `minBookingAmount`, `usageLimit`, `perUserLimit`, `status` và `fundingSource`. Mã mặc định ở trạng thái `DRAFT`. Đặt `ACTIVE` để khách có thể dùng trong khoảng hiệu lực. `PUT` thay toàn bộ cấu hình, giữ mã và phạm vi lấy từ URL.
+
+Tiền giảm phần trăm được làm tròn xuống đến đồng. Mọi voucher phải tạo khoản giảm dương và giữ tổng phải trả lớn hơn 0. Hạn mức tính cả đơn đang giữ chỗ còn hạn và đơn đã dùng mã. Việc trả lượt sau khi đã thanh toán thuộc luồng hoàn tiền.
+
 ## Trạng thái
 
 [Tài liệu tổng thể đề tài](docs/project-overview.md): giới thiệu, actor chính, nghiệp vụ từng phần, quy trình và phạm vi MVP.
@@ -94,8 +108,4 @@ Bản nháp đã ghi nhận một phần quyết định nghiệp vụ; nội du
 
 [Tài liệu database](docs/database/README.md) đã cập nhật theo DBML 37 bảng ngày 21/10/2026; đây là thiết kế được cung cấp, chưa phải schema đã chạy migration.
 
-Đã có khung module và các thành phần dùng chung. Security hiện dùng HTTP Basic; chưa triển khai JWT, API nghiệp vụ và
-migration database.
-
-Hiện chưa có entity nghiệp vụ nên ứng dụng vẫn chạy khi chưa có migration; Flyway chỉ cảnh báo
-`No migrations found`. Khi thêm entity, cần migration tạo bảng tương ứng vì đang dùng `ddl-auto: validate`.
+Backend xác thực bằng JWT. Flyway áp dụng schema trong `src/main/resources/db/migration` khi ứng dụng khởi động. Hibernate kiểm tra mapping với `ddl-auto: validate`.

@@ -1,22 +1,35 @@
 package com.team.hotelbooking.booking.infrastructure.config;
 
+import com.team.hotelbooking.booking.BookingCancellationPaymentGateway;
 import com.team.hotelbooking.booking.BookingCheckoutDirectory;
+import com.team.hotelbooking.booking.application.port.BookingCreationRequestPort;
 import com.team.hotelbooking.booking.application.port.BookingHotelPort;
 import com.team.hotelbooking.booking.application.port.BookingIdentityPort;
 import com.team.hotelbooking.booking.application.port.BookingInventoryPort;
 import com.team.hotelbooking.booking.application.port.BookingPricingPort;
+import com.team.hotelbooking.booking.application.service.VoucherApplicationService;
+import com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase;
+import com.team.hotelbooking.booking.application.usecase.CancelHotelBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetCustomerBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetManagementBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.ListCustomerBookingsUseCase;
 import com.team.hotelbooking.booking.application.usecase.ListManagementBookingsUseCase;
+import com.team.hotelbooking.booking.application.usecase.QuoteVoucherUseCase;
+import com.team.hotelbooking.booking.application.usecase.SaveVoucherUseCase;
+import com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService;
+import com.team.hotelbooking.booking.application.usecase.impl.CancelHotelBookingService;
 import com.team.hotelbooking.booking.application.usecase.impl.CreateBookingService;
 import com.team.hotelbooking.booking.application.usecase.impl.GetCustomerBookingDetailService;
 import com.team.hotelbooking.booking.application.usecase.impl.GetManagementBookingDetailService;
 import com.team.hotelbooking.booking.application.usecase.impl.ListCustomerBookingsService;
 import com.team.hotelbooking.booking.application.usecase.impl.ListManagementBookingsService;
+import com.team.hotelbooking.booking.application.usecase.impl.QuoteVoucherService;
+import com.team.hotelbooking.booking.application.usecase.impl.SaveVoucherService;
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
+import com.team.hotelbooking.booking.domain.repository.VoucherRepository;
 import com.team.hotelbooking.booking.infrastructure.integration.BookingCheckoutDirectoryAdapter;
+import com.team.hotelbooking.booking.infrastructure.integration.BookingEmailNotifications;
 import com.team.hotelbooking.shared.config.PaginationProperties;
 import java.time.Clock;
 import java.time.Duration;
@@ -27,11 +40,99 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
+@EnableScheduling
 public class BookingConfig {
+
+  @Bean
+  public SaveVoucherUseCase saveVoucherUseCase(
+      BookingIdentityPort accounts,
+      BookingHotelPort hotels,
+      VoucherRepository vouchers,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    var service = new SaveVoucherService(accounts, hotels, vouchers, clock);
+    var transaction = new TransactionTemplate(transactionManager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public QuoteVoucherUseCase quoteVoucherUseCase(
+      BookingIdentityPort accounts,
+      BookingPricingPort pricing,
+      VoucherApplicationService vouchers,
+      PlatformTransactionManager transactionManager) {
+    var service = new QuoteVoucherService(accounts, pricing, vouchers);
+    var transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+    return (customerId, code, stay) ->
+        Objects.requireNonNull(
+            transaction.execute(status -> service.execute(customerId, code, stay)));
+  }
+
+  @Bean
+  public CancelBookingUseCase cancelBookingUseCase(
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      VoucherRepository vouchers,
+      BookingCancellationPaymentGateway payments,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    var service = new CancelBookingService(bookings, inventory, vouchers, payments, clock);
+    var transaction = new TransactionTemplate(transactionManager);
+    return (customerId, bookingId) ->
+        Objects.requireNonNull(
+            transaction.execute(status -> service.execute(customerId, bookingId)));
+  }
+
+  @Bean
+  public CancelHotelBookingUseCase cancelHotelBookingUseCase(
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      VoucherRepository vouchers,
+      BookingCancellationPaymentGateway payments,
+      Clock clock,
+      BookingIdentityPort accounts,
+      BookingHotelPort hotels,
+      PlatformTransactionManager transactionManager) {
+    var service =
+        new CancelHotelBookingService(
+            new CancelBookingService(bookings, inventory, vouchers, payments, clock),
+            accounts,
+            hotels);
+    var transaction = new TransactionTemplate(transactionManager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public VoucherHoldExpiryJob voucherHoldExpiryJob(
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      VoucherRepository vouchers,
+      BookingCancellationPaymentGateway payments,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    var service = new CancelBookingService(bookings, inventory, vouchers, payments, clock);
+    var transaction = new TransactionTemplate(transactionManager);
+    return new VoucherHoldExpiryJob(
+        vouchers,
+        bookingId -> transaction.executeWithoutResult(status -> service.expire(bookingId)),
+        clock);
+  }
+
+  @Bean
+  public VoucherApplicationService voucherApplicationService(
+      VoucherRepository vouchers, Clock clock) {
+    return new VoucherApplicationService(vouchers, clock);
+  }
 
   @Bean
   public CreateBookingUseCase createBookingUseCase(
@@ -39,12 +140,23 @@ public class BookingConfig {
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
       BookingInventoryPort inventory,
+      BookingCreationRequestPort requests,
+      VoucherRepository vouchers,
+      VoucherApplicationService voucherApplication,
       Clock clock,
       @Value("${booking.hold-ttl:PT15M}") String holdTtl,
       PlatformTransactionManager transactionManager) {
     CreateBookingService service =
         new CreateBookingService(
-            bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl));
+            bookings,
+            accounts,
+            pricing,
+            inventory,
+            requests,
+            vouchers,
+            voucherApplication,
+            clock,
+            Duration.parse(holdTtl));
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
     return command ->
@@ -108,12 +220,24 @@ public class BookingConfig {
   }
 
   @Bean
+  public BookingEmailNotifications bookingEmailNotifications(
+      JdbcClient jdbc,
+      JavaMailSender mail,
+      @Value("${auth.mail-from}") String from,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
+    return new BookingEmailNotifications(
+        jdbc, mail, from, clock, new TransactionTemplate(transactionManager));
+  }
+
+  @Bean
   public BookingCheckoutDirectory bookingCheckoutDirectory(
       BookingRepository bookings,
       BookingInventoryPort inventory,
+      BookingEmailNotifications emails,
       PlatformTransactionManager transactionManager) {
     BookingCheckoutDirectoryAdapter adapter =
-        new BookingCheckoutDirectoryAdapter(bookings, inventory);
+        new BookingCheckoutDirectoryAdapter(bookings, inventory, emails);
     TransactionTemplate readOnlyTx = new TransactionTemplate(transactionManager);
     readOnlyTx.setReadOnly(true);
     TransactionTemplate writeTx = new TransactionTemplate(transactionManager);
@@ -128,6 +252,12 @@ public class BookingConfig {
       public boolean confirmPayment(UUID bookingId, Instant now) {
         return Boolean.TRUE.equals(
             writeTx.execute(status -> adapter.confirmPayment(bookingId, now)));
+      }
+
+      @Override
+      public boolean lockForStayOperation(UUID bookingId) {
+        // Inventory giữ transaction mở đến khi hoàn tất phân công hoặc thay đổi trạng thái.
+        return adapter.lockForStayOperation(bookingId);
       }
 
       @Override

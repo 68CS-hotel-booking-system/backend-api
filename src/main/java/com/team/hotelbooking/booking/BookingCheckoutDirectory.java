@@ -17,6 +17,9 @@ public interface BookingCheckoutDirectory {
   /** Chỉ xác nhận đơn chờ thanh toán khi giữ phòng vẫn còn hiệu lực. */
   boolean confirmPayment(UUID bookingId, Instant now);
 
+  /** Khóa đơn trong transaction của bên gọi và trả false nếu đơn đã hủy. */
+  boolean lockForStayOperation(UUID bookingId);
+
   boolean updateStayStatus(UUID bookingId, String status, Instant updatedAt);
 
   record BookingCheckoutSnapshot(
