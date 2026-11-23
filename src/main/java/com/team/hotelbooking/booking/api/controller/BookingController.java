@@ -10,6 +10,7 @@ import com.team.hotelbooking.booking.application.result.BookingSummaryResult;
 import com.team.hotelbooking.booking.application.usecase.CreateBookingUseCase;
 import com.team.hotelbooking.booking.application.usecase.GetCustomerBookingDetailUseCase;
 import com.team.hotelbooking.booking.application.usecase.ListCustomerBookingsUseCase;
+import com.team.hotelbooking.booking.domain.model.Booking;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
 import com.team.hotelbooking.shared.web.ApiResponse;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -48,10 +50,14 @@ public class BookingController {
           "Tính lại và lưu snapshot ngày/đêm, giờ nhận/trả, tiền phòng từng đêm, phụ thu, thông tin người đặt/người ở và bàn giao kết quả cho thanh toán.")
   @PostMapping
   public ResponseEntity<ApiResponse<BookingDetailResponse>> createBooking(
-      @Valid @RequestBody CreateBookingRequest request, Principal principal) {
+      @Valid @RequestBody CreateBookingRequest request,
+      @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+      Principal principal) {
+    Booking.validateIdempotencyKey(idempotencyKey);
     UUID customerId = UUID.fromString(principal.getName());
 
-    BookingDetailResult result = createBookingUseCase.execute(request.toCommand(customerId));
+    BookingDetailResult result =
+        createBookingUseCase.execute(request.toCommand(customerId, idempotencyKey));
 
     BookingDetailResponse response = BookingDetailResponse.from(result);
 

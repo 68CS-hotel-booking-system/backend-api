@@ -14,6 +14,7 @@ import com.team.hotelbooking.booking.api.dto.request.CreateBookingRequest;
 import com.team.hotelbooking.booking.api.dto.request.CreateBookingRequest.BookingItemRequest;
 import com.team.hotelbooking.booking.api.dto.request.CreateBookingRequest.ContactRequest;
 import com.team.hotelbooking.booking.api.exception.BookingExceptionHandler;
+import com.team.hotelbooking.booking.application.command.CreateBookingCommand;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult.BookingItemResult;
 import com.team.hotelbooking.booking.application.result.BookingDetailResult.ContactResult;
@@ -234,6 +235,113 @@ class BookingControllerResponseTests {
                   .content(jsonMapper.writeValueAsString(request)))
           .andExpect(status().isConflict())
           .andExpect(jsonPath("$.code").value("PRICE_CHANGED"));
+    }
+
+    @Test
+    @DisplayName("Chuyển tiếp header Idempotency-Key hợp lệ vào command và trả về 201 Created")
+    void shouldForwardValidIdempotencyKeyHeader() throws Exception {
+      String key = "550e8400-e29b-41d4-a716-446655440000";
+      CreateBookingRequest request =
+          new CreateBookingRequest(
+              HOTEL_ID,
+              LocalDate.of(2026, 11, 10),
+              LocalDate.of(2026, 11, 12),
+              LocalTime.of(8, 0),
+              LocalTime.of(12, 0),
+              new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
+              new ContactRequest("Trần Thị Ở", "guest@example.com", "0987654321"),
+              List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
+              2_700_000L);
+
+      given(createBookingUseCase.execute(any())).willReturn(sampleDetailResult());
+
+      mvc.perform(
+              post("/api/v1/bookings")
+                  .principal(PRINCIPAL)
+                  .header("Idempotency-Key", key)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(jsonMapper.writeValueAsString(request)))
+          .andExpect(status().isCreated())
+          .andExpect(jsonPath("$.data.id").value(BOOKING_ID.toString()));
+
+      org.mockito.Mockito.verify(createBookingUseCase)
+          .execute(
+              org.mockito.ArgumentMatchers.argThat(
+                  (CreateBookingCommand cmd) -> key.equals(cmd.idempotencyKey())));
+    }
+
+    @Test
+    @DisplayName("Trả về 400 Bad Request khi header Idempotency-Key rỗng hoặc sai định dạng")
+    void shouldReturn400WhenIdempotencyKeyHeaderIsBlankOrInvalid() throws Exception {
+      CreateBookingRequest request =
+          new CreateBookingRequest(
+              HOTEL_ID,
+              LocalDate.of(2026, 11, 10),
+              LocalDate.of(2026, 11, 12),
+              null,
+              null,
+              new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
+              null,
+              List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
+              2_700_000L);
+      String body = jsonMapper.writeValueAsString(request);
+
+      mvc.perform(
+              post("/api/v1/bookings")
+                  .principal(PRINCIPAL)
+                  .header("Idempotency-Key", "   ")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(body))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+      mvc.perform(
+              post("/api/v1/bookings")
+                  .principal(PRINCIPAL)
+                  .header("Idempotency-Key", "bad/key with spaces")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(body))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+      mvc.perform(
+              post("/api/v1/bookings")
+                  .principal(PRINCIPAL)
+                  .header("Idempotency-Key", "a".repeat(101))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(body))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+      org.mockito.Mockito.verifyNoInteractions(createBookingUseCase);
+    }
+
+    @Test
+    @DisplayName("Trả về 409 Conflict khi Idempotency-Key xung đột nội dung đặt phòng")
+    void shouldReturn409WhenIdempotencyKeyConflicts() throws Exception {
+      CreateBookingRequest request =
+          new CreateBookingRequest(
+              HOTEL_ID,
+              LocalDate.of(2026, 11, 10),
+              LocalDate.of(2026, 11, 12),
+              null,
+              null,
+              new ContactRequest("Nguyễn Văn Đặt", "booker@example.com", "0912345678"),
+              null,
+              List.of(new BookingItemRequest(ROOM_TYPE_ID, 1, 2, 1)),
+              2_700_000L);
+
+      given(createBookingUseCase.execute(any()))
+          .willThrow(new BookingException(BookingErrorCode.IDEMPOTENCY_CONFLICT));
+
+      mvc.perform(
+              post("/api/v1/bookings")
+                  .principal(PRINCIPAL)
+                  .header("Idempotency-Key", "550e8400-e29b-41d4-a716-446655440000")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(jsonMapper.writeValueAsString(request)))
+          .andExpect(status().isConflict())
+          .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
     }
   }
 

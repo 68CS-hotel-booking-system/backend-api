@@ -20,6 +20,7 @@ public class BookingPersistenceMapper {
     BookingJpaEntity entity = new BookingJpaEntity();
     entity.setId(domain.id());
     entity.setBookingCode(domain.bookingCode());
+    entity.setIdempotencyKey(domain.idempotencyKey());
     entity.setCustomerId(domain.customerId());
     entity.setHotelId(domain.hotelId());
     entity.setBookerNameSnapshot(domain.booker().fullName());
@@ -157,6 +158,7 @@ public class BookingPersistenceMapper {
         entity.getCreatedAt(),
         entity.getUpdatedAt(),
         entity.getVersion() == null ? 0L : entity.getVersion(),
-        items);
+        items,
+        entity.getIdempotencyKey());
   }
 }

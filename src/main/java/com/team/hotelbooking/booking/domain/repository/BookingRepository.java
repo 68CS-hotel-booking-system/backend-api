@@ -19,6 +19,8 @@ public interface BookingRepository {
 
   Optional<Booking> findByIdAndCustomerId(UUID bookingId, UUID customerId);
 
+  Optional<Booking> findByCustomerIdAndIdempotencyKey(UUID customerId, String idempotencyKey);
+
   Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId);
 
   PageResult<Booking> findByCustomerId(

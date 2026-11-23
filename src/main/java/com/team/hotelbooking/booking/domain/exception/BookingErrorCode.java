@@ -14,7 +14,8 @@ public enum BookingErrorCode implements ErrorCode {
   INVALID_OCCUPANCY("Số lượng khách vượt quá sức chứa hoặc không hợp lệ."),
   RATE_NOT_AVAILABLE("Loại phòng chưa có giá bán hợp lệ cho tất cả các đêm lưu trú."),
   PRICE_CHANGED(
-      "Giá lưu trú đã thay đổi so với báo giá trước đó. Vui lòng kiểm tra và xác nhận lại báo giá mới.");
+      "Giá lưu trú đã thay đổi so với báo giá trước đó. Vui lòng kiểm tra và xác nhận lại báo giá mới."),
+  IDEMPOTENCY_CONFLICT("Khóa chống lặp đã được sử dụng cho một yêu cầu đặt phòng khác.");
 
   private final String defaultMessage;
 
