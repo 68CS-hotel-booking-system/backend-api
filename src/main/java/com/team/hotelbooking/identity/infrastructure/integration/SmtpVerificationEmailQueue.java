@@ -2,6 +2,7 @@ package com.team.hotelbooking.identity.infrastructure.integration;
 
 import com.team.hotelbooking.identity.application.port.VerificationEmailQueue;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -71,11 +72,11 @@ public class SmtpVerificationEmailQueue implements VerificationEmailQueue {
 
   private void send(UUID userId, String recipient, String rawToken, Instant expiresAt) {
 
+    String encodedToken = URLEncoder.encode(rawToken, StandardCharsets.UTF_8).replace("+", "%20");
     String link =
         UriComponentsBuilder.fromUri(verificationUrl)
-            .queryParam("token", rawToken)
-            .build()
-            .encode()
+            .fragment("token=" + encodedToken)
+            .build(true)
             .toUriString();
 
     String plainText =

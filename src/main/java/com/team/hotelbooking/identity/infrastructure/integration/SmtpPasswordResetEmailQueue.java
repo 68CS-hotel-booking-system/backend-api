@@ -1,6 +1,7 @@
 package com.team.hotelbooking.identity.infrastructure.integration;
 
 import com.team.hotelbooking.identity.application.port.PasswordResetEmailQueue;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -46,11 +47,18 @@ public class SmtpPasswordResetEmailQueue implements PasswordResetEmailQueue {
         new TransactionSynchronization() {
           @Override
           public void afterCommit() {
-            String link =
+            String encodedToken =
+                URLEncoder.encode(rawToken, StandardCharsets.UTF_8).replace("+", "%20");
+            String baseUrl =
                 UriComponentsBuilder.fromUriString(resetUrl)
-                    .queryParam("token", rawToken)
+                    .fragment(null)
                     .build()
                     .encode()
+                    .toUriString();
+            String link =
+                UriComponentsBuilder.fromUriString(baseUrl)
+                    .fragment("token=" + encodedToken)
+                    .build(true)
                     .toUriString();
 
             String plainText =
