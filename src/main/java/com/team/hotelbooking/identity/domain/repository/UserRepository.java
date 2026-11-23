@@ -25,6 +25,8 @@ public interface UserRepository {
 
   void updatePassword(User updatedUser);
 
+  User updateProfile(User updatedUser);
+
   User updateStatus(User updatedUser, UUID actorId, String reason);
 
   PageResult<User> findAll(UserSearchCriteria criteria, PageQuery pagination);
