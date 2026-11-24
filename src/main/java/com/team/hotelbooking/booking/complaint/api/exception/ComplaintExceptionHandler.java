@@ -24,6 +24,8 @@ public class ComplaintExceptionHandler {
     HttpStatus status =
         switch (exception.code()) {
           case VALIDATION_FAILED -> HttpStatus.BAD_REQUEST;
+          case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+          case COMPLAINT_VERSION_CONFLICT, INVALID_COMPLAINT_TRANSITION -> HttpStatus.CONFLICT;
           case BOOKING_NOT_FOUND, COMPLAINT_NOT_FOUND -> HttpStatus.NOT_FOUND;
           case BOOKING_NOT_COMPLAINABLE, COMPLAINT_ALREADY_OPEN -> HttpStatus.CONFLICT;
         };

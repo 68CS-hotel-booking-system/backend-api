@@ -1,7 +1,9 @@
 package com.team.hotelbooking.booking.complaint.application.result;
 
 import com.team.hotelbooking.booking.complaint.domain.model.Complaint;
+import com.team.hotelbooking.booking.complaint.domain.model.ComplaintAction;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ComplaintResult(
@@ -12,9 +14,19 @@ public record ComplaintResult(
     String content,
     String status,
     Instant createdAt,
-    Instant updatedAt) {
+    Instant updatedAt,
+    long version,
+    List<ComplaintActionResult> history) {
+
+  public ComplaintResult {
+    history = List.copyOf(history);
+  }
 
   public static ComplaintResult from(Complaint complaint) {
+    return from(complaint, List.of());
+  }
+
+  public static ComplaintResult from(Complaint complaint, List<ComplaintAction> history) {
     return new ComplaintResult(
         complaint.id(),
         complaint.bookingId(),
@@ -23,6 +35,8 @@ public record ComplaintResult(
         complaint.content(),
         complaint.status().name(),
         complaint.createdAt(),
-        complaint.updatedAt());
+        complaint.updatedAt(),
+        complaint.version(),
+        history.stream().map(ComplaintActionResult::from).toList());
   }
 }
