@@ -414,6 +414,97 @@ class ContractCommissionIntegrationTests {
         java.sql.Timestamp.from(clock.instant()));
   }
 
+  @Test
+  @DisplayName("Gửi lại cùng khóa không tạo đơn hoặc chốt hoa hồng lần nữa dù hợp đồng đã hết hạn")
+  void shouldReplayBookingWithoutRecapturingCommissionAfterContractExpiry() {
+    String key = UUID.randomUUID().toString();
+    var command = idempotentCommand(key);
+    UUID first = create.execute(command).id();
+    var snapshot = jdbc.queryForMap("SELECT * FROM booking_commissions WHERE booking_id=?", first);
+    given(clock.instant()).willReturn(NOW.plusSeconds(3600));
+    assertThat(create.execute(command).id()).isEqualTo(first);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM bookings WHERE customer_id=? AND idempotency_key=?",
+                Long.class,
+                customer,
+                key))
+        .isEqualTo(1L);
+    assertThat(jdbc.queryForMap("SELECT * FROM booking_commissions WHERE booking_id=?", first))
+        .isEqualTo(snapshot);
+  }
+
+  @Test
+  @DisplayName("Hai yêu cầu đồng thời cùng khóa chỉ giữ một phòng và lưu một snapshot hoa hồng")
+  void shouldCreateOneCommissionSnapshotForConcurrentIdempotentRequests() throws Exception {
+    String key = UUID.randomUUID().toString();
+    var command = idempotentCommand(key);
+    var barrier = new java.util.concurrent.CyclicBarrier(2);
+    try (var pool = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+      var futures = new ArrayList<java.util.concurrent.Future<UUID>>();
+      for (int i = 0; i < 2; i++)
+        futures.add(
+            pool.submit(
+                () -> {
+                  barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                  return create.execute(command).id();
+                }));
+      UUID first = futures.get(0).get(30, java.util.concurrent.TimeUnit.SECONDS);
+      assertThat(futures.get(1).get(30, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(first);
+      assertThat(
+              jdbc.queryForObject(
+                  "SELECT count(*) FROM bookings WHERE customer_id=? AND idempotency_key=?",
+                  Long.class,
+                  customer,
+                  key))
+          .isEqualTo(1L);
+      assertThat(
+              jdbc.queryForObject(
+                  "SELECT count(*) FROM booking_commissions WHERE booking_id=?", Long.class, first))
+          .isEqualTo(1L);
+    }
+  }
+
+  @Test
+  @DisplayName("Admin không thể dùng khóa chống lặp để vượt chặn đặt phòng")
+  void shouldRejectAdminOnIdempotentBookingCreation() {
+    var customerCommand = idempotentCommand(UUID.randomUUID().toString());
+    var command =
+        new CreateBookingCommand(
+            admin,
+            hotel,
+            customerCommand.checkIn(),
+            customerCommand.checkOut(),
+            customerCommand.expectedCheckInTime(),
+            customerCommand.expectedCheckOutTime(),
+            customerCommand.booker(),
+            customerCommand.guest(),
+            customerCommand.items(),
+            customerCommand.quotedTotalAmount(),
+            customerCommand.idempotencyKey());
+    assertThat(assertThrows(BookingException.class, () -> create.execute(command)).code())
+        .isEqualTo(BookingErrorCode.ADMIN_BOOKING_FORBIDDEN);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM bookings WHERE customer_id=?", Long.class, admin))
+        .isZero();
+  }
+
+  private CreateBookingCommand idempotentCommand(String key) {
+    return new CreateBookingCommand(
+        customer,
+        hotel,
+        LocalDate.of(2027, 1, 10),
+        LocalDate.of(2027, 1, 11),
+        LocalTime.of(14, 0),
+        LocalTime.of(12, 0),
+        new ContactInput("Khách test", "guest@example.test", "+84980008881"),
+        null,
+        List.of(new BookingItemInput(roomType, 1, 2, 0)),
+        2000005L,
+        key);
+  }
+
   private UUID booking() {
     return create
         .execute(

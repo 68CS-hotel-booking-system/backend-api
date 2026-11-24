@@ -22,10 +22,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class CreateBookingService implements CreateBookingUseCase {
@@ -65,33 +68,20 @@ public final class CreateBookingService implements CreateBookingUseCase {
 
   @Override
   public BookingDetailResult execute(CreateBookingCommand command) {
-    if (command == null
-        || command.customerId() == null
-        || command.hotelId() == null
-        || command.items() == null
-        || command.items().isEmpty()) {
-      throw new BookingException(BookingErrorCode.VALIDATION_FAILED);
-    }
+    validateCommand(command);
+    String idempotencyKey = Booking.validateIdempotencyKey(command.idempotencyKey());
 
-    AccountSnapshot customer =
-        accounts
-            .findById(command.customerId())
-            .orElseThrow(() -> new BookingException(BookingErrorCode.ACCESS_DENIED));
-
-    if (!customer.active()) {
-      throw new BookingException(BookingErrorCode.ACCESS_DENIED);
-    }
-
-    if (customer.roles().contains("ADMIN")) {
-      throw new BookingException(BookingErrorCode.ADMIN_BOOKING_FORBIDDEN);
-    }
-
-    if (!customer.emailVerified()) {
-      throw new BookingException(BookingErrorCode.EMAIL_NOT_VERIFIED);
-    }
-
+    AccountSnapshot customer = loadVerifiedCustomer(command.customerId());
     ContactSnapshot booker = resolveBooker(command.booker(), customer);
     ContactSnapshot guest = resolveGuest(command.guest(), booker);
+
+    if (idempotencyKey != null) {
+      Optional<BookingDetailResult> existing =
+          findIdempotentReplay(command, customer.id(), idempotencyKey, booker, guest);
+      if (existing.isPresent()) {
+        return existing.get();
+      }
+    }
 
     List<StayQuoteItemCriteria> quoteItems =
         command.items().stream()
@@ -177,7 +167,8 @@ public final class CreateBookingService implements CreateBookingUseCase {
             quote.totalAmount(),
             expiresAt,
             now,
-            domainItems);
+            domainItems,
+            idempotencyKey);
 
     Booking saved = bookings.add(booking);
     try {
@@ -195,6 +186,133 @@ public final class CreateBookingService implements CreateBookingUseCase {
     // Giữ phòng liên tục trong cùng transaction; hết phòng phải rollback cả đơn và giá chốt.
     inventory.hold(saved);
     return BookingDetailResult.from(saved);
+  }
+
+  public Optional<BookingDetailResult> resolveIdempotentReplay(CreateBookingCommand command) {
+    validateCommand(command);
+    String idempotencyKey = Booking.validateIdempotencyKey(command.idempotencyKey());
+    if (idempotencyKey == null) {
+      return Optional.empty();
+    }
+    AccountSnapshot customer = loadVerifiedCustomer(command.customerId());
+    ContactSnapshot booker = resolveBooker(command.booker(), customer);
+    ContactSnapshot guest = resolveGuest(command.guest(), booker);
+    return findIdempotentReplay(command, customer.id(), idempotencyKey, booker, guest);
+  }
+
+  private void validateCommand(CreateBookingCommand command) {
+    if (command == null
+        || command.customerId() == null
+        || command.hotelId() == null
+        || command.items() == null
+        || command.items().isEmpty()
+        || command.items().stream().anyMatch(i -> i == null || i.roomTypeId() == null)) {
+      throw new BookingException(BookingErrorCode.VALIDATION_FAILED);
+    }
+  }
+
+  private AccountSnapshot loadVerifiedCustomer(UUID customerId) {
+    AccountSnapshot customer =
+        accounts
+            .findById(customerId)
+            .orElseThrow(() -> new BookingException(BookingErrorCode.ACCESS_DENIED));
+
+    if (!customer.active()) {
+      throw new BookingException(BookingErrorCode.ACCESS_DENIED);
+    }
+
+    if (customer.roles().contains("ADMIN")) {
+      throw new BookingException(BookingErrorCode.ADMIN_BOOKING_FORBIDDEN);
+    }
+
+    if (!customer.emailVerified()) {
+      throw new BookingException(BookingErrorCode.EMAIL_NOT_VERIFIED);
+    }
+    return customer;
+  }
+
+  private Optional<BookingDetailResult> findIdempotentReplay(
+      CreateBookingCommand command,
+      UUID customerId,
+      String idempotencyKey,
+      ContactSnapshot booker,
+      ContactSnapshot guest) {
+    Optional<Booking> existingOpt =
+        bookings.findByCustomerIdAndIdempotencyKey(customerId, idempotencyKey);
+    if (existingOpt.isEmpty()) {
+      return Optional.empty();
+    }
+    Booking existing = existingOpt.get();
+    if (!matchesIntent(command, booker, guest, existing)) {
+      throw new BookingException(BookingErrorCode.IDEMPOTENCY_CONFLICT);
+    }
+    return Optional.of(BookingDetailResult.from(existing));
+  }
+
+  private static boolean matchesIntent(
+      CreateBookingCommand command,
+      ContactSnapshot booker,
+      ContactSnapshot guest,
+      Booking existing) {
+    if (!Objects.equals(command.hotelId(), existing.hotelId())
+        || !Objects.equals(command.checkIn(), existing.checkIn())
+        || !Objects.equals(command.checkOut(), existing.checkOut())) {
+      return false;
+    }
+
+    LocalTime expectedCheckIn =
+        command.expectedCheckInTime() != null
+            ? command.expectedCheckInTime()
+            : existing.standardCheckInTime();
+    LocalTime expectedCheckOut =
+        command.expectedCheckOutTime() != null
+            ? command.expectedCheckOutTime()
+            : existing.standardCheckOutTime();
+    if (!Objects.equals(expectedCheckIn, existing.expectedCheckInTime())
+        || !Objects.equals(expectedCheckOut, existing.expectedCheckOutTime())) {
+      return false;
+    }
+
+    if (!Objects.equals(booker, existing.booker()) || !Objects.equals(guest, existing.guest())) {
+      return false;
+    }
+
+    if (command.quotedTotalAmount() != null
+        && command.quotedTotalAmount() != existing.totalAmount()) {
+      return false;
+    }
+
+    List<ItemIntent> requestedItems =
+        command.items().stream()
+            .map(i -> new ItemIntent(i.roomTypeId(), i.quantity(), i.adults(), i.children()))
+            .sorted()
+            .toList();
+    List<ItemIntent> storedItems =
+        existing.items().stream()
+            .map(i -> new ItemIntent(i.roomTypeId(), i.quantity(), i.adults(), i.children()))
+            .sorted()
+            .toList();
+    return requestedItems.equals(storedItems);
+  }
+
+  private record ItemIntent(UUID roomTypeId, int quantity, int adults, int children)
+      implements Comparable<ItemIntent> {
+    @Override
+    public int compareTo(ItemIntent other) {
+      int cmp = this.roomTypeId.compareTo(other.roomTypeId);
+      if (cmp != 0) {
+        return cmp;
+      }
+      cmp = Integer.compare(this.quantity, other.quantity);
+      if (cmp != 0) {
+        return cmp;
+      }
+      cmp = Integer.compare(this.adults, other.adults);
+      if (cmp != 0) {
+        return cmp;
+      }
+      return Integer.compare(this.children, other.children);
+    }
   }
 
   private static ContactSnapshot resolveBooker(ContactInput input, AccountSnapshot customer) {

@@ -29,6 +29,7 @@ public class BookingExceptionHandler {
           case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND, BOOKING_NOT_FOUND -> HttpStatus.NOT_FOUND;
           case RATE_NOT_AVAILABLE,
               PRICE_CHANGED,
+              IDEMPOTENCY_CONFLICT,
               CONTRACT_NOT_EFFECTIVE,
               BOOKING_NOT_CANCELLABLE,
               BOOKING_PAYMENT_IN_PROGRESS ->

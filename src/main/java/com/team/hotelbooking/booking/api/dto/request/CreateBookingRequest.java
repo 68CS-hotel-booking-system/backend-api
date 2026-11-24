@@ -50,6 +50,10 @@ public record CreateBookingRequest(
   }
 
   public CreateBookingCommand toCommand(UUID customerId) {
+    return toCommand(customerId, null);
+  }
+
+  public CreateBookingCommand toCommand(UUID customerId, String idempotencyKey) {
     List<BookingItemInput> itemInputs =
         items == null ? List.of() : items.stream().map(BookingItemRequest::toInput).toList();
     return new CreateBookingCommand(
@@ -62,6 +66,7 @@ public record CreateBookingRequest(
         booker == null ? null : booker.toInput(),
         guest == null ? null : guest.toInput(),
         itemInputs,
-        quotedTotalAmount);
+        quotedTotalAmount,
+        idempotencyKey);
   }
 }
