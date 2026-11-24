@@ -5,5 +5,7 @@ import com.team.hotelbooking.booking.domain.model.Booking;
 public interface BookingInventoryPort {
   void hold(Booking booking);
 
+  void release(Booking booking, boolean expired);
+
   boolean confirmIfHeld(Booking booking);
 }

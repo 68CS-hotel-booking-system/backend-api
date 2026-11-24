@@ -3,11 +3,12 @@ package com.team.hotelbooking.payment.domain.repository;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface HotelContractRepository {
 
-  boolean existsByContractCode(String contractCode);
+  String nextContractCode(int year);
 
   // Có hợp đồng ACTIVE khác (bỏ qua excludedContractId, có thể null) chồng [startsAt, endsAt).
   boolean hasOverlappingActive(
@@ -24,4 +25,8 @@ public interface HotelContractRepository {
 
   // Hợp đồng ACTIVE có hiệu lực tại thời điểm at: starts_at <= at < ends_at.
   Optional<HotelContract> findEffective(UUID hotelId, Instant at);
+
+  Set<UUID> findEffectiveHotelIds(Instant at);
+
+  void recordRenewal(UUID previousId, UUID nextId);
 }

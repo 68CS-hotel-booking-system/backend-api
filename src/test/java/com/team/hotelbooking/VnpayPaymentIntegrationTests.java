@@ -115,6 +115,7 @@ class VnpayPaymentIntegrationTests {
         ROOM,
         HOTEL,
         ROOM_TYPE);
+    BookableContractFixture.ensure(jdbc, HOTEL);
   }
 
   private UUID booking() {

@@ -11,6 +11,7 @@ import com.team.hotelbooking.payment.domain.repository.HotelContractRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -36,14 +37,20 @@ public class CreateContractService implements CreateContractUseCase {
       throw FinanceException.userNotFound("Không tìm thấy chủ sở hữu (Owner) được chỉ định.");
     }
 
-    if (command.contractCode() == null || command.contractCode().trim().isBlank()) {
-      throw FinanceException.contractCodeExists("Mã hợp đồng không được để trống.");
+    if (!paymentHotelPort
+        .findOwnerUserId(command.hotelId())
+        .filter(command.ownerUserId()::equals)
+        .isPresent()) {
+      throw FinanceException.accessDenied("Owner của hợp đồng phải là chủ sở hữu khách sạn.");
     }
-
-    String code = command.contractCode().trim();
-    if (contractRepository.existsByContractCode(code)) {
-      throw FinanceException.contractCodeExists(
-          "Mã hợp đồng " + code + " đã tồn tại trên hệ thống.");
+    if (command.status() != null
+        && command.status() != HotelContract.ContractStatus.DRAFT
+        && command.status() != HotelContract.ContractStatus.ACTIVE) {
+      throw FinanceException.invalidPeriod("Chỉ tạo hợp đồng DRAFT hoặc ACTIVE.");
+    }
+    if (command.commissionRate() != null
+        && command.commissionRate().stripTrailingZeros().scale() > 2) {
+      throw FinanceException.invalidRate("Tỷ lệ hoa hồng có tối đa hai chữ số thập phân.");
     }
 
     if (command.endsAt() == null
@@ -70,12 +77,19 @@ public class CreateContractService implements CreateContractUseCase {
           "Khoảng thời gian hiệu lực bị trùng lặp với hợp đồng đang hoạt động khác của khách sạn.");
     }
 
-    HotelContract.CommissionBasis commissionBasis =
-        command.commissionBasis() != null
-            ? command.commissionBasis()
-            : HotelContract.CommissionBasis.AFTER_DISCOUNT;
+    if (command.commissionBasis() != null
+        && command.commissionBasis() != HotelContract.CommissionBasis.AFTER_DISCOUNT) {
+      throw FinanceException.invalidRate(
+          "Hoa hồng được tính cố định trên tiền phòng sau giảm giá.");
+    }
+    HotelContract.CommissionBasis commissionBasis = HotelContract.CommissionBasis.AFTER_DISCOUNT;
 
     Instant now = clock.instant();
+    if (!command.endsAt().isAfter(now)) {
+      throw FinanceException.invalidPeriod("Hợp đồng mới phải còn thời hạn hiệu lực.");
+    }
+    String code =
+        contractRepository.nextContractCode(now.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).getYear());
 
     HotelContract saved =
         contractRepository.add(

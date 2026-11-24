@@ -75,7 +75,13 @@ class BookingServicesTests {
     clock = Clock.fixed(Instant.parse("2026-11-09T02:00:00Z"), ZoneOffset.UTC);
     createBookingService =
         new CreateBookingService(
-            bookings, accounts, pricing, inventory, clock, Duration.ofMinutes(15));
+            bookings,
+            accounts,
+            pricing,
+            inventory,
+            clock,
+            Duration.ofMinutes(15),
+            org.mockito.Mockito.mock(com.team.hotelbooking.booking.BookingCommissionCapture.class));
     listCustomerBookingsService = new ListCustomerBookingsService(bookings, accounts, 50);
     getCustomerBookingDetailService = new GetCustomerBookingDetailService(bookings, accounts);
     listManagementBookingsService =

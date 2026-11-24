@@ -43,6 +43,29 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
   private final BookingPersistenceMapper mapper;
 
   @Override
+  public void cancelPending(UUID bookingId, Booking.Status status, Instant now, UUID actorId) {
+    var entity = bookingJpaRepository.findById(bookingId).orElseThrow();
+    if (entity.getStatus() != BookingJpaEntity.DbStatus.PENDING_PAYMENT
+        || (status != Booking.Status.CANCELLED && status != Booking.Status.EXPIRED))
+      throw new IllegalStateException("Invalid locked cancellation transition");
+    var history = new BookingStatusHistoryJpaEntity();
+    history.setId(UUID.randomUUID());
+    history.setBookingId(bookingId);
+    history.setFromStatus(entity.getStatus());
+    history.setToStatus(BookingJpaEntity.DbStatus.valueOf(status.name()));
+    history.setChangedByUserId(actorId);
+    history.setReason(
+        status == Booking.Status.EXPIRED
+            ? "Đơn đã hết hạn thanh toán."
+            : "Khách hủy đơn chưa thanh toán.");
+    history.setCreatedAt(now);
+    entity.setStatus(history.getToStatus());
+    entity.setUpdatedAt(now);
+    bookingJpaRepository.saveAndFlush(entity);
+    bookingStatusHistoryJpaRepository.saveAndFlush(history);
+  }
+
+  @Override
   public Booking add(Booking booking) {
     BookingJpaEntity newBooking = mapper.toBookingEntity(booking);
     // UUID đã được cấp ở domain; version null đánh dấu đây là bản ghi mới cho Spring Data JPA.

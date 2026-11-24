@@ -200,8 +200,9 @@ public class HotelConfig {
   public GetPublicHotelUseCase getPublicHotelUseCase(
       HotelRepository hotels,
       AmenityRepository amenities,
+      com.team.hotelbooking.hotel.HotelSalesPolicy sales,
       PlatformTransactionManager transactionManager) {
-    GetPublicHotelService service = new GetPublicHotelService(hotels, amenities);
+    GetPublicHotelService service = new GetPublicHotelService(hotels, amenities, sales);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 

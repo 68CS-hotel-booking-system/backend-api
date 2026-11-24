@@ -39,6 +39,7 @@ public final class CreateBookingService implements CreateBookingUseCase {
   private final BookingInventoryPort inventory;
   private final Clock clock;
   private final Duration holdTtl;
+  private final com.team.hotelbooking.booking.BookingCommissionCapture commissions;
 
   public CreateBookingService(
       BookingRepository bookings,
@@ -46,7 +47,8 @@ public final class CreateBookingService implements CreateBookingUseCase {
       BookingPricingPort pricing,
       BookingInventoryPort inventory,
       Clock clock,
-      Duration holdTtl) {
+      Duration holdTtl,
+      com.team.hotelbooking.booking.BookingCommissionCapture commissions) {
 
     if (holdTtl == null || holdTtl.isZero() || holdTtl.isNegative()) {
       throw new IllegalArgumentException("Hold TTL must be positive.");
@@ -58,6 +60,7 @@ public final class CreateBookingService implements CreateBookingUseCase {
     this.inventory = inventory;
     this.clock = clock;
     this.holdTtl = holdTtl;
+    this.commissions = commissions;
   }
 
   @Override
@@ -77,6 +80,10 @@ public final class CreateBookingService implements CreateBookingUseCase {
 
     if (!customer.active()) {
       throw new BookingException(BookingErrorCode.ACCESS_DENIED);
+    }
+
+    if (customer.roles().contains("ADMIN")) {
+      throw new BookingException(BookingErrorCode.ADMIN_BOOKING_FORBIDDEN);
     }
 
     if (!customer.emailVerified()) {
@@ -173,6 +180,18 @@ public final class CreateBookingService implements CreateBookingUseCase {
             domainItems);
 
     Booking saved = bookings.add(booking);
+    try {
+      commissions.capture(
+          saved.id(),
+          saved.hotelId(),
+          quote.roomSubtotalAmount(),
+          quote.discountAmount(),
+          quote.totalAmount(),
+          now);
+    } catch (
+        com.team.hotelbooking.booking.BookingCommissionCapture.ContractUnavailableException error) {
+      throw new BookingException(BookingErrorCode.CONTRACT_NOT_EFFECTIVE);
+    }
     // Giữ phòng liên tục trong cùng transaction; hết phòng phải rollback cả đơn và giá chốt.
     inventory.hold(saved);
     return BookingDetailResult.from(saved);

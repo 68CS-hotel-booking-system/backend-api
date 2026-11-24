@@ -108,7 +108,7 @@ class ContractLifecycleIntegrationTests {
         INSERT INTO hotel_contracts (id, contract_code, hotel_id, owner_user_id, commission_rate,
                                      commission_basis, starts_at, ends_at, status,
                                      created_by_user_id)
-        VALUES (?, ?, ?, ?, 12.50, 'BEFORE_DISCOUNT', CAST(? AS timestamptz),
+        VALUES (?, ?, ?, ?, 12.50, 'AFTER_DISCOUNT', CAST(? AS timestamptz),
                 CAST(? AS timestamptz), CAST(? AS hotel_contract_status__t), ?)
         """,
         id,
@@ -128,7 +128,7 @@ class ContractLifecycleIntegrationTests {
         .authorities(new SimpleGrantedAuthority("ROLE_" + role));
   }
 
-  private ResultActions createContract(JwtRequestPostProcessor actor, String code, String status)
+  private ResultActions createContract(JwtRequestPostProcessor actor, String status)
       throws Exception {
     return mvc.perform(
         post(CONTRACTS)
@@ -136,11 +136,11 @@ class ContractLifecycleIntegrationTests {
             .contentType(MediaType.APPLICATION_JSON)
             .content(
                 """
-                {"contractCode": "%s", "ownerUserId": "%s", "commissionRate": 15.00,
+                {"ownerUserId": "%s", "commissionRate": 15.00,
                  "commissionBasis": "AFTER_DISCOUNT", "startsAt": "2027-01-01T00:00:00Z",
                  "endsAt": "2028-01-01T00:00:00Z", "status": "%s"}
                 """
-                    .formatted(code, OWNER_ID, status)));
+                    .formatted(OWNER_ID, status)));
   }
 
   private String statusOf(UUID contractId) {
@@ -153,30 +153,112 @@ class ContractLifecycleIntegrationTests {
   class CreateApiTests {
 
     @Test
+    @DisplayName("Migration cấp số sau mã nhập tay cũ và không sửa dữ liệu cũ")
+    void shouldInitializeSequenceAfterLegacyCodes() throws Exception {
+      String migration =
+          new org.springframework.core.io.ClassPathResource(
+                  "db/migration/V20261124120000000__generate_contract_codes.sql")
+              .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+      transactionTemplate.executeWithoutResult(
+          transaction -> {
+            transaction.setRollbackOnly();
+            jdbc.execute("CREATE SCHEMA contract_code_upgrade_test");
+            jdbc.execute("SET LOCAL search_path TO contract_code_upgrade_test, public");
+            jdbc.execute("CREATE TABLE hotel_contracts(contract_code varchar(50))");
+            jdbc.update(
+                "INSERT INTO hotel_contracts VALUES ('HD-2025-999999'), ('CUSTOM-LEGACY'), ('HD-2026-000004')");
+            jdbc.execute(migration);
+            assertThat(jdbc.queryForObject("SELECT nextval('hotel_contract_code_seq')", Long.class))
+                .isEqualTo(1000000L);
+            assertThat(jdbc.queryForList("SELECT contract_code FROM hotel_contracts", String.class))
+                .containsExactlyInAnyOrder("HD-2025-999999", "CUSTOM-LEGACY", "HD-2026-000004");
+          });
+    }
+
+    @Test
+    @DisplayName("Tạo đồng thời nhận mã khác nhau và giữ nguyên mã hợp đồng cũ")
+    void shouldGenerateUniqueCodesConcurrentlyAndPreserveExistingCodes() throws Exception {
+      UUID legacy =
+          insertContract(
+              "LEGACY-EXTERNAL-01", "2027-01-01T00:00:00Z", "2028-01-01T00:00:00Z", "DRAFT");
+      var barrier = new CyclicBarrier(4);
+      try (var executor = Executors.newFixedThreadPool(4)) {
+        Callable<String> create =
+            () -> {
+              barrier.await(10, TimeUnit.SECONDS);
+              return createContract(actor(ADMIN_ID, "ADMIN"), "DRAFT")
+                  .andExpect(status().isCreated())
+                  .andReturn()
+                  .getResponse()
+                  .getContentAsString();
+            };
+        var responses = executor.invokeAll(List.of(create, create, create, create));
+        var codes = new java.util.HashSet<String>();
+        for (var response : responses) {
+          codes.add(
+              tools.jackson.databind.json.JsonMapper.builder()
+                  .build()
+                  .readTree(response.get(20, TimeUnit.SECONDS))
+                  .path("data")
+                  .path("contractCode")
+                  .asText());
+        }
+        assertThat(codes).hasSize(4).allMatch(code -> code.matches("HD-[0-9]{4}-[0-9]{6,}"));
+      }
+      assertThat(
+              jdbc.queryForObject(
+                  "SELECT contract_code FROM hotel_contracts WHERE id = ?", String.class, legacy))
+          .isEqualTo("LEGACY-EXTERNAL-01");
+    }
+
+    @Test
+    @DisplayName("Không nhận mã hợp đồng do client tự truyền")
+    void shouldRejectClientSuppliedContractCode() throws Exception {
+      mvc.perform(
+              post(CONTRACTS)
+                  .with(actor(ADMIN_ID, "ADMIN"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      """
+              {"contractCode":"MANUAL-OVERRIDE","ownerUserId":"%s","commissionRate":10,
+               "startsAt":"2027-01-01T00:00:00Z","endsAt":"2028-01-01T00:00:00Z"}
+              """
+                          .formatted(OWNER_ID)))
+          .andExpect(status().isBadRequest());
+      assertThat(
+              jdbc.queryForObject(
+                  "SELECT count(*) FROM hotel_contracts WHERE hotel_id = ?",
+                  Integer.class,
+                  HOTEL_ID))
+          .isZero();
+    }
+
+    @Test
     @DisplayName("ADMIN tạo được (201), người tạo lấy từ principal")
     void shouldCreateWithAdminAsCreatorWhenActorIsAdmin() throws Exception {
       // When
-      createContract(actor(ADMIN_ID, "ADMIN"), "PM16-CREATE-01", "DRAFT")
+      createContract(actor(ADMIN_ID, "ADMIN"), "DRAFT")
           .andExpect(status().isCreated())
           .andExpect(jsonPath("$.data.createdByUserId").value(ADMIN_ID.toString()))
-          .andExpect(jsonPath("$.data.status").value("DRAFT"));
+          .andExpect(jsonPath("$.data.status").value("DRAFT"))
+          .andExpect(
+              jsonPath("$.data.contractCode")
+                  .value(org.hamcrest.Matchers.matchesPattern("HD-[0-9]{4}-[0-9]{6,}")));
 
       // Then
       assertThat(
               jdbc.queryForObject(
-                  "SELECT created_by_user_id FROM hotel_contracts WHERE contract_code = ?",
+                  "SELECT created_by_user_id FROM hotel_contracts WHERE hotel_id = ?",
                   UUID.class,
-                  "PM16-CREATE-01"))
+                  HOTEL_ID))
           .isEqualTo(ADMIN_ID);
     }
 
     @Test
     @DisplayName("HOTEL_OWNER và CUSTOMER bị 403, không ghi hợp đồng")
     void shouldForbidNonAdminWithoutWriting() throws Exception {
-      createContract(actor(OWNER_ID, "HOTEL_OWNER"), "PM16-FORBID-01", "DRAFT")
-          .andExpect(status().isForbidden());
-      createContract(actor(CUSTOMER_ID, "CUSTOMER"), "PM16-FORBID-02", "DRAFT")
-          .andExpect(status().isForbidden());
+      createContract(actor(OWNER_ID, "HOTEL_OWNER"), "DRAFT").andExpect(status().isForbidden());
+      createContract(actor(CUSTOMER_ID, "CUSTOMER"), "DRAFT").andExpect(status().isForbidden());
       assertThat(
               jdbc.queryForObject(
                   "SELECT count(*) FROM hotel_contracts WHERE hotel_id = ?",
@@ -192,7 +274,7 @@ class ContractLifecycleIntegrationTests {
       insertContract("PM16-EXISTING", "2027-06-01T00:00:00Z", "2027-09-01T00:00:00Z", "ACTIVE");
 
       // When / Then
-      createContract(actor(ADMIN_ID, "ADMIN"), "PM16-CREATE-02", "ACTIVE")
+      createContract(actor(ADMIN_ID, "ADMIN"), "ACTIVE")
           .andExpect(status().isConflict())
           .andExpect(jsonPath("$.code").value("ACTIVE_CONTRACT_PERIOD_OVERLAP"));
     }
@@ -358,7 +440,7 @@ class ContractLifecycleIntegrationTests {
       assertThat(inside.get().ownerUserId()).isEqualTo(OWNER_ID);
       assertThat(inside.get().commissionRate()).isEqualByComparingTo(new BigDecimal("12.50"));
       assertThat(inside.get().commissionBasis())
-          .isEqualTo(ContractDirectory.CommissionBasis.BEFORE_DISCOUNT);
+          .isEqualTo(ContractDirectory.CommissionBasis.AFTER_DISCOUNT);
       assertThat(atEnd).isEmpty();
     }
   }

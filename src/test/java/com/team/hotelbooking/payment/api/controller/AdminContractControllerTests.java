@@ -62,7 +62,12 @@ class AdminContractControllerTests {
     mvc =
         MockMvcBuilders.standaloneSetup(
                 new AdminContractController(
-                    createContractUseCase, activateContractUseCase, terminateContractUseCase))
+                    createContractUseCase,
+                    activateContractUseCase,
+                    terminateContractUseCase,
+                    org.mockito.Mockito.mock(
+                        com.team.hotelbooking.payment.application.usecase.RenewContractUseCase
+                            .class)))
             .setControllerAdvice(new FinanceExceptionHandler(new ProblemDetailFactory()))
             .build();
 
@@ -86,7 +91,6 @@ class AdminContractControllerTests {
 
       CreateContractRequest request =
           new CreateContractRequest(
-              "HD-2026-001",
               ownerId,
               new BigDecimal("15.00"),
               HotelContract.CommissionBasis.AFTER_DISCOUNT,
@@ -139,7 +143,6 @@ class AdminContractControllerTests {
 
       CreateContractRequest request =
           new CreateContractRequest(
-              "HD-DUPLICATE",
               ownerId,
               new BigDecimal("10.00"),
               HotelContract.CommissionBasis.AFTER_DISCOUNT,

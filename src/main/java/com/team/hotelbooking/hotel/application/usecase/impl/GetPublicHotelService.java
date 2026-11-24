@@ -13,10 +13,15 @@ public class GetPublicHotelService implements GetPublicHotelUseCase {
 
   private final HotelRepository hotels;
   private final AmenityRepository amenities;
+  private final com.team.hotelbooking.hotel.HotelSalesPolicy sales;
 
-  public GetPublicHotelService(HotelRepository hotels, AmenityRepository amenities) {
+  public GetPublicHotelService(
+      HotelRepository hotels,
+      AmenityRepository amenities,
+      com.team.hotelbooking.hotel.HotelSalesPolicy sales) {
     this.hotels = hotels;
     this.amenities = amenities;
+    this.sales = sales;
   }
 
   @Override
@@ -32,6 +37,7 @@ public class GetPublicHotelService implements GetPublicHotelUseCase {
             .findByIdAndStatus(hotelId, Hotel.Status.ACTIVE)
             .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
 
-    return GetPublicHotelResult.from(hotel, amenities.findByHotelId(hotel.id()));
+    return GetPublicHotelResult.from(
+        hotel, amenities.findByHotelId(hotel.id()), sales.hasEffectiveContract(hotel.id()));
   }
 }
