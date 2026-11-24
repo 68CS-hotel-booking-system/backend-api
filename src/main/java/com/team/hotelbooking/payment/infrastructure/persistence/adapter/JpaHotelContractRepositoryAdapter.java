@@ -23,10 +23,26 @@ public class JpaHotelContractRepositoryAdapter implements HotelContractRepositor
   private static final String CODE_UNIQUE = "uq_hotel_contracts_code";
 
   private final HotelContractJpaRepository contractJpaRepository;
+  private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
   @Override
-  public boolean existsByContractCode(String contractCode) {
-    return contractJpaRepository.existsByContractCode(contractCode);
+  public void recordRenewal(UUID previousId, UUID nextId) {
+    jdbc.update(
+        "INSERT INTO hotel_contract_renewals (previous_contract_id, next_contract_id) VALUES (?, ?)",
+        previousId,
+        nextId);
+  }
+
+  @Override
+  public java.util.Set<UUID> findEffectiveHotelIds(Instant at) {
+    return contractJpaRepository.findEffectiveHotelIds(at);
+  }
+
+  @Override
+  public String nextContractCode(int year) {
+    // Sequence cấp số nguyên tử, không lấy MAX + 1 trong luồng tạo hợp đồng.
+    long number = jdbc.queryForObject("SELECT nextval('hotel_contract_code_seq')", Long.class);
+    return String.format(java.util.Locale.ROOT, "HD-%04d-%06d", year, number);
   }
 
   @Override

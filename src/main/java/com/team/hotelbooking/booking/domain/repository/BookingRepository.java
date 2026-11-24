@@ -11,6 +11,8 @@ public interface BookingRepository {
 
   Booking add(Booking booking);
 
+  void cancelPending(UUID bookingId, Booking.Status status, Instant now, UUID actorId);
+
   Optional<Booking> findById(UUID bookingId);
 
   Optional<Booking> lockById(UUID bookingId);

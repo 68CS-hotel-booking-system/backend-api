@@ -11,6 +11,12 @@ import java.util.UUID;
 
 public interface HotelDirectory {
 
+  List<FinanceHotel> findFinanceHotels(UUID ownerId);
+
+  List<FinanceHotel> findFinanceHotelsByIds(Set<UUID> hotelIds);
+
+  record FinanceHotel(UUID id, UUID ownerId, String name, boolean active) {}
+
   // Phục vụ module booking & pricing
   Optional<HotelInfo> findById(UUID hotelId);
 

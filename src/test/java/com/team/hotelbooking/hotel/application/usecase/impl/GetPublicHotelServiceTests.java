@@ -52,7 +52,11 @@ class GetPublicHotelServiceTests {
 
   @BeforeEach
   void setUp() {
-    service = new GetPublicHotelService(hotels, amenities);
+    service =
+        new GetPublicHotelService(
+            hotels,
+            amenities,
+            org.mockito.Mockito.mock(com.team.hotelbooking.hotel.HotelSalesPolicy.class));
     activeHotel =
         new Hotel(
             HOTEL_ID,
@@ -103,7 +107,8 @@ class GetPublicHotelServiceTests {
               (short) 4,
               LocalTime.of(14, 0),
               LocalTime.of(12, 0),
-              List.of(new ListAmenitiesResult(POOL.id(), "SWIMMING_POOL", "Hồ bơi", "HOTEL"))),
+              List.of(new ListAmenitiesResult(POOL.id(), "SWIMMING_POOL", "Hồ bơi", "HOTEL")),
+              false),
           result);
     }
 

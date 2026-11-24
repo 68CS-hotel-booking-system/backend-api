@@ -20,13 +20,15 @@ public record GetPublicHotelResult(
     Short starRating,
     LocalTime checkInTime,
     LocalTime checkOutTime,
-    List<ListAmenitiesResult> amenities) {
+    List<ListAmenitiesResult> amenities,
+    boolean acceptingBookings) {
 
   public GetPublicHotelResult {
     amenities = List.copyOf(amenities);
   }
 
-  public static GetPublicHotelResult from(Hotel hotel, List<Amenity> amenities) {
+  public static GetPublicHotelResult from(
+      Hotel hotel, List<Amenity> amenities, boolean acceptingBookings) {
     return new GetPublicHotelResult(
         hotel.id(),
         hotel.cityId(),
@@ -39,6 +41,7 @@ public record GetPublicHotelResult(
         hotel.starRating(),
         hotel.checkInTime(),
         hotel.checkOutTime(),
-        amenities.stream().map(ListAmenitiesResult::from).toList());
+        amenities.stream().map(ListAmenitiesResult::from).toList(),
+        acceptingBookings);
   }
 }

@@ -1,12 +1,12 @@
 package com.team.hotelbooking.booking.complaint.domain.model;
 
+import com.team.hotelbooking.booking.complaint.domain.exception.ComplaintErrorCode;
 import com.team.hotelbooking.booking.complaint.domain.exception.ComplaintException;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Khiếu nại của khách gắn với một booking (BK-21). Tuần 1 chỉ có tiếp nhận: khách tạo ở OPEN; quản
- * trị chuyển IN_REVIEW/RESOLVED/REJECTED ở tuần 2. Không hứa tự động bồi thường hay hoàn tiền.
+ * Khiếu nại của khách gắn với một booking. Phản hồi và kết quả xử lý không tự phát sinh hoàn tiền.
  */
 public record Complaint(
     UUID id,
@@ -38,6 +38,20 @@ public record Complaint(
     IN_REVIEW,
     RESOLVED,
     REJECTED
+  }
+
+  public Complaint handle(Status next, String response, Instant now) {
+    String message = response == null ? "" : response.trim();
+    if (next == null || now == null || message.isEmpty() || message.length() > MAX_CONTENT_LENGTH)
+      throw ComplaintException.invalid(
+          "Phản hồi phải có từ 1 đến 2000 ký tự và trạng thái hợp lệ.");
+    boolean allowed =
+        status == Status.OPEN && next == Status.IN_REVIEW
+            || status == Status.IN_REVIEW
+                && (next == Status.IN_REVIEW || next == Status.RESOLVED || next == Status.REJECTED);
+    if (!allowed) throw new ComplaintException(ComplaintErrorCode.INVALID_COMPLAINT_TRANSITION);
+    return new Complaint(
+        id, bookingId, customerId, hotelId, category, content, next, createdAt, now, version + 1);
   }
 
   // Kiểm cả khi use case được gọi ngoài HTTP; nội dung đã cắt khoảng trắng đầu/cuối.

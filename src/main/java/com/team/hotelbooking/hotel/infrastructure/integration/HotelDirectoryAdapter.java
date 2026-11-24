@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,34 @@ public class HotelDirectoryAdapter implements HotelDirectory {
   private final HotelRepository hotelRepository;
   private final HotelSearchJpaQueries searchQueries;
   private final EntityManager entityManager;
+
+  @Override
+  public List<FinanceHotel> findFinanceHotels(UUID ownerId) {
+    var query =
+        entityManager.createQuery(
+            "SELECT h FROM HotelJpaEntity h"
+                + (ownerId == null ? "" : " WHERE h.ownerId = :ownerId")
+                + " ORDER BY h.name, h.id",
+            HotelJpaEntity.class);
+    if (ownerId != null) query.setParameter("ownerId", ownerId);
+    return query.getResultList().stream()
+        .map(h -> new FinanceHotel(h.getId(), h.getOwnerId(), h.getName(), h.isActive()))
+        .toList();
+  }
+
+  @Override
+  public List<FinanceHotel> findFinanceHotelsByIds(Set<UUID> hotelIds) {
+    if (hotelIds.isEmpty()) return List.of();
+    return entityManager
+        .createQuery(
+            "SELECT h FROM HotelJpaEntity h WHERE h.id IN :ids ORDER BY h.name, h.id",
+            HotelJpaEntity.class)
+        .setParameter("ids", hotelIds)
+        .getResultList()
+        .stream()
+        .map(h -> new FinanceHotel(h.getId(), h.getOwnerId(), h.getName(), h.isActive()))
+        .toList();
+  }
 
   @Override
   public boolean hasManagementAccess(UUID actorId, UUID hotelId) {

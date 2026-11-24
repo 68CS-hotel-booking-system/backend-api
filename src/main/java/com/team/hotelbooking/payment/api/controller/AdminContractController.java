@@ -43,12 +43,39 @@ public class AdminContractController {
   private final CreateContractUseCase createContractUseCase;
   private final ActivateContractUseCase activateContractUseCase;
   private final TerminateContractUseCase terminateContractUseCase;
+  private final com.team.hotelbooking.payment.application.usecase.RenewContractUseCase
+      renewContractUseCase;
+
+  @PostMapping("/{hotelId}/contracts/{contractId}/renewals")
+  public ResponseEntity<ApiResponse<HotelContractDto>> renewContract(
+      @PathVariable("hotelId") UUID hotelId,
+      @PathVariable("contractId") UUID contractId,
+      @Valid @RequestBody CreateContractRequest request,
+      Authentication authentication) {
+    var next =
+        new CreateContractCommand(
+            hotelId,
+            request.ownerUserId(),
+            request.commissionRate(),
+            request.commissionBasis(),
+            request.startsAt(),
+            request.endsAt(),
+            request.status(),
+            CurrentActor.userId(authentication));
+    var result =
+        renewContractUseCase.execute(
+            new com.team.hotelbooking.payment.application.command.RenewContractCommand(
+                contractId, next));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            ApiResponse.success("Tạo hợp đồng gia hạn thành công.", HotelContractDto.from(result)));
+  }
 
   @Operation(
       summary = "[FN02] Tạo hợp đồng hoa hồng khách sạn (Admin)",
       description =
-          "Chỉ ADMIN. Tạo hợp đồng hoa hồng mới với đối tác khách sạn. Kiểm tra chặt chẽ: mã hợp"
-              + " đồng không trùng, tỷ lệ hoa hồng 0-100%, và không trùng lặp thời gian với hợp"
+          "Chỉ ADMIN. Tạo hợp đồng hoa hồng mới với đối tác khách sạn. Mã hợp đồng do hệ thống tự sinh."
+              + " Kiểm tra tỷ lệ hoa hồng 0-100%, và không trùng lặp thời gian với hợp"
               + " đồng ACTIVE khác. Người tạo lấy từ tài khoản đăng nhập.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -68,7 +95,7 @@ public class AdminContractController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "409",
-        description = "Mã hợp đồng đã tồn tại hoặc trùng lặp thời gian với hợp đồng ACTIVE khác",
+        description = "Trùng lặp thời gian với hợp đồng ACTIVE khác",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   })
   @PostMapping("/{hotelId}/contracts")
@@ -81,7 +108,6 @@ public class AdminContractController {
         createContractUseCase.execute(
             new CreateContractCommand(
                 hotelId,
-                request.contractCode(),
                 request.ownerUserId(),
                 request.commissionRate(),
                 request.commissionBasis(),

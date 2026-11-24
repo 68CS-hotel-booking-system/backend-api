@@ -22,19 +22,24 @@ import org.springframework.stereotype.Repository;
 public class HotelSearchJpaQueries {
 
   private final EntityManager entityManager;
+  private final com.team.hotelbooking.hotel.HotelSalesPolicy contracts;
 
-  public HotelSearchJpaQueries(EntityManager entityManager) {
+  public HotelSearchJpaQueries(
+      EntityManager entityManager, com.team.hotelbooking.hotel.HotelSalesPolicy contracts) {
     this.entityManager = entityManager;
+    this.contracts = contracts;
   }
 
   // Lọc tĩnh: chỉ ACTIVE (HT-05); có đủ MỌI tiện ích khách sạn được yêu cầu.
   public List<Object[]> findActiveHotelsWithCity(
       UUID cityId, String citySlug, Integer minStarRating, Set<UUID> amenityIds) {
+    Set<UUID> eligible = contracts.effectiveHotelIds();
+    if (eligible.isEmpty()) return List.of();
     StringBuilder jpql =
         new StringBuilder(
             """
             SELECT h, c FROM HotelJpaEntity h, CityJpaEntity c
-            WHERE c.id = h.cityId AND h.status = :active
+            WHERE c.id = h.cityId AND h.status = :active AND h.id IN :eligible
             """);
     if (cityId != null) {
       jpql.append(" AND h.cityId = :cityId");
@@ -59,7 +64,8 @@ public class HotelSearchJpaQueries {
     TypedQuery<Object[]> query =
         entityManager
             .createQuery(jpql.toString(), Object[].class)
-            .setParameter("active", HotelJpaEntity.DbStatus.ACTIVE);
+            .setParameter("active", HotelJpaEntity.DbStatus.ACTIVE)
+            .setParameter("eligible", eligible);
     if (cityId != null) {
       query.setParameter("cityId", cityId);
     }

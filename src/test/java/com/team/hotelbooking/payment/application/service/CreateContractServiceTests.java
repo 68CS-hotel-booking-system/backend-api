@@ -51,11 +51,10 @@ class CreateContractServiceTests {
   }
 
   private CreateContractCommand command(
-      UUID hotelId, UUID ownerId, String code, HotelContract.ContractStatus status, UUID adminId) {
+      UUID hotelId, UUID ownerId, HotelContract.ContractStatus status, UUID adminId) {
     Instant start = Instant.now(clock);
     return new CreateContractCommand(
         hotelId,
-        code,
         ownerId,
         new BigDecimal("15.50"),
         HotelContract.CommissionBasis.AFTER_DISCOUNT,
@@ -76,7 +75,7 @@ class CreateContractServiceTests {
       UUID hotelId = UUID.randomUUID();
       UUID ownerId = UUID.randomUUID();
       CreateContractCommand command =
-          command(hotelId, ownerId, "HD-01", HotelContract.ContractStatus.DRAFT, ADMIN_ID);
+          command(hotelId, ownerId, HotelContract.ContractStatus.DRAFT, ADMIN_ID);
 
       given(paymentHotelPort.existsById(hotelId)).willReturn(false);
 
@@ -102,23 +101,18 @@ class CreateContractServiceTests {
       UUID ownerId = UUID.randomUUID();
       given(paymentHotelPort.existsById(hotelId)).willReturn(true);
       given(paymentIdentityPort.existsById(ownerId)).willReturn(true);
-      given(contractRepository.existsByContractCode("HD-SUCCESS-01")).willReturn(false);
+      given(paymentHotelPort.findOwnerUserId(hotelId)).willReturn(java.util.Optional.of(ownerId));
+      given(contractRepository.nextContractCode(2026)).willReturn("HD-2026-000001");
       given(contractRepository.add(any()))
           .willAnswer(invocation -> withId(invocation.getArgument(0)));
       ArgumentCaptor<HotelContract> saved = ArgumentCaptor.forClass(HotelContract.class);
 
       // When
       HotelContractResult result =
-          service.execute(
-              command(
-                  hotelId,
-                  ownerId,
-                  " HD-SUCCESS-01 ",
-                  HotelContract.ContractStatus.DRAFT,
-                  ADMIN_ID));
+          service.execute(command(hotelId, ownerId, HotelContract.ContractStatus.DRAFT, ADMIN_ID));
 
       // Then
-      assertThat(result.contractCode()).isEqualTo("HD-SUCCESS-01");
+      assertThat(result.contractCode()).isEqualTo("HD-2026-000001");
       assertThat(result.commissionRate()).isEqualTo(new BigDecimal("15.50"));
       assertThat(result.status()).isEqualTo(HotelContract.ContractStatus.DRAFT);
       assertThat(result.createdByUserId()).isEqualTo(ADMIN_ID);
@@ -140,7 +134,6 @@ class CreateContractServiceTests {
                       command(
                           UUID.randomUUID(),
                           UUID.randomUUID(),
-                          "HD-02",
                           HotelContract.ContractStatus.DRAFT,
                           null)));
       assertEquals(FinanceErrorCode.ACCESS_DENIED, error.code());
@@ -155,7 +148,7 @@ class CreateContractServiceTests {
       UUID ownerId = UUID.randomUUID();
       given(paymentHotelPort.existsById(hotelId)).willReturn(true);
       given(paymentIdentityPort.existsById(ownerId)).willReturn(true);
-      given(contractRepository.existsByContractCode("HD-03")).willReturn(false);
+      given(paymentHotelPort.findOwnerUserId(hotelId)).willReturn(java.util.Optional.of(ownerId));
       given(contractRepository.hasOverlappingActive(any(), any(), any(), any())).willReturn(true);
 
       // When & Then
@@ -164,12 +157,7 @@ class CreateContractServiceTests {
               FinanceException.class,
               () ->
                   service.execute(
-                      command(
-                          hotelId,
-                          ownerId,
-                          "HD-03",
-                          HotelContract.ContractStatus.ACTIVE,
-                          ADMIN_ID)));
+                      command(hotelId, ownerId, HotelContract.ContractStatus.ACTIVE, ADMIN_ID)));
       assertEquals(FinanceErrorCode.ACTIVE_CONTRACT_PERIOD_OVERLAP, error.code());
       then(contractRepository).should(never()).add(any());
     }

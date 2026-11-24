@@ -34,6 +34,37 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class BookingConfig {
+  @Bean
+  public com.team.hotelbooking.booking.application.usecase.ListHotelCustomersUseCase
+      listHotelCustomersUseCase(
+          BookingIdentityPort accounts,
+          com.team.hotelbooking.booking.application.port.HotelCustomerPort customers,
+          PaginationProperties pagination,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.ListHotelCustomersService(
+            accounts, customers, pagination.maxSize());
+    var transaction = new TransactionTemplate(manager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase
+      cancelBookingUseCase(
+          BookingRepository bookings,
+          BookingIdentityPort accounts,
+          BookingInventoryPort inventory,
+          com.team.hotelbooking.booking.BookingCancellationPaymentPolicy payments,
+          Clock clock,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService(
+            bookings, accounts, inventory, payments, clock);
+    var transaction = new TransactionTemplate(manager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
 
   @Bean
   public CreateBookingUseCase createBookingUseCase(
@@ -41,12 +72,13 @@ public class BookingConfig {
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
       BookingInventoryPort inventory,
+      com.team.hotelbooking.booking.BookingCommissionCapture commissions,
       Clock clock,
       @Value("${booking.hold-ttl:PT15M}") String holdTtl,
       PlatformTransactionManager transactionManager) {
     CreateBookingService service =
         new CreateBookingService(
-            bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl));
+            bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl), commissions);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     TransactionTemplate replayLookupTransaction = new TransactionTemplate(transactionManager);
     replayLookupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);

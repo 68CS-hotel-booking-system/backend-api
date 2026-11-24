@@ -4,6 +4,7 @@ import com.team.hotelbooking.booking.complaint.application.result.ComplaintResul
 import com.team.hotelbooking.shared.pagination.PageResult;
 import com.team.hotelbooking.shared.web.PageResponse;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ComplaintResponse(
@@ -14,7 +15,9 @@ public record ComplaintResponse(
     String content,
     String status,
     Instant createdAt,
-    Instant updatedAt) {
+    Instant updatedAt,
+    long version,
+    List<ComplaintActionResponse> history) {
 
   public static ComplaintResponse from(ComplaintResult result) {
     return new ComplaintResponse(
@@ -25,7 +28,9 @@ public record ComplaintResponse(
         result.content(),
         result.status(),
         result.createdAt(),
-        result.updatedAt());
+        result.updatedAt(),
+        result.version(),
+        result.history().stream().map(ComplaintActionResponse::from).toList());
   }
 
   public static PageResponse<ComplaintResponse> from(PageResult<ComplaintResult> result) {

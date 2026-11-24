@@ -169,6 +169,7 @@ class InventoryConcurrencyIntegrationTests {
     jdbc.update("UPDATE room_types SET is_active = TRUE WHERE hotel_id = ?", HOTEL_ID);
     jdbc.update(
         "UPDATE rooms SET readiness = 'READY'::room_readiness__t WHERE hotel_id = ?", HOTEL_ID);
+    BookableContractFixture.ensure(jdbc, HOTEL_ID);
   }
 
   private CreateBookingCommand bookingRequest(LocalDate checkIn, UUID roomTypeId, long amount) {

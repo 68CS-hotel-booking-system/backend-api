@@ -3,6 +3,7 @@ package com.team.hotelbooking.payment;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -13,6 +14,8 @@ import java.util.UUID;
 public interface ContractDirectory {
 
   Optional<ContractSnapshot> findEffective(UUID hotelId, Instant at);
+
+  Set<UUID> findEffectiveHotelIds(Instant at);
 
   record ContractSnapshot(
       UUID contractId,

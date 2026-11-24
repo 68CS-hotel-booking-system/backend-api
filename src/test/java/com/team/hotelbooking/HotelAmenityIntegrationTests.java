@@ -901,6 +901,7 @@ class HotelAmenityIntegrationTests {
         ownerId,
         DA_NANG_ID,
         "amenity-" + id);
+    BookableContractFixture.ensure(jdbc, id);
   }
 
   private void insertRoomType(UUID id, UUID hotelId, String name) {

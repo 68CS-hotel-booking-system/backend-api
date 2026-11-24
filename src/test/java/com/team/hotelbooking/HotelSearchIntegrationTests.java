@@ -192,6 +192,7 @@ class HotelSearchIntegrationTests {
         "search-it-" + name.toLowerCase(),
         stars,
         status);
+    BookableContractFixture.ensure(jdbc, id);
   }
 
   // Loại phòng và phòng vật lý dùng UUID suy ra từ khách sạn để chạy lại không nhân đôi.
@@ -330,12 +331,13 @@ class HotelSearchIntegrationTests {
                   .param("guests", "2"),
               3);
 
-      // 11 truy vấn theo lô: khách sạn, tiện ích, loại phòng, đếm phòng đang phục vụ,
+      // 12 truy vấn theo lô (thêm một truy vấn điều kiện hợp đồng, không tăng theo số khách sạn):
+      // khách sạn, tiện ích, loại phòng, đếm phòng đang phục vụ,
       // phòng vật lý, lịch chặn, giữ/xác nhận phòng, phân công phòng, giá (2), ảnh bìa.
       assertThat(threeHotels)
           .as("Số câu SQL phải không đổi khi kết quả tăng từ 1 lên 3 khách sạn")
           .isEqualTo(oneHotel)
-          .isLessThanOrEqualTo(11);
+          .isLessThanOrEqualTo(12);
     }
 
     @Test

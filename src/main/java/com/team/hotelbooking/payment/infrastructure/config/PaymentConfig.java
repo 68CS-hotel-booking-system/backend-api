@@ -5,21 +5,15 @@ import com.team.hotelbooking.payment.application.port.PaymentHotelPort;
 import com.team.hotelbooking.payment.application.port.PaymentIdentityPort;
 import com.team.hotelbooking.payment.application.service.CreateContractService;
 import com.team.hotelbooking.payment.application.service.GetContractsService;
-import com.team.hotelbooking.payment.application.service.GetFinancialAccessService;
-import com.team.hotelbooking.payment.application.service.UpdateFinancialAccessService;
 import com.team.hotelbooking.payment.application.usecase.ActivateContractUseCase;
 import com.team.hotelbooking.payment.application.usecase.CreateContractUseCase;
 import com.team.hotelbooking.payment.application.usecase.GetContractsUseCase;
-import com.team.hotelbooking.payment.application.usecase.GetFinancialAccessUseCase;
 import com.team.hotelbooking.payment.application.usecase.TerminateContractUseCase;
-import com.team.hotelbooking.payment.application.usecase.UpdateFinancialAccessUseCase;
 import com.team.hotelbooking.payment.application.usecase.impl.ActivateContractService;
 import com.team.hotelbooking.payment.application.usecase.impl.TerminateContractService;
 import com.team.hotelbooking.payment.domain.repository.HotelContractRepository;
 import com.team.hotelbooking.payment.infrastructure.integration.PaymentContractDirectoryAdapter;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelContractJpaRepository;
-import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessHistoryJpaRepository;
-import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessJpaRepository;
 import java.time.Clock;
 import java.util.Objects;
 import org.springframework.context.annotation.Bean;
@@ -30,6 +24,34 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration
 @org.springframework.boot.context.properties.EnableConfigurationProperties(VnpayProperties.class)
 public class PaymentConfig {
+  @Bean
+  public com.team.hotelbooking.payment.application.usecase.ListPartnerCustomersUseCase
+      listPartnerCustomersUseCase(
+          com.team.hotelbooking.payment.application.port.PartnerCustomerPort customers,
+          Clock clock,
+          com.team.hotelbooking.shared.config.PaginationProperties pagination,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.payment.application.usecase.impl.ListPartnerCustomersService(
+            customers, clock, pagination.maxSize());
+    var transaction = new TransactionTemplate(manager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public com.team.hotelbooking.payment.application.usecase.RenewContractUseCase
+      renewContractUseCase(
+          HotelContractRepository contracts,
+          CreateContractUseCase create,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.payment.application.usecase.impl.RenewContractService(
+            contracts, create);
+    var transaction = new TransactionTemplate(manager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
 
   @Bean
   public CreateContractUseCase createContractUseCase(
@@ -87,53 +109,11 @@ public class PaymentConfig {
   public GetContractsUseCase getContractsUseCase(
       HotelContractJpaRepository contractJpaRepository,
       PaymentHotelPort paymentHotelPort,
-      HotelFinancialAccessJpaRepository financialAccessJpaRepository,
-      PlatformTransactionManager transactionManager) {
-
-    GetContractsService service =
-        new GetContractsService(
-            contractJpaRepository, paymentHotelPort, financialAccessJpaRepository);
-
-    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-    transaction.setReadOnly(true);
-
-    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
-  }
-
-  @Bean
-  public UpdateFinancialAccessUseCase updateFinancialAccessUseCase(
-      HotelFinancialAccessJpaRepository accessJpaRepository,
-      HotelFinancialAccessHistoryJpaRepository historyJpaRepository,
-      PaymentHotelPort paymentHotelPort,
-      PaymentIdentityPort paymentIdentityPort,
       Clock clock,
       PlatformTransactionManager transactionManager) {
 
-    UpdateFinancialAccessService service =
-        new UpdateFinancialAccessService(
-            accessJpaRepository,
-            historyJpaRepository,
-            paymentHotelPort,
-            paymentIdentityPort,
-            clock);
-
-    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-
-    return command ->
-        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
-  }
-
-  @Bean
-  public GetFinancialAccessUseCase getFinancialAccessUseCase(
-      HotelFinancialAccessJpaRepository accessJpaRepository,
-      HotelFinancialAccessHistoryJpaRepository historyJpaRepository,
-      PaymentHotelPort paymentHotelPort,
-      PaymentIdentityPort paymentIdentityPort,
-      PlatformTransactionManager transactionManager) {
-
-    GetFinancialAccessService service =
-        new GetFinancialAccessService(
-            accessJpaRepository, historyJpaRepository, paymentHotelPort, paymentIdentityPort);
+    GetContractsService service =
+        new GetContractsService(contractJpaRepository, paymentHotelPort, clock);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);

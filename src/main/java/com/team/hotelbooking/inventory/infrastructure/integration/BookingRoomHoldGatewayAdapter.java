@@ -17,6 +17,15 @@ public class BookingRoomHoldGatewayAdapter implements BookingRoomHoldGateway {
   private final HotelCatalogPort hotels;
 
   @Override
+  public void release(UUID bookingId, boolean expired) {
+    inventory.release(
+        bookingId,
+        expired
+            ? InventoryReservationDirectory.ReleaseReason.EXPIRED
+            : InventoryReservationDirectory.ReleaseReason.CANCELLED);
+  }
+
+  @Override
   @Transactional
   public boolean confirmIfHeld(UUID bookingId, UUID hotelId, List<UUID> roomTypeIds) {
     // Cùng khóa với hold để không bán lại phòng trong lúc xác nhận sát hạn giữ chỗ.

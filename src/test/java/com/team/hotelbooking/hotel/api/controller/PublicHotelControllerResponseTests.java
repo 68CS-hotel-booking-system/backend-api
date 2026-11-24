@@ -101,7 +101,8 @@ class PublicHotelControllerResponseTests {
                   (short) 4,
                   LocalTime.of(14, 0),
                   LocalTime.of(12, 30),
-                  List.of(new ListAmenitiesResult(POOL_ID, "SWIMMING_POOL", "Hồ bơi", "HOTEL"))));
+                  List.of(new ListAmenitiesResult(POOL_ID, "SWIMMING_POOL", "Hồ bơi", "HOTEL")),
+                  true));
 
       // When
       ResultActions response = mvc.perform(get(PATH));
@@ -114,7 +115,7 @@ class PublicHotelControllerResponseTests {
           .andExpect(jsonPath("$.*", hasSize(2)))
           .andExpect(jsonPath("$.message").value("Lấy thông tin khách sạn thành công."))
           // 11 field cũ + amenities; field mới chỉ thêm vào cuối, không đổi field cũ.
-          .andExpect(jsonPath("$.data.*", hasSize(12)))
+          .andExpect(jsonPath("$.data.*", hasSize(13)))
           .andExpect(jsonPath("$.data.id").value(HOTEL_ID.toString()))
           .andExpect(jsonPath("$.data.cityId").value(CITY_ID.toString()))
           .andExpect(jsonPath("$.data.name").value("Khách sạn Biển Xanh"))
