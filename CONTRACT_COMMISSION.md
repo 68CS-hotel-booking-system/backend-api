@@ -56,7 +56,7 @@ Mã hợp đồng mới do BE tự sinh theo dạng `HD-2026-000001`, gồm năm
 
 Migration `V20261124120000000__generate_contract_codes.sql` khởi tạo sequence sau số lớn nhất của mã cũ cùng định dạng. Sequence tránh trùng khi tạo đồng thời; số đã cấp không được tái sử dụng sau rollback nên có thể có khoảng trống.
 
-Migration mới `V20261122120000000__booking_commission_snapshots.sql` tạo bảng snapshot và quan hệ gia hạn; không tạo hợp đồng sản xuất tự động. Khi triển khai, khách sạn chưa có hợp đồng hiệu lực sẽ bị ẩn khỏi danh sách bán. Admin cần tạo/kích hoạt hợp đồng theo thỏa thuận thực tế.
+Migration mới `V20261124110000000__booking_commission_snapshots.sql` tạo bảng snapshot và quan hệ gia hạn; không tạo hợp đồng sản xuất tự động. Version của migration mới trong PR được đặt sau baseline `develop` (`20261123100000000`) để đáp ứng quy tắc append-only; nội dung SQL giữ nguyên. Khi triển khai, khách sạn chưa có hợp đồng hiệu lực sẽ bị ẩn khỏi danh sách bán. Admin cần tạo/kích hoạt hợp đồng theo thỏa thuận thực tế.
 
 Payment triển khai các interface công khai `HotelSalesPolicy` và `BookingCommissionCapture`; Hotel/Booking không phụ thuộc ngược vào Payment. Booking tự lưu và tổng hợp bảng snapshot của mình qua interface công khai. Không bỏ kiểm tra vòng phụ thuộc của Spring Modulith.
 
