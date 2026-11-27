@@ -12,6 +12,9 @@ public record FinanceDashboardResult(
     long platformAmount,
     long ownerAmount,
     long missingCommissionCount,
+    long pendingRefundAmount,
+    long refundedAmount,
+    long netCollectedAmount,
     List<HotelContractStatus> hotels,
     List<ContractRevenue> contracts) {
   public record ContractRevenue(

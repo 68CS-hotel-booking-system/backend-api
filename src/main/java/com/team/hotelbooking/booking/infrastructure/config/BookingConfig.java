@@ -67,6 +67,23 @@ public class BookingConfig {
   }
 
   @Bean
+  public com.team.hotelbooking.booking.application.usecase.GetCancellationQuoteUseCase
+      getCancellationQuoteUseCase(
+          BookingRepository bookings,
+          BookingIdentityPort accounts,
+          BookingInventoryPort inventory,
+          com.team.hotelbooking.booking.BookingCancellationPaymentPolicy payments,
+          Clock clock,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService(
+            bookings, accounts, inventory, payments, clock);
+    var tx = new TransactionTemplate(manager);
+    tx.setReadOnly(true);
+    return query -> Objects.requireNonNull(tx.execute(s -> service.quote(query)));
+  }
+
+  @Bean
   public CreateBookingUseCase createBookingUseCase(
       BookingRepository bookings,
       BookingIdentityPort accounts,

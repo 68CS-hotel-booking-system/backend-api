@@ -7,6 +7,8 @@ public record CancelBookingResponse(String status, String currency, Cancellation
 
   public static CancelBookingResponse from(CancelBookingResult result) {
     return new CancelBookingResponse(
-        result.status(), result.currency(), new Cancellation(0, 0, "NOT_REQUIRED"));
+        result.status(),
+        result.currency(),
+        new Cancellation(0, result.refundAmount(), result.refundStatus()));
   }
 }

@@ -16,7 +16,7 @@ public class BookingInventoryAdapter implements BookingInventoryPort {
 
   @Override
   public void release(Booking booking, boolean expired) {
-    inventory.release(booking.id(), expired);
+    inventory.release(booking.id(), expired, booking.customerId());
   }
 
   @Override

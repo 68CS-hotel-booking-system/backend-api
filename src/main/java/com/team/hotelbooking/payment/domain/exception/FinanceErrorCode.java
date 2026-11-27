@@ -3,6 +3,11 @@ package com.team.hotelbooking.payment.domain.exception;
 import com.team.hotelbooking.shared.exception.ErrorCode;
 
 public enum FinanceErrorCode implements ErrorCode {
+  INVALID_REFUND("Thông tin hoàn tiền không hợp lệ."),
+  REFUND_NOT_FOUND("Không tìm thấy yêu cầu hoàn tiền."),
+  REFUND_VERSION_CONFLICT("Yêu cầu đã thay đổi. Vui lòng tải lại trước khi xử lý."),
+  REFUND_REFERENCE_CONFLICT("Mã giao dịch hoàn tiền đã được ghi nhận."),
+  INVALID_REFUND_TRANSITION("Trạng thái hoàn tiền không cho phép thao tác này."),
   VALIDATION_FAILED("Tham số tìm kiếm hoặc phân trang không hợp lệ."),
   PAYMENT_NOT_FOUND("Không tìm thấy giao dịch hoặc đơn đặt phòng của bạn."),
   PAYMENT_UNAVAILABLE("Thanh toán VNPAY chưa được cấu hình hoặc chưa được bật."),

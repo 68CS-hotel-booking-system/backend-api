@@ -35,17 +35,20 @@ public class VnpayPaymentService {
   private final Clock clock;
   private final TransactionTemplate writeTx;
   private final TransactionTemplate readTx;
+  private final com.team.hotelbooking.payment.application.port.RefundRegistrationPort refunds;
 
   public VnpayPaymentService(
       PaymentTransactionJpaRepository payments,
       PaymentBookingPort bookings,
       VnpayGateway gateway,
       Clock clock,
-      PlatformTransactionManager transactions) {
+      PlatformTransactionManager transactions,
+      com.team.hotelbooking.payment.application.port.RefundRegistrationPort refunds) {
     this.payments = payments;
     this.bookings = bookings;
     this.gateway = gateway;
     this.clock = clock;
+    this.refunds = refunds;
     this.writeTx = new TransactionTemplate(transactions);
     this.readTx = new TransactionTemplate(transactions);
     this.readTx.setReadOnly(true);
@@ -212,6 +215,17 @@ public class VnpayPaymentService {
       payment.setBookingConfirmed(bookings.confirmPayment(payment.getBookingId(), now));
     }
     payments.saveAndFlush(payment);
+    if (payment.getStatus() == PaymentTransactionJpaEntity.Status.SUCCEEDED
+        && !payment.isBookingConfirmed()
+        && booking.isPresent())
+      refunds.register(
+          payment.getId(),
+          booking.get(),
+          payment.getAmountVnd(),
+          payment.getCurrency(),
+          "UNCONFIRMED_PAYMENT",
+          null,
+          now);
     return VnpayIpnResult.of("00");
   }
 }

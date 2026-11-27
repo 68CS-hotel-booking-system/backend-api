@@ -58,6 +58,15 @@ public class FinanceDashboardAdapter implements FinanceDashboardPort {
         """,
                 Map.of("ids", summary.bookingIds()),
                 Long.class);
+    long pending = 0, refunded = 0;
+    if (!summary.bookingIds().isEmpty()) {
+      var amounts =
+          jdbc.queryForMap(
+              "SELECT COALESCE(SUM(amount) FILTER (WHERE status <> 'COMPLETED'),0) pending, COALESCE(SUM(amount) FILTER (WHERE status = 'COMPLETED'),0) refunded FROM payment_refunds WHERE booking_id IN (:ids)",
+              Map.of("ids", summary.bookingIds()));
+      pending = ((Number) amounts.get("pending")).longValue();
+      refunded = ((Number) amounts.get("refunded")).longValue();
+    }
     return new Totals(
         summary.bookingCount(),
         summary.bookedAmount(),
@@ -65,7 +74,10 @@ public class FinanceDashboardAdapter implements FinanceDashboardPort {
         summary.completedAmount(),
         summary.platformAmount(),
         summary.ownerAmount(),
-        summary.missingCommissionCount());
+        summary.missingCommissionCount(),
+        pending,
+        refunded,
+        Math.subtractExact(collected, refunded));
   }
 
   @Override

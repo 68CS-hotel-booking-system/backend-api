@@ -43,6 +43,25 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
   private final BookingPersistenceMapper mapper;
 
   @Override
+  public void cancelConfirmed(UUID bookingId, Instant now, UUID actorId, String reason) {
+    var entity = bookingJpaRepository.findById(bookingId).orElseThrow();
+    if (entity.getStatus() != BookingJpaEntity.DbStatus.CONFIRMED)
+      throw new IllegalStateException("Invalid paid cancellation transition");
+    var history = new BookingStatusHistoryJpaEntity();
+    history.setId(UUID.randomUUID());
+    history.setBookingId(bookingId);
+    history.setFromStatus(entity.getStatus());
+    history.setToStatus(BookingJpaEntity.DbStatus.CANCELLED);
+    history.setChangedByUserId(actorId);
+    history.setReason("Khách hủy trước giờ nhận phòng; hoàn 100% số tiền đã thu.");
+    history.setCreatedAt(now);
+    entity.setStatus(history.getToStatus());
+    entity.setUpdatedAt(now);
+    bookingJpaRepository.saveAndFlush(entity);
+    bookingStatusHistoryJpaRepository.saveAndFlush(history);
+  }
+
+  @Override
   public void cancelPending(UUID bookingId, Booking.Status status, Instant now, UUID actorId) {
     var entity = bookingJpaRepository.findById(bookingId).orElseThrow();
     if (entity.getStatus() != BookingJpaEntity.DbStatus.PENDING_PAYMENT

@@ -84,6 +84,10 @@ class VnpayPaymentIntegrationTests {
 
   @BeforeEach
   void seed() {
+    jdbc.update(
+        "DELETE FROM payment_refund_actions WHERE refund_id IN (SELECT id FROM payment_refunds WHERE customer_id=?)",
+        CUSTOMER);
+    jdbc.update("DELETE FROM payment_refunds WHERE customer_id=?", CUSTOMER);
     jdbc.update("DELETE FROM payment_transactions WHERE customer_id = ?", CUSTOMER);
     jdbc.update("DELETE FROM inventory_reservations WHERE room_type_id = ?", ROOM_TYPE);
     jdbc.update("DELETE FROM bookings WHERE hotel_id = ?", HOTEL);
@@ -326,6 +330,53 @@ class VnpayPaymentIntegrationTests {
     assertThat(result.bookingConfirmed()).isFalse();
     assertThat(bookingStatus(booking)).isEqualTo("PENDING_PAYMENT");
     assertThat(confirmedReservations(booking)).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT amount FROM payment_refunds WHERE payment_id=?", Long.class, payment.id()))
+        .isEqualTo(123456L);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT reason FROM payment_refunds WHERE payment_id=?",
+                String.class,
+                payment.id()))
+        .isEqualTo("UNCONFIRMED_PAYMENT");
+    assertThat(payments.receiveIpn(ipn(payment.id(), "00", "00")).code()).isEqualTo("02");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM payment_refunds WHERE payment_id=?",
+                Long.class,
+                payment.id()))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void lateReceiptMustRollbackIfRefundCannotBePersistedAndRetrySafely() throws Exception {
+    UUID booking = booking();
+    var payment = payments.create(CUSTOMER, booking, "127.0.0.1");
+    jdbc.update("UPDATE bookings SET expires_at=now()-interval '1 minute' WHERE id=?", booking);
+    jdbc.execute(
+        "CREATE OR REPLACE FUNCTION reject_test_refund() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'refund failure'; END; $$");
+    jdbc.execute(
+        "CREATE TRIGGER refund_fail BEFORE INSERT ON payment_refunds FOR EACH ROW EXECUTE FUNCTION reject_test_refund()");
+    try {
+      assertThatThrownBy(() -> payments.receiveIpn(ipn(payment.id(), "00", "00")))
+          .isInstanceOf(RuntimeException.class);
+      assertThat(payments.get(CUSTOMER, payment.id()).status()).isEqualTo("PENDING");
+      assertThat(
+              jdbc.queryForObject(
+                  "SELECT count(*) FROM payment_refunds WHERE payment_id=?",
+                  Long.class,
+                  payment.id()))
+          .isZero();
+    } finally {
+      jdbc.execute("DROP TRIGGER refund_fail ON payment_refunds");
+      jdbc.execute("DROP FUNCTION reject_test_refund()");
+    }
+    assertThat(payments.receiveIpn(ipn(payment.id(), "00", "00")).code()).isEqualTo("00");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT amount FROM payment_refunds WHERE payment_id=?", Long.class, payment.id()))
+        .isEqualTo(123456L);
   }
 
   @Test

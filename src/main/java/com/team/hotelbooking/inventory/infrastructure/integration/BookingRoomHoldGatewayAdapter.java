@@ -15,14 +15,37 @@ public class BookingRoomHoldGatewayAdapter implements BookingRoomHoldGateway {
 
   private final InventoryReservationDirectory inventory;
   private final HotelCatalogPort hotels;
+  private final com.team.hotelbooking.inventory.infrastructure.persistence.repository
+          .RoomAssignmentJpaRepository
+      assignments;
+  private final java.time.Clock clock;
 
   @Override
   public void release(UUID bookingId, boolean expired) {
+    release(bookingId, expired, null);
+  }
+
+  @Override
+  public void release(UUID bookingId, boolean expired, UUID actorId) {
     inventory.release(
         bookingId,
         expired
             ? InventoryReservationDirectory.ReleaseReason.EXPIRED
             : InventoryReservationDirectory.ReleaseReason.CANCELLED);
+    // All assignment/check-in mutations also lock the booking first.
+    for (var assignment : assignments.findActiveByBookingId(bookingId)) {
+      if (assignment.getStatus()
+          != com.team.hotelbooking.inventory.infrastructure.persistence.entity
+              .RoomAssignmentJpaEntity.DbRoomAssignmentStatus.ASSIGNED)
+        throw new IllegalStateException("Cannot release an occupied room on cancellation");
+      assignment.setStatus(
+          com.team.hotelbooking.inventory.infrastructure.persistence.entity.RoomAssignmentJpaEntity
+              .DbRoomAssignmentStatus.RELEASED);
+      assignment.setReleasedAt(clock.instant());
+      assignment.setReleasedByUserId(actorId);
+      assignment.setReleaseReason(expired ? "Đơn hết hạn" : "Khách hủy đơn");
+      assignments.saveAndFlush(assignment);
+    }
   }
 
   @Override
