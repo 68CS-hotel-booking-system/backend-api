@@ -49,7 +49,10 @@ public class PricingStayQuoteDirectoryAdapter implements StayQuoteDirectory {
                   request.checkOut(),
                   request.expectedCheckInTime(),
                   request.expectedCheckOutTime(),
-                  items));
+                  items,
+                  request.voucherCode()));
+    } catch (com.team.hotelbooking.pricing.voucher.domain.exception.VoucherException ex) {
+      throw new StayQuoteCalculationException(FailureReason.VOUCHER_UNAVAILABLE, ex.getMessage());
     } catch (PricingException ex) {
       throw toCalculationException(ex);
     }

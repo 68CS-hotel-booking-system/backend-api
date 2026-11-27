@@ -27,9 +27,19 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
   private final PricingHotelPort pricingHotelPort;
   private final RoomRateRepository roomRateRepository;
   private final Clock clock;
+  private final com.team.hotelbooking.pricing.voucher.application.port.VoucherDiscountPort vouchers;
 
   public CalculateStayQuoteService(
       PricingHotelPort pricingHotelPort, RoomRateRepository roomRateRepository, Clock clock) {
+    this(pricingHotelPort, roomRateRepository, clock, null);
+  }
+
+  public CalculateStayQuoteService(
+      PricingHotelPort pricingHotelPort,
+      RoomRateRepository roomRateRepository,
+      Clock clock,
+      com.team.hotelbooking.pricing.voucher.application.port.VoucherDiscountPort vouchers) {
+    this.vouchers = vouchers;
     this.pricingHotelPort = pricingHotelPort;
     this.roomRateRepository = roomRateRepository;
     this.clock = clock;
@@ -122,7 +132,10 @@ public final class CalculateStayQuoteService implements CalculateStayQuoteUseCas
     }
 
     long subtotalAmount = totalRoomSubtotal;
-    long discountAmount = 0L;
+    long discountAmount =
+        query.voucherCode() == null || query.voucherCode().isBlank()
+            ? 0L
+            : vouchers.discount(query.hotelId(), query.voucherCode(), totalRoomSubtotal);
     long totalAmount = subtotalAmount - discountAmount;
 
     StayQuote quote =

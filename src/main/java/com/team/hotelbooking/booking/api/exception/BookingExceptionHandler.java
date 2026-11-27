@@ -27,7 +27,8 @@ public class BookingExceptionHandler {
               HttpStatus.BAD_REQUEST;
           case ACCESS_DENIED, EMAIL_NOT_VERIFIED, ADMIN_BOOKING_FORBIDDEN -> HttpStatus.FORBIDDEN;
           case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND, BOOKING_NOT_FOUND -> HttpStatus.NOT_FOUND;
-          case RATE_NOT_AVAILABLE,
+          case VOUCHER_UNAVAILABLE,
+              RATE_NOT_AVAILABLE,
               PRICE_CHANGED,
               IDEMPOTENCY_CONFLICT,
               CONTRACT_NOT_EFFECTIVE,

@@ -36,6 +36,7 @@ public final class CreateBookingService implements CreateBookingUseCase {
   private static final DateTimeFormatter CODE_DATE_FORMAT =
       DateTimeFormatter.ofPattern("yyyyMMdd", Locale.ROOT);
 
+  private final com.team.hotelbooking.booking.application.port.BookingVoucherPort vouchers;
   private final BookingRepository bookings;
   private final BookingIdentityPort accounts;
   private final BookingPricingPort pricing;
@@ -53,6 +54,27 @@ public final class CreateBookingService implements CreateBookingUseCase {
       Duration holdTtl,
       com.team.hotelbooking.booking.BookingCommissionCapture commissions) {
 
+    this(
+        bookings,
+        accounts,
+        pricing,
+        inventory,
+        clock,
+        holdTtl,
+        commissions,
+        com.team.hotelbooking.booking.application.port.BookingVoucherPort.NONE);
+  }
+
+  public CreateBookingService(
+      BookingRepository bookings,
+      BookingIdentityPort accounts,
+      BookingPricingPort pricing,
+      BookingInventoryPort inventory,
+      Clock clock,
+      Duration holdTtl,
+      com.team.hotelbooking.booking.BookingCommissionCapture commissions,
+      com.team.hotelbooking.booking.application.port.BookingVoucherPort vouchers) {
+    this.vouchers = vouchers;
     if (holdTtl == null || holdTtl.isZero() || holdTtl.isNegative()) {
       throw new IllegalArgumentException("Hold TTL must be positive.");
     }
@@ -99,7 +121,8 @@ public final class CreateBookingService implements CreateBookingUseCase {
                 command.checkOut(),
                 command.expectedCheckInTime(),
                 command.expectedCheckOutTime(),
-                quoteItems));
+                quoteItems,
+                command.voucherCode()));
 
     if (command.quotedTotalAmount() != null && command.quotedTotalAmount() != quote.totalAmount()) {
       throw new BookingException(BookingErrorCode.PRICE_CHANGED);
@@ -171,6 +194,13 @@ public final class CreateBookingService implements CreateBookingUseCase {
             idempotencyKey);
 
     Booking saved = bookings.add(booking);
+    vouchers.reserve(
+        saved.hotelId(),
+        command.voucherCode(),
+        saved.id(),
+        quote.roomSubtotalAmount(),
+        quote.discountAmount(),
+        expiresAt);
     try {
       commissions.capture(
           saved.id(),
@@ -243,7 +273,12 @@ public final class CreateBookingService implements CreateBookingUseCase {
       return Optional.empty();
     }
     Booking existing = existingOpt.get();
-    if (!matchesIntent(command, booker, guest, existing)) {
+    String requestedCode =
+        command.voucherCode() == null || command.voucherCode().isBlank()
+            ? null
+            : command.voucherCode().trim().toUpperCase(Locale.ROOT);
+    if (!Objects.equals(requestedCode, vouchers.bookingCode(existing.id()))
+        || !matchesIntent(command, booker, guest, existing)) {
       throw new BookingException(BookingErrorCode.IDEMPOTENCY_CONFLICT);
     }
     return Optional.of(BookingDetailResult.from(existing));
