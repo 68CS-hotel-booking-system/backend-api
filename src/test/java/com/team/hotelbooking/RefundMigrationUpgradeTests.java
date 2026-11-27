@@ -51,7 +51,11 @@ class RefundMigrationUpgradeTests {
             payment.equals(normal));
       var before = jdbc.queryForList("SELECT * FROM payment_transactions ORDER BY id");
       var flyway =
-          Flyway.configure().dataSource(datasource).locations("classpath:db/migration").load();
+          Flyway.configure()
+              .dataSource(datasource)
+              .locations("classpath:db/migration")
+              .target("20261127120000000")
+              .load();
       assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
       assertThat(jdbc.queryForObject("SELECT count(*) FROM payment_refunds", Long.class))
           .isEqualTo(1);
