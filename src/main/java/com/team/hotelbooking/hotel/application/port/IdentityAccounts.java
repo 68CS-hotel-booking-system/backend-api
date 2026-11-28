@@ -8,10 +8,24 @@ public interface IdentityAccounts {
 
   Optional<AccountSnapshot> findById(UUID userId);
 
-  record AccountSnapshot(UUID id, boolean active, boolean emailVerified, Set<String> roles) {
+  default Optional<AccountSnapshot> findByEmail(String email) {
+    return Optional.empty();
+  }
+
+  record AccountSnapshot(
+      UUID id,
+      String fullName,
+      String email,
+      boolean active,
+      boolean emailVerified,
+      Set<String> roles) {
 
     public AccountSnapshot {
       roles = Set.copyOf(roles);
+    }
+
+    public AccountSnapshot(UUID id, boolean active, boolean emailVerified, Set<String> roles) {
+      this(id, null, null, active, emailVerified, roles);
     }
   }
 }

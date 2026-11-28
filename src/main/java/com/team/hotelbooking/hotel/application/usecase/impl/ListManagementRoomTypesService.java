@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.application.usecase.impl;
 
 import com.team.hotelbooking.hotel.application.command.ListManagementRoomTypesQuery;
+import com.team.hotelbooking.hotel.application.port.HotelMemberStore;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts.AccountSnapshot;
 import com.team.hotelbooking.hotel.application.result.ListManagementRoomTypesResult;
@@ -17,12 +18,24 @@ public class ListManagementRoomTypesService implements ListManagementRoomTypesUs
   private final HotelRepository hotels;
   private final RoomTypeRepository roomTypes;
   private final IdentityAccounts accounts;
+  private final HotelMemberStore members;
+  private final HotelManagementAccess access;
 
   public ListManagementRoomTypesService(
       HotelRepository hotels, RoomTypeRepository roomTypes, IdentityAccounts accounts) {
+    this(hotels, roomTypes, accounts, null);
+  }
+
+  public ListManagementRoomTypesService(
+      HotelRepository hotels,
+      RoomTypeRepository roomTypes,
+      IdentityAccounts accounts,
+      HotelMemberStore members) {
     this.hotels = hotels;
     this.roomTypes = roomTypes;
     this.accounts = accounts;
+    this.members = members;
+    this.access = new HotelManagementAccess(hotels);
   }
 
   @Override
@@ -37,18 +50,30 @@ public class ListManagementRoomTypesService implements ListManagementRoomTypesUs
             .orElseThrow(() -> new HotelException(HotelErrorCode.ACCESS_DENIED));
 
     boolean admin = actor.roles().contains("ADMIN");
-    if (!actor.active()
-        || !actor.emailVerified()
-        || (!admin && !actor.roles().contains("HOTEL_OWNER"))) {
+    boolean ownerRole = actor.roles().contains("HOTEL_OWNER");
+    boolean hasStaff =
+        !admin && !ownerRole && members != null && members.hasAnyActiveMembership(actor.id());
+    if (!actor.active() || !actor.emailVerified() || (!admin && !ownerRole && !hasStaff)) {
       throw new HotelException(HotelErrorCode.ACCESS_DENIED);
     }
 
-    // Owner chỉ thấy hotel của mình; hotel của người khác trả 404 như hotel không tồn tại.
+    // Owner/nhân sự chỉ thấy hotel của mình; hotel của người khác trả 404 như hotel không tồn tại.
     Hotel hotel =
-        (admin
-                ? hotels.findById(query.hotelId())
-                : hotels.findByIdAndOwnerId(query.hotelId(), actor.id()))
-            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+        (!admin && ownerRole
+                ? hotels.findByIdAndOwnerId(query.hotelId(), actor.id())
+                : java.util.Optional.<Hotel>empty())
+            .orElseGet(
+                () -> {
+                  Hotel found =
+                      hotels
+                          .findById(query.hotelId())
+                          .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+                  if (access.levelOf(actor.id(), admin, found)
+                      == HotelManagementAccess.Level.NONE) {
+                    throw new HotelException(HotelErrorCode.HOTEL_NOT_FOUND);
+                  }
+                  return found;
+                });
 
     return roomTypes.findByHotelId(hotel.id()).stream()
         .map(ListManagementRoomTypesResult::from)

@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.application.usecase.impl;
 
 import com.team.hotelbooking.hotel.application.command.ListManagementHotelsQuery;
+import com.team.hotelbooking.hotel.application.port.HotelMemberStore;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts.AccountSnapshot;
 import com.team.hotelbooking.hotel.application.result.ManagementHotelResult;
@@ -16,15 +17,27 @@ public class ListManagementHotelsService implements ListManagementHotelsUseCase 
 
   private final HotelRepository hotels;
   private final IdentityAccounts accounts;
+  private final HotelMemberStore members;
+  private final HotelManagementAccess access;
   private final int maxPageSize;
 
   public ListManagementHotelsService(
       HotelRepository hotels, IdentityAccounts accounts, int maxPageSize) {
+    this(hotels, accounts, null, maxPageSize);
+  }
+
+  public ListManagementHotelsService(
+      HotelRepository hotels,
+      IdentityAccounts accounts,
+      HotelMemberStore members,
+      int maxPageSize) {
     if (maxPageSize < 1) {
       throw new IllegalArgumentException("Maximum page size must be positive.");
     }
     this.hotels = hotels;
     this.accounts = accounts;
+    this.members = members;
+    this.access = new HotelManagementAccess(hotels);
     this.maxPageSize = maxPageSize;
   }
 
@@ -49,15 +62,17 @@ public class ListManagementHotelsService implements ListManagementHotelsUseCase 
             .orElseThrow(() -> new HotelException(HotelErrorCode.ACCESS_DENIED));
 
     boolean admin = actor.roles().contains("ADMIN");
-    if (!actor.active()
-        || !actor.emailVerified()
-        || (!admin && !actor.roles().contains("HOTEL_OWNER"))) {
+    boolean ownerRole = actor.roles().contains("HOTEL_OWNER");
+    boolean hasStaff =
+        !admin && !ownerRole && members != null && members.hasAnyActiveMembership(actor.id());
+    if (!actor.active() || !actor.emailVerified() || (!admin && !ownerRole && !hasStaff)) {
       throw new HotelException(HotelErrorCode.ACCESS_DENIED);
     }
 
     PageResult<Hotel> result =
-        admin ? hotels.findAll(pagination) : hotels.findByOwnerId(actor.id(), pagination);
+        admin ? hotels.findAll(pagination) : hotels.findManagedByUser(actor.id(), pagination);
 
-    return result.map(ManagementHotelResult::from);
+    return result.map(
+        hotel -> ManagementHotelResult.from(hotel, access.levelOf(actor.id(), admin, hotel).name()));
   }
 }

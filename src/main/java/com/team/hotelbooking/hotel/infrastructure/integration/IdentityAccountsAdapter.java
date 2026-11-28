@@ -17,11 +17,21 @@ public class IdentityAccountsAdapter implements IdentityAccounts {
 
   @Override
   public Optional<AccountSnapshot> findById(UUID userId) {
-    return accountDirectory
-        .findById(userId)
-        .map(
-            account ->
-                new AccountSnapshot(
-                    account.id(), account.active(), account.emailVerified(), account.roles()));
+    return accountDirectory.findById(userId).map(IdentityAccountsAdapter::toSnapshot);
+  }
+
+  @Override
+  public Optional<AccountSnapshot> findByEmail(String email) {
+    return accountDirectory.findByEmail(email).map(IdentityAccountsAdapter::toSnapshot);
+  }
+
+  private static AccountSnapshot toSnapshot(AccountDirectory.AccountInfo account) {
+    return new AccountSnapshot(
+        account.id(),
+        account.fullName(),
+        account.email(),
+        account.active(),
+        account.emailVerified(),
+        account.roles());
   }
 }

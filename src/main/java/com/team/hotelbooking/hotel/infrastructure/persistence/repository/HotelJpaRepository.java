@@ -22,6 +22,29 @@ public interface HotelJpaRepository
 
   Page<HotelJpaEntity> findByOwnerId(UUID ownerId, Pageable pageable);
 
+  @Query(
+      value =
+          """
+          SELECT h.* FROM hotels h
+          WHERE h.owner_user_id = :userId
+             OR EXISTS (
+               SELECT 1 FROM hotel_members hm
+               WHERE hm.hotel_id = h.id AND hm.user_id = :userId AND hm.is_active = true
+             )
+          ORDER BY h.created_at DESC, h.id DESC
+          """,
+      countQuery =
+          """
+          SELECT COUNT(*) FROM hotels h
+          WHERE h.owner_user_id = :userId
+             OR EXISTS (
+               SELECT 1 FROM hotel_members hm
+               WHERE hm.hotel_id = h.id AND hm.user_id = :userId AND hm.is_active = true
+             )
+          """,
+      nativeQuery = true)
+  Page<HotelJpaEntity> findManagedByUser(@Param("userId") UUID userId, Pageable pageable);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select h from HotelJpaEntity h where h.id = :hotelId")
   Optional<HotelJpaEntity> findByIdForUpdate(@Param("hotelId") UUID hotelId);

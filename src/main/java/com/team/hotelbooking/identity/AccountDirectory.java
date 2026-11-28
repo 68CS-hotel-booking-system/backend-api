@@ -8,6 +8,8 @@ public interface AccountDirectory {
 
   Optional<AccountInfo> findById(UUID userId);
 
+  Optional<AccountInfo> findByEmail(String email);
+
   default boolean existsById(UUID userId) {
     return findById(userId).isPresent();
   }

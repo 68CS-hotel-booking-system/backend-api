@@ -1,6 +1,7 @@
 package com.team.hotelbooking.hotel.application.usecase.impl;
 
 import com.team.hotelbooking.hotel.application.command.ListManagementRoomsQuery;
+import com.team.hotelbooking.hotel.application.port.HotelMemberStore;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts.AccountSnapshot;
 import com.team.hotelbooking.hotel.application.result.ListManagementRoomsResult;
@@ -21,6 +22,8 @@ public class ListManagementRoomsService implements ListManagementRoomsUseCase {
   private final HotelRepository hotels;
   private final RoomRepository rooms;
   private final IdentityAccounts accounts;
+  private final HotelMemberStore members;
+  private final HotelManagementAccess access;
   private final int maxPageSize;
   private final Clock clock;
 
@@ -30,12 +33,24 @@ public class ListManagementRoomsService implements ListManagementRoomsUseCase {
       IdentityAccounts accounts,
       int maxPageSize,
       Clock clock) {
+    this(hotels, rooms, accounts, null, maxPageSize, clock);
+  }
+
+  public ListManagementRoomsService(
+      HotelRepository hotels,
+      RoomRepository rooms,
+      IdentityAccounts accounts,
+      HotelMemberStore members,
+      int maxPageSize,
+      Clock clock) {
     if (maxPageSize < 1) {
       throw new IllegalArgumentException("Maximum page size must be positive.");
     }
     this.hotels = hotels;
     this.rooms = rooms;
     this.accounts = accounts;
+    this.members = members;
+    this.access = new HotelManagementAccess(hotels);
     this.maxPageSize = maxPageSize;
     this.clock = clock;
   }
@@ -65,18 +80,30 @@ public class ListManagementRoomsService implements ListManagementRoomsUseCase {
             .orElseThrow(() -> new HotelException(HotelErrorCode.ACCESS_DENIED));
 
     boolean admin = actor.roles().contains("ADMIN");
-    if (!actor.active()
-        || !actor.emailVerified()
-        || (!admin && !actor.roles().contains("HOTEL_OWNER"))) {
+    boolean ownerRole = actor.roles().contains("HOTEL_OWNER");
+    boolean hasStaff =
+        !admin && !ownerRole && members != null && members.hasAnyActiveMembership(actor.id());
+    if (!actor.active() || !actor.emailVerified() || (!admin && !ownerRole && !hasStaff)) {
       throw new HotelException(HotelErrorCode.ACCESS_DENIED);
     }
 
-    // Owner chỉ thấy hotel của mình; hotel của người khác trả 404 như hotel không tồn tại.
+    // Owner/nhân sự chỉ thấy hotel của mình; hotel của người khác trả 404 như hotel không tồn tại.
     Hotel hotel =
-        (admin
-                ? hotels.findById(query.hotelId())
-                : hotels.findByIdAndOwnerId(query.hotelId(), actor.id()))
-            .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+        (!admin && ownerRole
+                ? hotels.findByIdAndOwnerId(query.hotelId(), actor.id())
+                : java.util.Optional.<Hotel>empty())
+            .orElseGet(
+                () -> {
+                  Hotel found =
+                      hotels
+                          .findById(query.hotelId())
+                          .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_NOT_FOUND));
+                  if (access.levelOf(actor.id(), admin, found)
+                      == HotelManagementAccess.Level.NONE) {
+                    throw new HotelException(HotelErrorCode.HOTEL_NOT_FOUND);
+                  }
+                  return found;
+                });
 
     // Lọc theo cả hotel_id: roomTypeId của hotel khác chỉ cho trang rỗng, không lộ dữ liệu.
     PageResult<Room> result =

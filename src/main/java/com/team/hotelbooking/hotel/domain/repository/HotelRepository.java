@@ -38,5 +38,9 @@ public interface HotelRepository {
 
   PageResult<Hotel> findByOwnerId(UUID ownerId, PageQuery pagination);
 
+  default PageResult<Hotel> findManagedByUser(UUID userId, PageQuery pagination) {
+    return findByOwnerId(userId, pagination);
+  }
+
   PageResult<Hotel> findPublicHotels(UUID cityId, String keyword, PageQuery pagination);
 }

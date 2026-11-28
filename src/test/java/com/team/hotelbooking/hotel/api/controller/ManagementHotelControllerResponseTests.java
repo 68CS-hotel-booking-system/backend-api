@@ -154,7 +154,7 @@ class ManagementHotelControllerResponseTests {
           .andExpect(header().string("Cache-Control", "no-store"))
           .andExpect(jsonPath("$.*", hasSize(2)))
           .andExpect(jsonPath("$.message").value("Cập nhật thông tin khách sạn thành công."))
-          .andExpect(jsonPath("$.data.*", hasSize(18)))
+          .andExpect(jsonPath("$.data.*", hasSize(19)))
           .andExpect(jsonPath("$.data.contactPhone").isEmpty())
           .andExpect(jsonPath("$.data.contactEmail").isEmpty())
           .andExpect(jsonPath("$.data.id").value(HOTEL_ID.toString()))

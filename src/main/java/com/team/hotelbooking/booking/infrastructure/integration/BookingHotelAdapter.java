@@ -21,4 +21,9 @@ public class BookingHotelAdapter implements BookingHotelPort {
         .findById(hotelId)
         .map(h -> new HotelSnapshot(h.id(), h.ownerId(), h.name(), h.active()));
   }
+
+  @Override
+  public boolean hasOperationalAccess(UUID hotelId, UUID actorId) {
+    return hotelDirectory.hasManagementAccess(actorId, hotelId);
+  }
 }

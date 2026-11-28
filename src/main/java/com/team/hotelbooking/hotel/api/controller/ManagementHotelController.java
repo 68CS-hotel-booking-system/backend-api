@@ -48,7 +48,7 @@ public class ManagementHotelController {
   private final PaginationSupport paginationSupport;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<PageResponse<ManagementHotelResponse>>> listHotels(
       @RequestParam(name = "page", required = false) Integer page,
       @RequestParam(name = "size", required = false) Integer size,
@@ -67,7 +67,7 @@ public class ManagementHotelController {
   }
 
   @GetMapping("/{hotelId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<ManagementHotelResponse>> getHotel(
       @PathVariable("hotelId") UUID hotelId, Principal principal) {
     GetManagementHotelQuery query =

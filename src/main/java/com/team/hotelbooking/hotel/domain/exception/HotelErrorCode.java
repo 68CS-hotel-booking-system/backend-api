@@ -32,7 +32,13 @@ public enum HotelErrorCode implements ErrorCode {
   AMENITY_CATEGORY_MISMATCH("Tiện ích không thuộc nhóm phù hợp."),
   HOTEL_NOT_READY("Khách sạn chưa đủ điều kiện mở bán."),
   INVALID_STATUS_TRANSITION("Không thể đổi trạng thái bán từ trạng thái hiện tại của khách sạn."),
-  HOTEL_LOCKED("Khách sạn đang bị quản trị hệ thống khóa bán; chỉ quản trị hệ thống được gỡ khóa.");
+  HOTEL_LOCKED("Khách sạn đang bị quản trị hệ thống khóa bán; chỉ quản trị hệ thống được gỡ khóa."),
+  STAFF_ACCOUNT_NOT_ELIGIBLE(
+      "Không tìm thấy tài khoản đang hoạt động và đã xác minh email với địa chỉ này."),
+  HOTEL_MEMBER_NOT_FOUND("Không tìm thấy nhân sự thuộc khách sạn này."),
+  HOTEL_MEMBER_ALREADY_EXISTS("Tài khoản này đang là nhân sự hoạt động của khách sạn."),
+  HOTEL_MEMBER_VERSION_CONFLICT(
+      "Phiên bản phân công nhân sự đã thay đổi. Vui lòng tải lại trước khi cập nhật.");
 
   private final String message;
 
