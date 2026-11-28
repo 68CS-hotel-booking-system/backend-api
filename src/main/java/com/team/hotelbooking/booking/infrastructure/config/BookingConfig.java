@@ -142,9 +142,10 @@ public class BookingConfig {
       BookingRepository bookings,
       BookingIdentityPort accounts,
       PaginationProperties pagination,
+      Clock clock,
       PlatformTransactionManager transactionManager) {
     ListCustomerBookingsService service =
-        new ListCustomerBookingsService(bookings, accounts, pagination.maxSize());
+        new ListCustomerBookingsService(bookings, accounts, clock, pagination.maxSize());
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -155,9 +156,10 @@ public class BookingConfig {
   public GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase(
       BookingRepository bookings,
       BookingIdentityPort accounts,
+      Clock clock,
       PlatformTransactionManager transactionManager) {
     GetCustomerBookingDetailService service =
-        new GetCustomerBookingDetailService(bookings, accounts);
+        new GetCustomerBookingDetailService(bookings, accounts, clock);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 

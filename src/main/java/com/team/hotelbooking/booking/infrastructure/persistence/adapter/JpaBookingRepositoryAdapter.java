@@ -172,13 +172,25 @@ public class JpaBookingRepositoryAdapter implements BookingRepository {
 
   @Override
   public PageResult<Booking> findByCustomerId(
-      UUID customerId, Booking.Status status, PageQuery pagination) {
+      UUID customerId, Booking.Status status, Instant now, PageQuery pagination) {
     Pageable pageable = PageRequest.of(pagination.page(), pagination.size(), DEFAULT_SORT);
     Page<BookingJpaEntity> page =
-        status == null
-            ? bookingJpaRepository.findByCustomerId(customerId, pageable)
-            : bookingJpaRepository.findByCustomerIdAndStatus(
-                customerId, BookingJpaEntity.DbStatus.valueOf(status.name()), pageable);
+        switch (status) {
+          case null -> bookingJpaRepository.findByCustomerId(customerId, pageable);
+          case PENDING_PAYMENT ->
+              bookingJpaRepository.findPendingCustomerBookings(
+                  customerId, BookingJpaEntity.DbStatus.PENDING_PAYMENT, now, pageable);
+          case EXPIRED ->
+              bookingJpaRepository.findExpiredCustomerBookings(
+                  customerId,
+                  BookingJpaEntity.DbStatus.PENDING_PAYMENT,
+                  BookingJpaEntity.DbStatus.EXPIRED,
+                  now,
+                  pageable);
+          default ->
+              bookingJpaRepository.findByCustomerIdAndStatus(
+                  customerId, BookingJpaEntity.DbStatus.valueOf(status.name()), pageable);
+        };
 
     return PageResultMapper.from(page, entity -> mapper.toDomain(entity, List.of(), Map.of()));
   }

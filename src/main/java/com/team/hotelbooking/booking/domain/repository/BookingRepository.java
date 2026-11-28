@@ -28,7 +28,7 @@ public interface BookingRepository {
   Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId);
 
   PageResult<Booking> findByCustomerId(
-      UUID customerId, Booking.Status status, PageQuery pagination);
+      UUID customerId, Booking.Status status, Instant now, PageQuery pagination);
 
   PageResult<Booking> findByHotelId(UUID hotelId, Booking.Status status, PageQuery pagination);
 

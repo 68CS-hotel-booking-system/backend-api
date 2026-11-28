@@ -103,22 +103,27 @@ class ComplaintIntegrationTests {
 
   // Mỗi test dùng booking mới để không phụ thuộc thứ tự chạy.
   private UUID insertBooking(UUID customerId, String status) {
+    return insertBooking(customerId, status, null);
+  }
+
+  private UUID insertBooking(UUID customerId, String status, String holdOffset) {
     UUID id = UUID.randomUUID();
     jdbc.update(
         """
         INSERT INTO bookings (id, booking_code, customer_id, hotel_id, booker_name_snapshot,
                               booker_email_snapshot, booker_phone_snapshot, guest_name_snapshot,
                               guest_email_snapshot, guest_phone_snapshot, check_in, check_out,
-                              days, nights, status)
+                              days, nights, status, expires_at)
         VALUES (?, ?, ?, ?, 'Khách', 'khach@test.local', '+84900000000', 'Khách',
                 'khach@test.local', '+84900000000', '2027-06-01', '2027-06-03', 3, 2,
-                CAST(? AS booking_status__t))
+                CAST(? AS booking_status__t), now() + CAST(? AS INTERVAL))
         """,
         id,
         "CPL" + id.toString().substring(0, 8).toUpperCase(),
         customerId,
         HOTEL_ID,
-        status);
+        status,
+        holdOffset);
     return id;
   }
 
@@ -135,6 +140,42 @@ class ComplaintIntegrationTests {
             .with(actor)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
+  }
+
+  @Test
+  void routesExpiredPaymentHoldsToTheExpiredListAndAllowsSupport() throws Exception {
+    UUID customerId = UUID.randomUUID();
+    insertUser(customerId, "+84958000004");
+    UUID overdue = insertBooking(customerId, "PENDING_PAYMENT", "-1 hour");
+    UUID payable = insertBooking(customerId, "PENDING_PAYMENT", "1 hour");
+    insertBooking(customerId, "EXPIRED");
+    UUID confirmed = insertBooking(customerId, "CONFIRMED", "-1 hour");
+    var actor = customer(customerId);
+
+    mvc.perform(get("/api/v1/bookings").param("status", "PENDING_PAYMENT").with(actor))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.totalElements").value(1))
+        .andExpect(jsonPath("$.data.content[0].id").value(payable.toString()));
+
+    mvc.perform(get("/api/v1/bookings").param("status", "EXPIRED").param("size", "1").with(actor))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.totalElements").value(2))
+        .andExpect(jsonPath("$.data.content", hasSize(1)))
+        .andExpect(jsonPath("$.data.content[0].status").value("EXPIRED"));
+
+    mvc.perform(get("/api/v1/bookings/{bookingId}", overdue).with(actor))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.status").value("EXPIRED"))
+        .andExpect(jsonPath("$.data.paymentHandoff.bookingStatus").value("EXPIRED"));
+    mvc.perform(get("/api/v1/bookings/{bookingId}", confirmed).with(actor))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+
+    submit(overdue, actor, VALID_BODY).andExpect(status().isCreated());
+    assertThat(
+            jdbc.queryForObject(
+                "select status::text from bookings where id = ?", String.class, overdue))
+        .isEqualTo("PENDING_PAYMENT");
   }
 
   private String complaintIdFrom(ResultActions response) throws Exception {

@@ -90,8 +90,9 @@ class BookingServicesTests {
             clock,
             Duration.ofMinutes(15),
             org.mockito.Mockito.mock(com.team.hotelbooking.booking.BookingCommissionCapture.class));
-    listCustomerBookingsService = new ListCustomerBookingsService(bookings, accounts, 50);
-    getCustomerBookingDetailService = new GetCustomerBookingDetailService(bookings, accounts);
+    listCustomerBookingsService = new ListCustomerBookingsService(bookings, accounts, clock, 50);
+    getCustomerBookingDetailService =
+        new GetCustomerBookingDetailService(bookings, accounts, clock);
     listManagementBookingsService =
         new ListManagementBookingsService(bookings, accounts, hotels, 50);
     getManagementBookingDetailService =
@@ -738,7 +739,7 @@ class BookingServicesTests {
               List.of());
 
       PageQuery pagination = new PageQuery(0, 10);
-      given(bookings.findByCustomerId(CUSTOMER_ID, null, pagination))
+      given(bookings.findByCustomerId(CUSTOMER_ID, null, clock.instant(), pagination))
           .willReturn(new PageResult<>(List.of(domainBooking), 0, 10, 1L, 1, true, true));
       given(bookings.findByIdAndCustomerId(created.id(), CUSTOMER_ID))
           .willReturn(Optional.of(domainBooking));

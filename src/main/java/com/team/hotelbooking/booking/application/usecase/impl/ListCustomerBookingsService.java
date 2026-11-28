@@ -11,21 +11,24 @@ import com.team.hotelbooking.booking.domain.model.Booking;
 import com.team.hotelbooking.booking.domain.repository.BookingRepository;
 import com.team.hotelbooking.shared.pagination.PageQuery;
 import com.team.hotelbooking.shared.pagination.PageResult;
+import java.time.Clock;
 import java.util.Locale;
 
 public final class ListCustomerBookingsService implements ListCustomerBookingsUseCase {
 
   private final BookingRepository bookings;
   private final BookingIdentityPort accounts;
+  private final Clock clock;
   private final int maxPageSize;
 
   public ListCustomerBookingsService(
-      BookingRepository bookings, BookingIdentityPort accounts, int maxPageSize) {
+      BookingRepository bookings, BookingIdentityPort accounts, Clock clock, int maxPageSize) {
     if (maxPageSize < 1) {
       throw new IllegalArgumentException("Max page size must be at least 1.");
     }
     this.bookings = bookings;
     this.accounts = accounts;
+    this.clock = clock;
     this.maxPageSize = maxPageSize;
   }
 
@@ -51,9 +54,10 @@ public final class ListCustomerBookingsService implements ListCustomerBookingsUs
 
     Booking.Status statusFilter = parseStatusFilter(query.status());
 
+    var now = clock.instant();
     return bookings
-        .findByCustomerId(customer.id(), statusFilter, pagination)
-        .map(BookingSummaryResult::from);
+        .findByCustomerId(customer.id(), statusFilter, now, pagination)
+        .map(booking -> BookingSummaryResult.from(booking, booking.statusAt(now)));
   }
 
   static Booking.Status parseStatusFilter(String rawStatus) {

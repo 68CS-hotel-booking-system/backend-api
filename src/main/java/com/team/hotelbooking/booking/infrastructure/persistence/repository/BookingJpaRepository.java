@@ -1,11 +1,14 @@
 package com.team.hotelbooking.booking.infrastructure.persistence.repository;
 
 import com.team.hotelbooking.booking.infrastructure.persistence.entity.BookingJpaEntity;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UUID> {
 
@@ -26,6 +29,31 @@ public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UU
 
   Page<BookingJpaEntity> findByCustomerIdAndStatus(
       UUID customerId, BookingJpaEntity.DbStatus status, Pageable pageable);
+
+  @Query(
+      """
+      select b from BookingJpaEntity b
+      where b.customerId = :customerId and b.status = :pending
+        and (b.expiresAt is null or b.expiresAt > :now)
+      """)
+  Page<BookingJpaEntity> findPendingCustomerBookings(
+      @Param("customerId") UUID customerId,
+      @Param("pending") BookingJpaEntity.DbStatus pending,
+      @Param("now") Instant now,
+      Pageable pageable);
+
+  @Query(
+      """
+      select b from BookingJpaEntity b
+      where b.customerId = :customerId
+        and (b.status = :expired or (b.status = :pending and b.expiresAt <= :now))
+      """)
+  Page<BookingJpaEntity> findExpiredCustomerBookings(
+      @Param("customerId") UUID customerId,
+      @Param("pending") BookingJpaEntity.DbStatus pending,
+      @Param("expired") BookingJpaEntity.DbStatus expired,
+      @Param("now") Instant now,
+      Pageable pageable);
 
   Page<BookingJpaEntity> findByHotelId(UUID hotelId, Pageable pageable);
 

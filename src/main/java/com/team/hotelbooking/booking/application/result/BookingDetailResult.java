@@ -102,6 +102,10 @@ public record BookingDetailResult(
       Instant holdExpiresAt) {}
 
   public static BookingDetailResult from(Booking booking) {
+    return from(booking, booking.status());
+  }
+
+  public static BookingDetailResult from(Booking booking, Booking.Status status) {
     return new BookingDetailResult(
         booking.id(),
         booking.bookingCode(),
@@ -119,7 +123,7 @@ public record BookingDetailResult(
         booking.expectedCheckOutTime(),
         booking.adults(),
         booking.children(),
-        booking.status().name(),
+        status.name(),
         booking.currency(),
         booking.roomSubtotalAmount(),
         booking.earlyCheckInSurchargeAmount(),
@@ -144,7 +148,7 @@ public record BookingDetailResult(
             booking.discountAmount(),
             booking.totalAmount(),
             booking.currency(),
-            booking.status().name(),
+            status.name(),
             booking.expiresAt()));
   }
 }
