@@ -46,8 +46,7 @@ public class HotelStaffConfig {
       }
 
       @Override
-      public PageResult<MemberRecord> listMembers(
-          UUID actorId, UUID hotelId, PageQuery pageQuery) {
+      public PageResult<MemberRecord> listMembers(UUID actorId, UUID hotelId, PageQuery pageQuery) {
         return Objects.requireNonNull(
             readTx.execute(status -> service.listMembers(actorId, hotelId, pageQuery)));
       }

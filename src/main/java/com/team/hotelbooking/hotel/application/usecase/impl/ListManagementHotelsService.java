@@ -73,6 +73,7 @@ public class ListManagementHotelsService implements ListManagementHotelsUseCase 
         admin ? hotels.findAll(pagination) : hotels.findManagedByUser(actor.id(), pagination);
 
     return result.map(
-        hotel -> ManagementHotelResult.from(hotel, access.levelOf(actor.id(), admin, hotel).name()));
+        hotel ->
+            ManagementHotelResult.from(hotel, access.levelOf(actor.id(), admin, hotel).name()));
   }
 }

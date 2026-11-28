@@ -143,8 +143,7 @@ class HotelStaffServiceTests {
 
     assertThatThrownBy(
             () ->
-                service.addMember(
-                    adminId, hotelId, "staff@test.vn", HotelMemberRole.RECEPTIONIST))
+                service.addMember(adminId, hotelId, "staff@test.vn", HotelMemberRole.RECEPTIONIST))
         .isInstanceOf(HotelException.class)
         .extracting("code")
         .isEqualTo(HotelErrorCode.ACCESS_DENIED);
@@ -188,8 +187,7 @@ class HotelStaffServiceTests {
                     1L)));
     when(members.updateStatus(eq(memberId), eq(false), eq(0L), eq(ownerId), any())).thenReturn(0);
 
-    assertThatThrownBy(
-            () -> service.updateMemberStatus(ownerId, hotelId, memberId, "REVOKED", 0L))
+    assertThatThrownBy(() -> service.updateMemberStatus(ownerId, hotelId, memberId, "REVOKED", 0L))
         .isInstanceOf(HotelException.class)
         .extracting("code")
         .isEqualTo(HotelErrorCode.HOTEL_MEMBER_VERSION_CONFLICT);

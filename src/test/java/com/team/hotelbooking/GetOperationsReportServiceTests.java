@@ -67,7 +67,9 @@ class GetOperationsReportServiceTests {
     assertThat(result.totals().occupancyRate()).isNull();
     assertThat(result.totals().adr()).isNull();
     assertThat(result.totals().revpar()).isNull();
-    assertThat(result.months()).extracting("month").containsExactly("2027-01", "2027-02", "2027-03");
+    assertThat(result.months())
+        .extracting("month")
+        .containsExactly("2027-01", "2027-02", "2027-03");
   }
 
   @Test

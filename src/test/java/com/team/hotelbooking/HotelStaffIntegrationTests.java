@@ -155,9 +155,7 @@ class HotelStaffIntegrationTests {
                 .with(actor(owner, "HOTEL_OWNER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    "{\"email\":\""
-                        + receptionistEmail
-                        + "\",\"memberRole\":\"HOTEL_MANAGER\"}"))
+                    "{\"email\":\"" + receptionistEmail + "\",\"memberRole\":\"HOTEL_MANAGER\"}"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("HOTEL_MEMBER_ALREADY_EXISTS"));
 
@@ -258,8 +256,7 @@ class HotelStaffIntegrationTests {
     // Admin -> 403 on staff management
     mvc.perform(get("/api/v1/management/staff-hotels").with(actor(admin, "ADMIN")))
         .andExpect(status().isForbidden());
-    mvc.perform(
-            get("/api/v1/management/hotels/" + hotel + "/members").with(actor(admin, "ADMIN")))
+    mvc.perform(get("/api/v1/management/hotels/" + hotel + "/members").with(actor(admin, "ADMIN")))
         .andExpect(status().isForbidden());
 
     // Unverified / owner / admin / unknown target -> 422 with email field error
@@ -333,7 +330,11 @@ class HotelStaffIntegrationTests {
         .andExpect(jsonPath("$.data.totalElements").value(1));
 
     mvc.perform(
-            put("/api/v1/management/hotels/" + hotel + "/bookings/" + bookingId + "/room-assignments")
+            put("/api/v1/management/hotels/"
+                    + hotel
+                    + "/bookings/"
+                    + bookingId
+                    + "/room-assignments")
                 .with(actor(receptionistUser, "CUSTOMER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(

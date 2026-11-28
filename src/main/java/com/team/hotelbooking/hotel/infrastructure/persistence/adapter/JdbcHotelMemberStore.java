@@ -88,7 +88,8 @@ public class JdbcHotelMemberStore implements HotelMemberStore {
 
   @Override
   public boolean hasOtherActiveMembership(UUID hotelId, UUID userId, UUID excludeMemberId) {
-    var params = new MapSqlParameterSource().addValue("hotelId", hotelId).addValue("userId", userId);
+    var params =
+        new MapSqlParameterSource().addValue("hotelId", hotelId).addValue("userId", userId);
     String sql =
         "SELECT EXISTS (SELECT 1 FROM hotel_members WHERE hotel_id = :hotelId AND user_id = :userId AND is_active = true";
     if (excludeMemberId != null) {

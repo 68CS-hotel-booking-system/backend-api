@@ -125,8 +125,7 @@ public class HotelStaffService implements HotelStaffUseCase {
     if (existing.isPresent()) {
       MemberRecord record = existing.get();
       int updated =
-          members.updateStatus(
-              record.id(), true, record.version(), actor.id(), clock.instant());
+          members.updateStatus(record.id(), true, record.version(), actor.id(), clock.instant());
       if (updated == 0) {
         throw new HotelException(HotelErrorCode.HOTEL_MEMBER_VERSION_CONFLICT);
       }
@@ -166,8 +165,7 @@ public class HotelStaffService implements HotelStaffUseCase {
             .orElseThrow(() -> new HotelException(HotelErrorCode.HOTEL_MEMBER_NOT_FOUND));
 
     if (level == HotelManagementAccess.Level.MANAGER
-        && (member.role() == HotelMemberRole.HOTEL_MANAGER
-            || member.userId().equals(actor.id()))) {
+        && (member.role() == HotelMemberRole.HOTEL_MANAGER || member.userId().equals(actor.id()))) {
       throw new HotelException(HotelErrorCode.ACCESS_DENIED);
     }
 

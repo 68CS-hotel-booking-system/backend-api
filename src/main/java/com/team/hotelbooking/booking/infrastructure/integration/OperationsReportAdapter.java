@@ -151,7 +151,8 @@ public class OperationsReportAdapter implements OperationsReportPort {
         params,
         rs -> {
           String ym = rs.getString("ym");
-          monthMap.computeIfAbsent(ym, k -> new MonthAccumulator()).newBookings += rs.getLong("cnt");
+          monthMap.computeIfAbsent(ym, k -> new MonthAccumulator()).newBookings +=
+              rs.getLong("cnt");
         });
 
     // 5. Đơn hủy (theo booking_status_history to_status = 'CANCELLED', created_at giờ Việt Nam).

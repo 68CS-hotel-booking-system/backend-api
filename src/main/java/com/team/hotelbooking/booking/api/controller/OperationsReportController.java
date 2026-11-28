@@ -24,18 +24,15 @@ public class OperationsReportController {
   @GetMapping("/api/v1/management/reports/operations")
   @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER')")
   public ResponseEntity<ApiResponse<OperationsReportResponse>> getOperationsReport(
-      @RequestParam(name = "from", required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+      @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate from,
-      @RequestParam(name = "to", required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+      @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate to,
       @RequestParam(name = "hotelId", required = false) UUID hotelId,
       Principal principal) {
     var result =
         operationsReportUseCase.execute(
-            new GetOperationsReportQuery(
-                UUID.fromString(principal.getName()), hotelId, from, to));
+            new GetOperationsReportQuery(UUID.fromString(principal.getName()), hotelId, from, to));
     return ResponseEntity.ok()
         .header("Cache-Control", "no-store")
         .body(

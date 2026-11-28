@@ -18,11 +18,9 @@ public interface HotelMemberStore {
 
   boolean hasOtherActiveMembership(UUID hotelId, UUID userId, UUID excludeMemberId);
 
-  MemberRecord insert(
-      UUID hotelId, UUID userId, HotelMemberRole role, UUID actorId, Instant now);
+  MemberRecord insert(UUID hotelId, UUID userId, HotelMemberRole role, UUID actorId, Instant now);
 
-  int updateStatus(
-      UUID memberId, boolean active, long expectedVersion, UUID actorId, Instant now);
+  int updateStatus(UUID memberId, boolean active, long expectedVersion, UUID actorId, Instant now);
 
   PageResult<StaffHotelRecord> pageStaffHotels(UUID actorId, PageQuery pagination);
 
