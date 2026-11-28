@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/management/hotels/{hotelId}/bookings")
-@PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER')")
+@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 @Tag(
     name = "Bookings - Management",

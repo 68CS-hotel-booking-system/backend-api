@@ -35,6 +35,20 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration
 public class BookingConfig {
   @Bean
+  public com.team.hotelbooking.booking.application.usecase.GetOperationsReportUseCase
+      getOperationsReportUseCase(
+          BookingIdentityPort accounts,
+          com.team.hotelbooking.booking.application.port.OperationsReportPort reports,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.GetOperationsReportService(
+            accounts, reports);
+    var transaction = new TransactionTemplate(manager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
   public com.team.hotelbooking.booking.application.usecase.ListHotelCustomersUseCase
       listHotelCustomersUseCase(
           BookingIdentityPort accounts,

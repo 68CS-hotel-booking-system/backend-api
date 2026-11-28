@@ -88,7 +88,7 @@ public class ManagementRoomBlockController {
   }
 
   @GetMapping("/room-blocks")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<List<RoomBlockResponse>>> listRoomBlocks(
       @PathVariable("hotelId") UUID hotelId,
       @RequestParam(name = "roomTypeId", required = false) UUID roomTypeId,
@@ -111,7 +111,7 @@ public class ManagementRoomBlockController {
   }
 
   @GetMapping("/room-calendar")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<RoomCalendarResponse>> getRoomCalendar(
       @PathVariable("hotelId") UUID hotelId,
       @RequestParam(name = "roomTypeId", required = false) UUID roomTypeId,

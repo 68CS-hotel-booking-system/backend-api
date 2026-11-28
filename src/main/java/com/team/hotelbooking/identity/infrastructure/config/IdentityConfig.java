@@ -437,7 +437,16 @@ public class IdentityConfig {
 
     transaction.setReadOnly(true);
 
-    return userId ->
-        Objects.requireNonNull(transaction.execute(status -> adapter.findById(userId)));
+    return new AccountDirectory() {
+      @Override
+      public java.util.Optional<AccountInfo> findById(java.util.UUID userId) {
+        return Objects.requireNonNull(transaction.execute(status -> adapter.findById(userId)));
+      }
+
+      @Override
+      public java.util.Optional<AccountInfo> findByEmail(String email) {
+        return Objects.requireNonNull(transaction.execute(status -> adapter.findByEmail(email)));
+      }
+    };
   }
 }

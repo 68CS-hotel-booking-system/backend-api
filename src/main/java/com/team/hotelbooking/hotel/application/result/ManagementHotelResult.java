@@ -24,9 +24,55 @@ public record ManagementHotelResult(
     String status,
     Instant createdAt,
     Instant updatedAt,
-    long version) {
+    long version,
+    String accessLevel) {
+
+  public ManagementHotelResult(
+      UUID id,
+      UUID ownerId,
+      UUID cityId,
+      String name,
+      String slug,
+      String description,
+      String address,
+      String contactPhone,
+      String contactEmail,
+      BigDecimal latitude,
+      BigDecimal longitude,
+      Short starRating,
+      LocalTime checkInTime,
+      LocalTime checkOutTime,
+      String status,
+      Instant createdAt,
+      Instant updatedAt,
+      long version) {
+    this(
+        id,
+        ownerId,
+        cityId,
+        name,
+        slug,
+        description,
+        address,
+        contactPhone,
+        contactEmail,
+        latitude,
+        longitude,
+        starRating,
+        checkInTime,
+        checkOutTime,
+        status,
+        createdAt,
+        updatedAt,
+        version,
+        null);
+  }
 
   public static ManagementHotelResult from(Hotel hotel) {
+    return from(hotel, null);
+  }
+
+  public static ManagementHotelResult from(Hotel hotel, String accessLevel) {
     return new ManagementHotelResult(
         hotel.id(),
         hotel.ownerId(),
@@ -45,6 +91,7 @@ public record ManagementHotelResult(
         hotel.status().name(),
         hotel.createdAt(),
         hotel.updatedAt(),
-        hotel.version());
+        hotel.version(),
+        accessLevel);
   }
 }

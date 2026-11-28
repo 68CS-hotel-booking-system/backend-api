@@ -52,7 +52,7 @@ public class ManagementRoomTypeController {
   // HT17 bỏ @PreAuthorize cấp class, nên đặt lại quyền của HT15 trên chính method này.
   @Operation(summary = "[HT15] Danh sách loại phòng quản lý, gồm cả loại ngừng bán")
   @GetMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<List<ListManagementRoomTypesResponse>>> listRoomTypes(
       @PathVariable("hotelId") UUID hotelId, Principal principal) {
     ListManagementRoomTypesQuery query =

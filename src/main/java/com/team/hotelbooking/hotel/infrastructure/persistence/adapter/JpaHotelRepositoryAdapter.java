@@ -145,6 +145,14 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   }
 
   @Override
+  public PageResult<Hotel> findManagedByUser(UUID userId, PageQuery pagination) {
+    return PageResultMapper.from(
+        hotelJpaRepository.findManagedByUser(
+            userId, PageRequest.of(pagination.page(), pagination.size())),
+        HotelPersistenceMapper::toDomain);
+  }
+
+  @Override
   public PageResult<Hotel> findPublicHotels(UUID cityId, String keyword, PageQuery pagination) {
     Pageable pageable = PageRequest.of(pagination.page(), pagination.size(), PUBLIC_SORT);
     var eligibleHotelIds = contracts.effectiveHotelIds();
