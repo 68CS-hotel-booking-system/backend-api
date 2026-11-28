@@ -103,6 +103,19 @@ class HotelStaffIntegrationTests {
         bookingId,
         hotel,
         roomType);
+    for (String night : new String[] {"2027-02-01", "2027-02-02"}) {
+      jdbc.update(
+          """
+          INSERT INTO inventory_reservations(id,booking_id,booking_item_id,room_type_id,stay_date,quantity,status,confirmed_at)
+          VALUES (?,?,?,?,CAST(? AS date),1,'CONFIRMED',?)
+          """,
+          UUID.randomUUID(),
+          bookingId,
+          bookingItemId,
+          roomType,
+          night,
+          java.sql.Timestamp.from(NOW.minusSeconds(3500)));
+    }
   }
 
   @Test
@@ -335,7 +348,7 @@ class HotelStaffIntegrationTests {
             post("/api/v1/management/hotels/" + hotel + "/bookings/" + bookingId + "/check-in")
                 .with(actor(receptionistUser, "CUSTOMER")))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.status").value("CHECKED_IN"));
+        .andExpect(jsonPath("$.data.stayStatus").value("CHECKED_IN"));
 
     // Revoke receptionist -> loses all operational access
     mvc.perform(

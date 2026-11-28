@@ -11,4 +11,9 @@ public record AddHotelMemberRequest(
         @Email(message = "Email không đúng định dạng.")
         @Size(max = 255, message = "Email không được vượt quá 255 ký tự.")
         String email,
-    @NotNull(message = "Vai trò nhân sự là bắt buộc.") HotelMemberRole memberRole) {}
+    @NotNull(message = "Vai trò nhân sự là bắt buộc.") HotelMemberRole memberRole) {
+
+  public AddHotelMemberRequest {
+    email = email == null ? null : email.trim();
+  }
+}
