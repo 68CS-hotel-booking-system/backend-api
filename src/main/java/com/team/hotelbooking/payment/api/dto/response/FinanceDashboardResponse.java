@@ -13,6 +13,9 @@ public record FinanceDashboardResponse(
     long platformAmount,
     long ownerAmount,
     long missingCommissionCount,
+    long pendingRefundAmount,
+    long refundedAmount,
+    long netCollectedAmount,
     List<HotelContractStatusResponse> hotels,
     List<ContractRevenueResponse> contracts) {
   public record ContractRevenueResponse(
@@ -65,6 +68,9 @@ public record FinanceDashboardResponse(
         result.platformAmount(),
         result.ownerAmount(),
         result.missingCommissionCount(),
+        result.pendingRefundAmount(),
+        result.refundedAmount(),
+        result.netCollectedAmount(),
         result.hotels().stream()
             .map(
                 h ->

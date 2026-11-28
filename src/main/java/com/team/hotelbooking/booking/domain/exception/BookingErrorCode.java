@@ -20,6 +20,7 @@ public enum BookingErrorCode implements ErrorCode {
   MAX_STAY_EXCEEDED("Thời gian lưu trú tối đa là 30 đêm."),
   INVALID_OCCUPANCY("Số lượng khách vượt quá sức chứa hoặc không hợp lệ."),
   RATE_NOT_AVAILABLE("Loại phòng chưa có giá bán hợp lệ cho tất cả các đêm lưu trú."),
+  VOUCHER_UNAVAILABLE("Voucher không còn áp dụng. Vui lòng kiểm tra lại mã giảm giá."),
   PRICE_CHANGED(
       "Giá lưu trú đã thay đổi so với báo giá trước đó. Vui lòng kiểm tra và xác nhận lại báo giá mới."),
   IDEMPOTENCY_CONFLICT("Khóa chống lặp đã được sử dụng cho một yêu cầu đặt phòng khác.");

@@ -67,7 +67,25 @@ public class BookingConfig {
   }
 
   @Bean
+  public com.team.hotelbooking.booking.application.usecase.GetCancellationQuoteUseCase
+      getCancellationQuoteUseCase(
+          BookingRepository bookings,
+          BookingIdentityPort accounts,
+          BookingInventoryPort inventory,
+          com.team.hotelbooking.booking.BookingCancellationPaymentPolicy payments,
+          Clock clock,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService(
+            bookings, accounts, inventory, payments, clock);
+    var tx = new TransactionTemplate(manager);
+    tx.setReadOnly(true);
+    return query -> Objects.requireNonNull(tx.execute(s -> service.quote(query)));
+  }
+
+  @Bean
   public CreateBookingUseCase createBookingUseCase(
+      com.team.hotelbooking.booking.application.port.BookingVoucherPort vouchers,
       BookingRepository bookings,
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
@@ -78,7 +96,14 @@ public class BookingConfig {
       PlatformTransactionManager transactionManager) {
     CreateBookingService service =
         new CreateBookingService(
-            bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl), commissions);
+            bookings,
+            accounts,
+            pricing,
+            inventory,
+            clock,
+            Duration.parse(holdTtl),
+            commissions,
+            vouchers);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     TransactionTemplate replayLookupTransaction = new TransactionTemplate(transactionManager);
     replayLookupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -156,11 +181,13 @@ public class BookingConfig {
 
   @Bean
   public BookingCheckoutDirectory bookingCheckoutDirectory(
+      com.team.hotelbooking.pricing.VoucherDirectory vouchers,
+      Clock clock,
       BookingRepository bookings,
       BookingInventoryPort inventory,
       PlatformTransactionManager transactionManager) {
     BookingCheckoutDirectoryAdapter adapter =
-        new BookingCheckoutDirectoryAdapter(bookings, inventory);
+        new BookingCheckoutDirectoryAdapter(bookings, inventory, vouchers, clock);
     TransactionTemplate readOnlyTx = new TransactionTemplate(transactionManager);
     readOnlyTx.setReadOnly(true);
     TransactionTemplate writeTx = new TransactionTemplate(transactionManager);

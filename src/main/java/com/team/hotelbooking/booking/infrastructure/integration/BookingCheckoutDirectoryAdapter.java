@@ -13,6 +13,8 @@ import java.util.UUID;
 
 public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory {
 
+  private com.team.hotelbooking.pricing.VoucherDirectory vouchers;
+  private java.time.Clock clock;
   private final BookingRepository bookings;
   private final BookingInventoryPort inventory;
 
@@ -20,6 +22,16 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
       BookingRepository bookings, BookingInventoryPort inventory) {
     this.bookings = bookings;
     this.inventory = inventory;
+  }
+
+  public BookingCheckoutDirectoryAdapter(
+      BookingRepository bookings,
+      BookingInventoryPort inventory,
+      com.team.hotelbooking.pricing.VoucherDirectory vouchers,
+      java.time.Clock clock) {
+    this(bookings, inventory);
+    this.vouchers = vouchers;
+    this.clock = clock;
   }
 
   @Override
@@ -30,6 +42,10 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
   @Override
   public boolean confirmPayment(UUID bookingId, Instant now) {
     var booking = bookings.lockById(bookingId);
+    if (vouchers != null) {
+      vouchers.lockForPayment(bookingId);
+      now = clock.instant();
+    }
     if (booking.isEmpty()
         || booking.get().status() != Booking.Status.PENDING_PAYMENT
         || booking.get().expiresAt() == null
@@ -38,6 +54,7 @@ public class BookingCheckoutDirectoryAdapter implements BookingCheckoutDirectory
     if (!bookings.confirmPayment(bookingId, now)) {
       throw new IllegalStateException("Không thể xác nhận đơn đã khóa.");
     }
+    if (vouchers != null) vouchers.consume(bookingId);
     return true;
   }
 

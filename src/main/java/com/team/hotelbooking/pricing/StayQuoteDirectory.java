@@ -28,7 +28,8 @@ public interface StayQuoteDirectory {
     HOTEL_NOT_FOUND,
     ROOM_TYPE_NOT_FOUND,
     INVALID_OCCUPANCY,
-    RATE_NOT_AVAILABLE
+    RATE_NOT_AVAILABLE,
+    VOUCHER_UNAVAILABLE
   }
 
   final class StayQuoteCalculationException extends RuntimeException {
@@ -50,7 +51,18 @@ public interface StayQuoteDirectory {
       LocalDate checkOut,
       LocalTime expectedCheckInTime,
       LocalTime expectedCheckOutTime,
-      List<StayQuoteItemRequest> items) {}
+      List<StayQuoteItemRequest> items,
+      String voucherCode) {
+    public StayQuoteRequest(
+        UUID hotelId,
+        LocalDate checkIn,
+        LocalDate checkOut,
+        LocalTime expectedCheckInTime,
+        LocalTime expectedCheckOutTime,
+        List<StayQuoteItemRequest> items) {
+      this(hotelId, checkIn, checkOut, expectedCheckInTime, expectedCheckOutTime, items, null);
+    }
+  }
 
   record StayQuoteItemRequest(UUID roomTypeId, int quantity, int adults, int children) {}
 

@@ -13,10 +13,12 @@ import org.springframework.stereotype.Component;
 public class BookingInventoryAdapter implements BookingInventoryPort {
 
   private final BookingRoomHoldGateway inventory;
+  private final com.team.hotelbooking.pricing.VoucherDirectory vouchers;
 
   @Override
   public void release(Booking booking, boolean expired) {
-    inventory.release(booking.id(), expired);
+    inventory.release(booking.id(), expired, booking.customerId());
+    vouchers.release(booking.id());
   }
 
   @Override

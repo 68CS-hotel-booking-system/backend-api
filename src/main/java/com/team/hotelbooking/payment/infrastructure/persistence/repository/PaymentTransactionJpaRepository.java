@@ -14,6 +14,9 @@ public interface PaymentTransactionJpaRepository
     extends JpaRepository<PaymentTransactionJpaEntity, UUID> {
   Optional<PaymentTransactionJpaEntity> findByIdAndCustomerId(UUID id, UUID customerId);
 
+  java.util.List<PaymentTransactionJpaEntity> findAllByBookingIdAndStatusOrderByIdAsc(
+      UUID bookingId, Status status);
+
   @Query("select p.bookingId from PaymentTransactionJpaEntity p where p.id = :id")
   Optional<UUID> findBookingIdById(@Param("id") UUID id);
 

@@ -17,7 +17,16 @@ public record CalculateStayQuoteRequest(
     LocalTime expectedCheckInTime,
     LocalTime expectedCheckOutTime,
     @NotEmpty(message = "Danh sách hạng mục phòng không được để trống.")
-        List<@Valid QuoteItemRequest> items) {
+        List<@Valid QuoteItemRequest> items,
+    @jakarta.validation.constraints.Size(max = 30) String voucherCode) {
+  public CalculateStayQuoteRequest(
+      LocalDate checkIn,
+      LocalDate checkOut,
+      LocalTime expectedCheckInTime,
+      LocalTime expectedCheckOutTime,
+      List<QuoteItemRequest> items) {
+    this(checkIn, checkOut, expectedCheckInTime, expectedCheckOutTime, items, null);
+  }
 
   public record QuoteItemRequest(
       @NotNull(message = "Mã loại phòng không được để trống.") UUID roomTypeId,
@@ -34,6 +43,6 @@ public record CalculateStayQuoteRequest(
     List<QuoteItemInput> inputs =
         items == null ? List.of() : items.stream().map(QuoteItemRequest::toInput).toList();
     return new CalculateStayQuoteQuery(
-        hotelId, checkIn, checkOut, expectedCheckInTime, expectedCheckOutTime, inputs);
+        hotelId, checkIn, checkOut, expectedCheckInTime, expectedCheckOutTime, inputs, voucherCode);
   }
 }

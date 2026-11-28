@@ -54,13 +54,14 @@ public class PricingConfig {
 
   @Bean
   public CalculateStayQuoteUseCase calculateStayQuoteUseCase(
+      com.team.hotelbooking.pricing.voucher.application.port.VoucherDiscountPort vouchers,
       PricingHotelPort pricingHotelPort,
       RoomRateRepository roomRateRepository,
       Clock clock,
       PlatformTransactionManager transactionManager) {
 
     CalculateStayQuoteService service =
-        new CalculateStayQuoteService(pricingHotelPort, roomRateRepository, clock);
+        new CalculateStayQuoteService(pricingHotelPort, roomRateRepository, clock, vouchers);
 
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);

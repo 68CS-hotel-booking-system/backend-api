@@ -626,6 +626,7 @@ class BookingServicesTests {
       CreateBookingUseCase useCase =
           new BookingConfig()
               .createBookingUseCase(
+                  com.team.hotelbooking.booking.application.port.BookingVoucherPort.NONE,
                   bookings,
                   accounts,
                   pricing,

@@ -24,7 +24,31 @@ public interface FinanceDashboardPort {
       long completedAmount,
       long platformAmount,
       long ownerAmount,
-      long missingCommissionCount) {}
+      long missingCommissionCount,
+      long pendingRefundAmount,
+      long refundedAmount,
+      long netCollectedAmount) {
+    public Totals(
+        long bookingCount,
+        long bookedAmount,
+        long collectedAmount,
+        long completedAmount,
+        long platformAmount,
+        long ownerAmount,
+        long missingCommissionCount) {
+      this(
+          bookingCount,
+          bookedAmount,
+          collectedAmount,
+          completedAmount,
+          platformAmount,
+          ownerAmount,
+          missingCommissionCount,
+          0,
+          0,
+          collectedAmount);
+    }
+  }
 
   record HotelScope(UUID id, String name, boolean active) {}
 

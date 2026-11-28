@@ -13,6 +13,8 @@ public interface BookingRepository {
 
   void cancelPending(UUID bookingId, Booking.Status status, Instant now, UUID actorId);
 
+  void cancelConfirmed(UUID bookingId, Instant now, UUID actorId, String reason);
+
   Optional<Booking> findById(UUID bookingId);
 
   Optional<Booking> lockById(UUID bookingId);

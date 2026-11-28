@@ -58,6 +58,9 @@ public class GetFinanceDashboardService implements GetFinanceDashboardUseCase {
         totals.platformAmount(),
         totals.ownerAmount(),
         totals.missingCommissionCount(),
+        totals.pendingRefundAmount(),
+        totals.refundedAmount(),
+        totals.netCollectedAmount(),
         statuses,
         revenues);
   }

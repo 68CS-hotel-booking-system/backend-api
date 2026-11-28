@@ -42,7 +42,8 @@ public class BookingPricingAdapter implements BookingPricingPort {
                   criteria.checkOut(),
                   criteria.expectedCheckInTime(),
                   criteria.expectedCheckOutTime(),
-                  itemRequests));
+                  itemRequests,
+                  criteria.voucherCode()));
     } catch (StayQuoteCalculationException ex) {
       BookingErrorCode errorCode =
           switch (ex.reason()) {
@@ -53,6 +54,7 @@ public class BookingPricingAdapter implements BookingPricingPort {
             case ROOM_TYPE_NOT_FOUND -> BookingErrorCode.ROOM_TYPE_NOT_FOUND;
             case INVALID_OCCUPANCY -> BookingErrorCode.INVALID_OCCUPANCY;
             case RATE_NOT_AVAILABLE -> BookingErrorCode.RATE_NOT_AVAILABLE;
+            case VOUCHER_UNAVAILABLE -> BookingErrorCode.VOUCHER_UNAVAILABLE;
           };
       throw new BookingException(errorCode, ex.getMessage());
     }
