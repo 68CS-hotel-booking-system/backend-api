@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,6 +75,16 @@ class ComplaintIntegrationTests {
         HOTEL_ID,
         OWNER_ID,
         DA_NANG_ID);
+    clearComplaints();
+  }
+
+  // Context và PostgreSQL được dùng chung giữa các nhóm test; chỉ dọn fixture của nhóm này.
+  @AfterEach
+  void clearComplaints() {
+    jdbc.update(
+        "DELETE FROM complaint_actions WHERE complaint_id IN (SELECT id FROM complaints WHERE customer_id IN (?, ?))",
+        CUSTOMER_ID,
+        OTHER_CUSTOMER_ID);
     jdbc.update(
         "DELETE FROM complaints WHERE customer_id IN (?, ?)", CUSTOMER_ID, OTHER_CUSTOMER_ID);
   }

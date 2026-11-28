@@ -52,6 +52,12 @@ class ComplaintHandlingIntegrationTests {
     user(STAFF, "CUSTOMER", 5);
     hotel(HOTEL, OWNER);
     hotel(OTHER_HOTEL, OTHER_OWNER);
+    clearComplaints();
+  }
+
+  // Không để fixture khiếu nại/lịch sử ảnh hưởng các nhóm test dùng chung PostgreSQL.
+  @AfterEach
+  void clearComplaints() {
     jdbc.update(
         "DELETE FROM complaint_actions WHERE complaint_id IN (SELECT id FROM complaints WHERE hotel_id IN (?,?))",
         HOTEL,
