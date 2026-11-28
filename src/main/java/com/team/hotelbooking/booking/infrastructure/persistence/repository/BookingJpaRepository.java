@@ -20,6 +20,9 @@ public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UU
 
   Optional<BookingJpaEntity> findByIdAndCustomerId(UUID id, UUID customerId);
 
+  Optional<BookingJpaEntity> findByCustomerIdAndIdempotencyKey(
+      UUID customerId, String idempotencyKey);
+
   Optional<BookingJpaEntity> findByIdAndHotelId(UUID id, UUID hotelId);
 
   Page<BookingJpaEntity> findByCustomerId(UUID customerId, Pageable pageable);

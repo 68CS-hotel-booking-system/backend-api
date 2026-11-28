@@ -13,7 +13,13 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface HotelContractJpaRepository extends JpaRepository<HotelContractJpaEntity, UUID> {
+public interface HotelContractJpaRepository
+    extends JpaRepository<HotelContractJpaEntity, UUID>,
+        org.springframework.data.jpa.repository.JpaSpecificationExecutor<HotelContractJpaEntity> {
+
+  @Query(
+      "SELECT DISTINCT c.hotelId FROM HotelContractJpaEntity c WHERE c.status = 'ACTIVE' AND c.commissionBasis = 'AFTER_DISCOUNT' AND c.startsAt <= :at AND c.endsAt > :at")
+  java.util.Set<UUID> findEffectiveHotelIds(@Param("at") Instant at);
 
   boolean existsByContractCode(String contractCode);
 
@@ -80,6 +86,7 @@ public interface HotelContractJpaRepository extends JpaRepository<HotelContractJ
       SELECT c FROM HotelContractJpaEntity c
       WHERE c.hotelId = :hotelId
         AND c.status = :status
+        AND c.commissionBasis = 'AFTER_DISCOUNT'
         AND c.startsAt <= :at
         AND c.endsAt > :at
       ORDER BY c.startsAt DESC

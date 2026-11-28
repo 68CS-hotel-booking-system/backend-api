@@ -11,7 +11,17 @@ public record CalculateStayQuoteQuery(
     LocalDate checkOut,
     LocalTime expectedCheckInTime,
     LocalTime expectedCheckOutTime,
-    List<QuoteItemInput> items) {
+    List<QuoteItemInput> items,
+    String voucherCode) {
+  public CalculateStayQuoteQuery(
+      UUID hotelId,
+      LocalDate checkIn,
+      LocalDate checkOut,
+      LocalTime expectedCheckInTime,
+      LocalTime expectedCheckOutTime,
+      List<QuoteItemInput> items) {
+    this(hotelId, checkIn, checkOut, expectedCheckInTime, expectedCheckOutTime, items, null);
+  }
 
   public record QuoteItemInput(UUID roomTypeId, int quantity, int adults, int children) {}
 }

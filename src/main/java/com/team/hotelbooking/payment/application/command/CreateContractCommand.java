@@ -7,7 +7,6 @@ import java.util.UUID;
 
 public record CreateContractCommand(
     UUID hotelId,
-    String contractCode,
     UUID ownerUserId,
     BigDecimal commissionRate,
     HotelContract.CommissionBasis commissionBasis,

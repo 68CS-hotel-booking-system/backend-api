@@ -41,14 +41,6 @@ public final class FinanceException extends RuntimeException {
     return new FinanceException(FinanceErrorCode.USER_NOT_FOUND, message);
   }
 
-  public static FinanceException accessNotFound(String message) {
-    return new FinanceException(FinanceErrorCode.FINANCIAL_ACCESS_NOT_FOUND, message);
-  }
-
-  public static FinanceException concurrentModification(String message) {
-    return new FinanceException(FinanceErrorCode.CONCURRENT_MODIFICATION_DETECTED, message);
-  }
-
   public static FinanceException accessDenied(String message) {
     return new FinanceException(FinanceErrorCode.ACCESS_DENIED, message);
   }

@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @Tag(
     name = "Payment - Finance Contracts",
-    description = "API tra cứu hợp đồng hoa hồng dành cho đối tác/tài chính")
+    description = "API tra cứu hợp đồng hoa hồng dành cho admin và chủ sở hữu khách sạn")
 public class FinanceContractController {
 
   private final GetContractsUseCase getContractsUseCase;
@@ -43,7 +43,7 @@ public class FinanceContractController {
   @Operation(
       summary = "[FN01] Tra cứu danh sách thỏa thuận hoa hồng của khách sạn",
       description =
-          "Dành cho Owner hoặc người đại diện được ủy quyền tra cứu các hợp đồng hoa hồng áp dụng cho khách sạn.")
+          "Dành cho admin hoặc chủ sở hữu hiện tại tra cứu hợp đồng hoa hồng của khách sạn.")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
@@ -58,7 +58,7 @@ public class FinanceContractController {
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "403",
-        description = "Không phải ADMIN, Owner hoặc người có quyền tài chính của khách sạn",
+        description = "Không phải admin hoặc chủ sở hữu hiện tại của khách sạn",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",

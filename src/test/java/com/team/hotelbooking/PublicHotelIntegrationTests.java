@@ -116,7 +116,8 @@ class PublicHotelIntegrationTests {
               "starRating",
               "checkInTime",
               "checkOutTime",
-              "amenities"),
+              "amenities",
+              "acceptingBookings"),
           fields);
       assertFalse(body.contains(OWNER_ID.toString()), "Không được lộ Owner");
       assertFalse(body.contains("ACTIVE"), "Không được lộ trạng thái");
@@ -261,6 +262,7 @@ class PublicHotelIntegrationTests {
         name,
         "test-" + id,
         status);
+    BookableContractFixture.ensure(jdbc, id);
   }
 
   private void insertRoomType(UUID id, UUID hotelId, String name, boolean active) {

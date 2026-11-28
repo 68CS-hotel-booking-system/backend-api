@@ -15,7 +15,18 @@ public interface BookingPricingPort {
       LocalDate checkOut,
       LocalTime expectedCheckInTime,
       LocalTime expectedCheckOutTime,
-      List<StayQuoteItemCriteria> items) {}
+      List<StayQuoteItemCriteria> items,
+      String voucherCode) {
+    public StayQuoteCriteria(
+        UUID hotelId,
+        LocalDate checkIn,
+        LocalDate checkOut,
+        LocalTime expectedCheckInTime,
+        LocalTime expectedCheckOutTime,
+        List<StayQuoteItemCriteria> items) {
+      this(hotelId, checkIn, checkOut, expectedCheckInTime, expectedCheckOutTime, items, null);
+    }
+  }
 
   record StayQuoteItemCriteria(UUID roomTypeId, int quantity, int adults, int children) {}
 

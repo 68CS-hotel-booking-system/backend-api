@@ -24,7 +24,30 @@ public record CreateBookingRequest(
     @Valid ContactRequest guest,
     @NotEmpty(message = "Danh sách hạng mục đặt phòng không được để trống.")
         List<@Valid BookingItemRequest> items,
-    @Min(value = 1, message = "Tổng báo giá xác nhận phải lớn hơn 0.") Long quotedTotalAmount) {
+    @Min(value = 1, message = "Tổng báo giá xác nhận phải lớn hơn 0.") Long quotedTotalAmount,
+    @Size(max = 30) String voucherCode) {
+  public CreateBookingRequest(
+      UUID hotelId,
+      LocalDate checkIn,
+      LocalDate checkOut,
+      LocalTime expectedCheckInTime,
+      LocalTime expectedCheckOutTime,
+      ContactRequest booker,
+      ContactRequest guest,
+      List<BookingItemRequest> items,
+      Long quotedTotalAmount) {
+    this(
+        hotelId,
+        checkIn,
+        checkOut,
+        expectedCheckInTime,
+        expectedCheckOutTime,
+        booker,
+        guest,
+        items,
+        quotedTotalAmount,
+        null);
+  }
 
   public record ContactRequest(
       @Size(max = 100, message = "Họ tên không được vượt quá 100 ký tự.") String fullName,
@@ -50,6 +73,10 @@ public record CreateBookingRequest(
   }
 
   public CreateBookingCommand toCommand(UUID customerId) {
+    return toCommand(customerId, null);
+  }
+
+  public CreateBookingCommand toCommand(UUID customerId, String idempotencyKey) {
     List<BookingItemInput> itemInputs =
         items == null ? List.of() : items.stream().map(BookingItemRequest::toInput).toList();
     return new CreateBookingCommand(
@@ -62,6 +89,8 @@ public record CreateBookingRequest(
         booker == null ? null : booker.toInput(),
         guest == null ? null : guest.toInput(),
         itemInputs,
-        quotedTotalAmount);
+        quotedTotalAmount,
+        idempotencyKey,
+        voucherCode);
   }
 }

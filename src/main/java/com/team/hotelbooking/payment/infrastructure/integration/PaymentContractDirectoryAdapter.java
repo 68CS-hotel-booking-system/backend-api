@@ -12,6 +12,11 @@ public class PaymentContractDirectoryAdapter implements ContractDirectory {
 
   private final HotelContractRepository contracts;
 
+  @Override
+  public java.util.Set<UUID> findEffectiveHotelIds(Instant at) {
+    return contracts.findEffectiveHotelIds(at);
+  }
+
   public PaymentContractDirectoryAdapter(HotelContractRepository contracts) {
     this.contracts = contracts;
   }

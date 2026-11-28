@@ -27,28 +27,114 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class BookingConfig {
+  @Bean
+  public com.team.hotelbooking.booking.application.usecase.GetOperationsReportUseCase
+      getOperationsReportUseCase(
+          BookingIdentityPort accounts,
+          com.team.hotelbooking.booking.application.port.OperationsReportPort reports,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.GetOperationsReportService(
+            accounts, reports);
+    var transaction = new TransactionTemplate(manager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public com.team.hotelbooking.booking.application.usecase.ListHotelCustomersUseCase
+      listHotelCustomersUseCase(
+          BookingIdentityPort accounts,
+          com.team.hotelbooking.booking.application.port.HotelCustomerPort customers,
+          PaginationProperties pagination,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.ListHotelCustomersService(
+            accounts, customers, pagination.maxSize());
+    var transaction = new TransactionTemplate(manager);
+    transaction.setReadOnly(true);
+    return query -> Objects.requireNonNull(transaction.execute(status -> service.execute(query)));
+  }
+
+  @Bean
+  public com.team.hotelbooking.booking.application.usecase.CancelBookingUseCase
+      cancelBookingUseCase(
+          BookingRepository bookings,
+          BookingIdentityPort accounts,
+          BookingInventoryPort inventory,
+          com.team.hotelbooking.booking.BookingCancellationPaymentPolicy payments,
+          Clock clock,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService(
+            bookings, accounts, inventory, payments, clock);
+    var transaction = new TransactionTemplate(manager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
+
+  @Bean
+  public com.team.hotelbooking.booking.application.usecase.GetCancellationQuoteUseCase
+      getCancellationQuoteUseCase(
+          BookingRepository bookings,
+          BookingIdentityPort accounts,
+          BookingInventoryPort inventory,
+          com.team.hotelbooking.booking.BookingCancellationPaymentPolicy payments,
+          Clock clock,
+          PlatformTransactionManager manager) {
+    var service =
+        new com.team.hotelbooking.booking.application.usecase.impl.CancelBookingService(
+            bookings, accounts, inventory, payments, clock);
+    var tx = new TransactionTemplate(manager);
+    tx.setReadOnly(true);
+    return query -> Objects.requireNonNull(tx.execute(s -> service.quote(query)));
+  }
 
   @Bean
   public CreateBookingUseCase createBookingUseCase(
+      com.team.hotelbooking.booking.application.port.BookingVoucherPort vouchers,
       BookingRepository bookings,
       BookingIdentityPort accounts,
       BookingPricingPort pricing,
       BookingInventoryPort inventory,
+      com.team.hotelbooking.booking.BookingCommissionCapture commissions,
       Clock clock,
       @Value("${booking.hold-ttl:PT15M}") String holdTtl,
       PlatformTransactionManager transactionManager) {
     CreateBookingService service =
         new CreateBookingService(
-            bookings, accounts, pricing, inventory, clock, Duration.parse(holdTtl));
+            bookings,
+            accounts,
+            pricing,
+            inventory,
+            clock,
+            Duration.parse(holdTtl),
+            commissions,
+            vouchers);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    TransactionTemplate replayLookupTransaction = new TransactionTemplate(transactionManager);
+    replayLookupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    replayLookupTransaction.setReadOnly(true);
 
-    return command ->
-        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+    return command -> {
+      try {
+        return Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+      } catch (DataIntegrityViolationException exception) {
+        if (command == null || command.idempotencyKey() == null) {
+          throw exception;
+        }
+        return Objects.requireNonNull(
+            replayLookupTransaction.execute(
+                status -> service.resolveIdempotentReplay(command).orElseThrow(() -> exception)));
+      }
+    };
   }
 
   @Bean
@@ -111,11 +197,13 @@ public class BookingConfig {
 
   @Bean
   public BookingCheckoutDirectory bookingCheckoutDirectory(
+      com.team.hotelbooking.pricing.VoucherDirectory vouchers,
+      Clock clock,
       BookingRepository bookings,
       BookingInventoryPort inventory,
       PlatformTransactionManager transactionManager) {
     BookingCheckoutDirectoryAdapter adapter =
-        new BookingCheckoutDirectoryAdapter(bookings, inventory);
+        new BookingCheckoutDirectoryAdapter(bookings, inventory, vouchers, clock);
     TransactionTemplate readOnlyTx = new TransactionTemplate(transactionManager);
     readOnlyTx.setReadOnly(true);
     TransactionTemplate writeTx = new TransactionTemplate(transactionManager);

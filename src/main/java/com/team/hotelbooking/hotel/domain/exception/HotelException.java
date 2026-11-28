@@ -5,8 +5,11 @@ import java.util.List;
 
 public final class HotelException extends RuntimeException {
 
+  public record FieldIssue(String field, String message) {}
+
   private final HotelErrorCode code;
   private final List<HotelPublishRequirement> unmetRequirements;
+  private final List<FieldIssue> fieldIssues;
 
   public HotelException(HotelErrorCode code) {
     this(code, code.defaultMessage());
@@ -16,6 +19,18 @@ public final class HotelException extends RuntimeException {
     super(message);
     this.code = code;
     this.unmetRequirements = List.of();
+    this.fieldIssues = List.of();
+  }
+
+  public static HotelException fieldError(HotelErrorCode code, String field, String message) {
+    return new HotelException(code, message, List.of(new FieldIssue(field, message)));
+  }
+
+  private HotelException(HotelErrorCode code, String message, List<FieldIssue> fieldIssues) {
+    super(message);
+    this.code = code;
+    this.unmetRequirements = List.of();
+    this.fieldIssues = List.copyOf(fieldIssues);
   }
 
   // HT-03: liệt kê đủ mọi điều kiện còn thiếu để quản trị bổ sung một lần.
@@ -27,10 +42,15 @@ public final class HotelException extends RuntimeException {
     super(HotelErrorCode.HOTEL_NOT_READY.defaultMessage());
     this.code = HotelErrorCode.HOTEL_NOT_READY;
     this.unmetRequirements = List.copyOf(unmetRequirements);
+    this.fieldIssues = List.of();
   }
 
   public List<HotelPublishRequirement> unmetRequirements() {
     return unmetRequirements;
+  }
+
+  public List<FieldIssue> fieldIssues() {
+    return fieldIssues;
   }
 
   public HotelErrorCode code() {

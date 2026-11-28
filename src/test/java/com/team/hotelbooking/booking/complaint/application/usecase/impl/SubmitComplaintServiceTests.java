@@ -55,7 +55,7 @@ class SubmitComplaintServiceTests {
 
   private void givenBooking(Booking.Status status) {
     Booking booking = mock(Booking.class);
-    given(booking.status()).willReturn(status);
+    given(booking.statusAt(NOW)).willReturn(status);
     if (status != Booking.Status.PENDING_PAYMENT) {
       given(booking.id()).willReturn(BOOKING_ID);
       given(booking.hotelId()).willReturn(HOTEL_ID);

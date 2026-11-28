@@ -57,7 +57,7 @@ public class ManagementRoomController {
   // HT21 bỏ @PreAuthorize cấp class, nên đặt lại quyền của HT19 trên chính method này.
   @Operation(summary = "[HT19] Danh sách phòng vật lý quản lý, có phân trang và lọc roomTypeId")
   @GetMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<PageResponse<ListManagementRoomsResponse>>> listRooms(
       @PathVariable("hotelId") UUID hotelId,
       @RequestParam(name = "roomTypeId", required = false) UUID roomTypeId,

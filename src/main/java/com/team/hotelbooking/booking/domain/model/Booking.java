@@ -8,6 +8,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public record Booking(
     UUID id,
@@ -40,7 +41,22 @@ public record Booking(
     Instant createdAt,
     Instant updatedAt,
     long version,
-    List<BookingItem> items) {
+    List<BookingItem> items,
+    String idempotencyKey) {
+
+  private static final Pattern IDEMPOTENCY_KEY_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{1,100}$");
+
+  public static String validateIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null) {
+      return null;
+    }
+    if (!IDEMPOTENCY_KEY_PATTERN.matcher(idempotencyKey).matches()) {
+      throw new BookingException(
+          BookingErrorCode.VALIDATION_FAILED,
+          "Idempotency-Key phải gồm 1 đến 100 ký tự chữ, số, dấu gạch ngang hoặc gạch dưới.");
+    }
+    return idempotencyKey;
+  }
 
   public enum Status {
     PENDING_PAYMENT,
@@ -134,6 +150,70 @@ public record Booking(
       Instant expiresAt,
       Instant now,
       List<BookingItem> items) {
+    return createPendingPayment(
+        id,
+        bookingCode,
+        customerId,
+        hotelId,
+        booker,
+        guest,
+        checkIn,
+        checkOut,
+        days,
+        nights,
+        standardCheckInTime,
+        standardCheckOutTime,
+        expectedCheckInTime,
+        expectedCheckOutTime,
+        adults,
+        children,
+        currency,
+        roomSubtotalAmount,
+        earlyCheckInSurchargeAmount,
+        lateCheckOutSurchargeAmount,
+        extraGuestSurchargeAmount,
+        surchargeAmount,
+        subtotalAmount,
+        discountAmount,
+        totalAmount,
+        expiresAt,
+        now,
+        items,
+        null);
+  }
+
+  public static Booking createPendingPayment(
+      UUID id,
+      String bookingCode,
+      UUID customerId,
+      UUID hotelId,
+      ContactSnapshot booker,
+      ContactSnapshot guest,
+      LocalDate checkIn,
+      LocalDate checkOut,
+      int days,
+      int nights,
+      LocalTime standardCheckInTime,
+      LocalTime standardCheckOutTime,
+      LocalTime expectedCheckInTime,
+      LocalTime expectedCheckOutTime,
+      int adults,
+      int children,
+      String currency,
+      long roomSubtotalAmount,
+      long earlyCheckInSurchargeAmount,
+      long lateCheckOutSurchargeAmount,
+      long extraGuestSurchargeAmount,
+      long surchargeAmount,
+      long subtotalAmount,
+      long discountAmount,
+      long totalAmount,
+      Instant expiresAt,
+      Instant now,
+      List<BookingItem> items,
+      String idempotencyKey) {
+
+    String validatedKey = validateIdempotencyKey(idempotencyKey);
 
     if (id == null
         || bookingCode == null
@@ -195,7 +275,8 @@ public record Booking(
         now,
         now,
         0L,
-        List.copyOf(items));
+        List.copyOf(items),
+        validatedKey);
   }
 
   public static Booking rehydrate(
@@ -231,6 +312,75 @@ public record Booking(
       long version,
       List<BookingItem> items) {
 
+    return rehydrate(
+        id,
+        bookingCode,
+        customerId,
+        hotelId,
+        booker,
+        guest,
+        checkIn,
+        checkOut,
+        days,
+        nights,
+        standardCheckInTime,
+        standardCheckOutTime,
+        expectedCheckInTime,
+        expectedCheckOutTime,
+        adults,
+        children,
+        status,
+        currency,
+        roomSubtotalAmount,
+        earlyCheckInSurchargeAmount,
+        lateCheckOutSurchargeAmount,
+        extraGuestSurchargeAmount,
+        surchargeAmount,
+        subtotalAmount,
+        discountAmount,
+        totalAmount,
+        expiresAt,
+        createdAt,
+        updatedAt,
+        version,
+        items,
+        null);
+  }
+
+  public static Booking rehydrate(
+      UUID id,
+      String bookingCode,
+      UUID customerId,
+      UUID hotelId,
+      ContactSnapshot booker,
+      ContactSnapshot guest,
+      LocalDate checkIn,
+      LocalDate checkOut,
+      int days,
+      int nights,
+      LocalTime standardCheckInTime,
+      LocalTime standardCheckOutTime,
+      LocalTime expectedCheckInTime,
+      LocalTime expectedCheckOutTime,
+      int adults,
+      int children,
+      Status status,
+      String currency,
+      long roomSubtotalAmount,
+      long earlyCheckInSurchargeAmount,
+      long lateCheckOutSurchargeAmount,
+      long extraGuestSurchargeAmount,
+      long surchargeAmount,
+      long subtotalAmount,
+      long discountAmount,
+      long totalAmount,
+      Instant expiresAt,
+      Instant createdAt,
+      Instant updatedAt,
+      long version,
+      List<BookingItem> items,
+      String idempotencyKey) {
+
     return new Booking(
         id,
         bookingCode,
@@ -262,6 +412,7 @@ public record Booking(
         createdAt,
         updatedAt,
         version,
-        items == null ? List.of() : List.copyOf(items));
+        items == null ? List.of() : List.copyOf(items),
+        idempotencyKey);
   }
 }

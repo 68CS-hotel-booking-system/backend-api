@@ -49,13 +49,44 @@ public final class ListManagementBookingsService implements ListManagementBookin
       throw new BookingException(BookingErrorCode.VALIDATION_FAILED);
     }
 
-    verifyHotelManagementAccess(query.actorId(), query.hotelId(), accounts, hotels);
+    verifyHotelOperationalAccess(query.actorId(), query.hotelId(), accounts, hotels);
 
     Booking.Status statusFilter = ListCustomerBookingsService.parseStatusFilter(query.status());
 
     return bookings
         .findByHotelId(query.hotelId(), statusFilter, pagination)
         .map(BookingSummaryResult::from);
+  }
+
+  static void verifyHotelOperationalAccess(
+      java.util.UUID actorId,
+      java.util.UUID hotelId,
+      BookingIdentityPort accounts,
+      BookingHotelPort hotels) {
+    AccountSnapshot actor =
+        accounts
+            .findById(actorId)
+            .orElseThrow(() -> new BookingException(BookingErrorCode.ACCESS_DENIED));
+
+    if (!actor.active() || !actor.emailVerified()) {
+      throw new BookingException(BookingErrorCode.ACCESS_DENIED);
+    }
+
+    boolean isAdmin = actor.roles().contains("ADMIN");
+    boolean isOwnerRole = actor.roles().contains("HOTEL_OWNER");
+    boolean member = hotels.hasOperationalAccess(hotelId, actorId);
+    if (!isAdmin && !isOwnerRole && !member) {
+      throw new BookingException(BookingErrorCode.ACCESS_DENIED);
+    }
+
+    HotelSnapshot hotel =
+        hotels
+            .findById(hotelId)
+            .orElseThrow(() -> new BookingException(BookingErrorCode.HOTEL_NOT_FOUND));
+
+    if (!isAdmin && !actor.id().equals(hotel.ownerId()) && !member) {
+      throw new BookingException(BookingErrorCode.HOTEL_NOT_FOUND);
+    }
   }
 
   static void verifyHotelManagementAccess(

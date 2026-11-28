@@ -32,6 +32,7 @@ class VnpayPaymentServiceTests {
   @Mock PaymentBookingPort bookings;
   @Mock VnpayGateway gateway;
   @Mock PlatformTransactionManager transactions;
+  @Mock com.team.hotelbooking.payment.application.port.RefundRegistrationPort refunds;
   private final UUID customerId = UUID.randomUUID();
   private final UUID bookingId = UUID.randomUUID();
   private final UUID paymentId = UUID.randomUUID();
@@ -44,7 +45,7 @@ class VnpayPaymentServiceTests {
     lenient().when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
     service =
         new VnpayPaymentService(
-            payments, bookings, gateway, Clock.fixed(now, ZoneOffset.UTC), transactions);
+            payments, bookings, gateway, Clock.fixed(now, ZoneOffset.UTC), transactions, refunds);
     payment = new PaymentTransactionJpaEntity();
     payment.setId(paymentId);
     payment.setBookingId(bookingId);
@@ -151,6 +152,7 @@ class VnpayPaymentServiceTests {
     assertThat(service.create(customerId, bookingId, "127.0.0.1", true).id()).isEqualTo(paymentId);
     verify(gateway, times(1)).createQr(any(), anyLong(), anyString(), any(), any(), anyString());
     verify(payments, times(1)).saveAndFlush(payment);
+    verifyNoInteractions(refunds);
   }
 
   @Test
@@ -258,6 +260,17 @@ class VnpayPaymentServiceTests {
     assertThat(service.receiveIpn(signedIpn()).code()).isEqualTo("00");
     assertThat(payment.getStatus()).isEqualTo(Status.SUCCEEDED);
     assertThat(payment.isBookingConfirmed()).isFalse();
+    verify(refunds)
+        .register(
+            eq(paymentId),
+            any(),
+            eq(123456L),
+            eq("VND"),
+            eq("UNCONFIRMED_PAYMENT"),
+            isNull(),
+            eq(now));
+    assertThat(service.receiveIpn(signedIpn()).code()).isEqualTo("02");
+    verifyNoMoreInteractions(refunds);
   }
 
   @Test
@@ -268,6 +281,15 @@ class VnpayPaymentServiceTests {
     assertThat(payment.getStatus()).isEqualTo(Status.SUCCEEDED);
     assertThat(payment.isBookingConfirmed()).isFalse();
     verify(bookings, never()).confirmPayment(any(), any());
+    verify(refunds)
+        .register(
+            eq(paymentId),
+            any(),
+            eq(123456L),
+            eq("VND"),
+            eq("UNCONFIRMED_PAYMENT"),
+            isNull(),
+            eq(now));
   }
 
   @Test

@@ -18,7 +18,8 @@ public record GetPublicHotelResponse(
     Short starRating,
     LocalTime checkInTime,
     LocalTime checkOutTime,
-    List<ListAmenitiesResponse> amenities) {
+    List<ListAmenitiesResponse> amenities,
+    boolean acceptingBookings) {
 
   public static GetPublicHotelResponse from(GetPublicHotelResult result) {
     return new GetPublicHotelResponse(
@@ -33,6 +34,7 @@ public record GetPublicHotelResponse(
         result.starRating(),
         result.checkInTime(),
         result.checkOutTime(),
-        ListAmenitiesResponse.from(result.amenities()));
+        ListAmenitiesResponse.from(result.amenities()),
+        result.acceptingBookings());
   }
 }

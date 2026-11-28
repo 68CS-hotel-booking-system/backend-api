@@ -26,7 +26,8 @@ public record ManagementHotelResponse(
     String status,
     Instant createdAt,
     Instant updatedAt,
-    long version) {
+    long version,
+    String accessLevel) {
 
   public static ManagementHotelResponse from(ManagementHotelResult result) {
     return new ManagementHotelResponse(
@@ -47,7 +48,8 @@ public record ManagementHotelResponse(
         result.status(),
         result.createdAt(),
         result.updatedAt(),
-        result.version());
+        result.version(),
+        result.accessLevel());
   }
 
   public static PageResponse<ManagementHotelResponse> from(

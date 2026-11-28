@@ -1,5 +1,6 @@
 package com.team.hotelbooking.hotel.infrastructure.config;
 
+import com.team.hotelbooking.hotel.application.port.HotelMemberStore;
 import com.team.hotelbooking.hotel.application.port.IdentityAccounts;
 import com.team.hotelbooking.hotel.application.port.RoomInventoryPort;
 import com.team.hotelbooking.hotel.application.usecase.CreateHotelUseCase;
@@ -125,8 +126,9 @@ public class HotelConfig {
   public GetManagementHotelUseCase getManagementHotelUseCase(
       HotelRepository hotels,
       IdentityAccounts accounts,
+      HotelMemberStore members,
       PlatformTransactionManager transactionManager) {
-    GetManagementHotelService service = new GetManagementHotelService(hotels, accounts);
+    GetManagementHotelService service = new GetManagementHotelService(hotels, accounts, members);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -137,10 +139,11 @@ public class HotelConfig {
   public ListManagementHotelsUseCase listManagementHotelsUseCase(
       HotelRepository hotels,
       IdentityAccounts accounts,
+      HotelMemberStore members,
       PaginationProperties pagination,
       PlatformTransactionManager transactionManager) {
     ListManagementHotelsService service =
-        new ListManagementHotelsService(hotels, accounts, pagination.maxSize());
+        new ListManagementHotelsService(hotels, accounts, members, pagination.maxSize());
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -200,8 +203,9 @@ public class HotelConfig {
   public GetPublicHotelUseCase getPublicHotelUseCase(
       HotelRepository hotels,
       AmenityRepository amenities,
+      com.team.hotelbooking.hotel.HotelSalesPolicy sales,
       PlatformTransactionManager transactionManager) {
-    GetPublicHotelService service = new GetPublicHotelService(hotels, amenities);
+    GetPublicHotelService service = new GetPublicHotelService(hotels, amenities, sales);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -229,9 +233,10 @@ public class HotelConfig {
       HotelRepository hotels,
       RoomTypeRepository roomTypes,
       IdentityAccounts accounts,
+      HotelMemberStore members,
       PlatformTransactionManager transactionManager) {
     ListManagementRoomTypesService service =
-        new ListManagementRoomTypesService(hotels, roomTypes, accounts);
+        new ListManagementRoomTypesService(hotels, roomTypes, accounts, members);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 
@@ -243,11 +248,13 @@ public class HotelConfig {
       HotelRepository hotels,
       RoomRepository rooms,
       IdentityAccounts accounts,
+      HotelMemberStore members,
       PaginationProperties pagination,
       Clock clock,
       PlatformTransactionManager transactionManager) {
     ListManagementRoomsService service =
-        new ListManagementRoomsService(hotels, rooms, accounts, pagination.maxSize(), clock);
+        new ListManagementRoomsService(
+            hotels, rooms, accounts, members, pagination.maxSize(), clock);
     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
     transaction.setReadOnly(true);
 

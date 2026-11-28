@@ -39,7 +39,8 @@ public class HotelExceptionHandler {
               HOTEL_NOT_FOUND,
               ROOM_TYPE_NOT_FOUND,
               ROOM_NOT_FOUND,
-              AMENITY_NOT_FOUND ->
+              AMENITY_NOT_FOUND,
+              HOTEL_MEMBER_NOT_FOUND ->
               HttpStatus.NOT_FOUND;
           case DUPLICATE_CUSTOM_AMENITY,
               REVIEW_PENDING,
@@ -54,17 +55,24 @@ public class HotelExceptionHandler {
               ROOM_NUMBER_CONFLICT,
               DUPLICATE_ROOM_NUMBER,
               INVALID_STATUS_TRANSITION,
-              HOTEL_LOCKED ->
+              HOTEL_LOCKED,
+              HOTEL_MEMBER_ALREADY_EXISTS,
+              HOTEL_MEMBER_VERSION_CONFLICT ->
               HttpStatus.CONFLICT;
-          case HOTEL_NOT_READY -> HttpStatus.UNPROCESSABLE_CONTENT;
+          case HOTEL_NOT_READY, STAFF_ACCOUNT_NOT_ELIGIBLE -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
 
-    // 422 HOTEL_NOT_READY trả từng điều kiện HT-03 còn thiếu trong errors, cùng dạng lỗi
-    // validation.
+    // 422 HOTEL_NOT_READY / STAFF_ACCOUNT_NOT_ELIGIBLE trả lỗi theo trường cùng dạng validation.
     List<FieldErrorResponse> errors =
-        exception.unmetRequirements().stream()
-            .map(requirement -> new FieldErrorResponse(requirement.field(), requirement.message()))
-            .toList();
+        exception.unmetRequirements().isEmpty()
+            ? exception.fieldIssues().stream()
+                .map(issue -> new FieldErrorResponse(issue.field(), issue.message()))
+                .toList()
+            : exception.unmetRequirements().stream()
+                .map(
+                    requirement ->
+                        new FieldErrorResponse(requirement.field(), requirement.message()))
+                .toList();
     ProblemDetail body =
         problems.create(status, exception.code(), exception.getMessage(), errors, request);
 

@@ -98,6 +98,29 @@ public record User(
     return phone;
   }
 
+  public User updateProfile(String fullName, String phone, Instant now) {
+    String name = fullName == null ? "" : fullName.trim();
+    if (name.isBlank() || name.length() > 100) {
+      throw IdentityException.invalid("Họ tên phải có từ 1 đến 100 ký tự.");
+    }
+    if (phone == null || phone.length() > 30) {
+      throw IdentityException.invalid("Số điện thoại phải có từ 1 đến 30 ký tự.");
+    }
+    return new User(
+        id,
+        email,
+        passwordHash,
+        name,
+        normalizePhone(phone),
+        status,
+        emailVerifiedAt,
+        roles,
+        createdAt,
+        now,
+        authVersion,
+        version);
+  }
+
   public User verifyEmail(Instant now) {
     if (status != Status.PENDING || emailVerifiedAt != null) {
       throw new IdentityException(IdentityErrorCode.CONFLICT);

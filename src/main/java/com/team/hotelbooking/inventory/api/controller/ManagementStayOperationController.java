@@ -59,7 +59,7 @@ public class ManagementStayOperationController {
           "Gán đủ phòng vật lý cụ thể của đúng loại phòng cho từng hạng mục đặt phòng, "
               + "bảo toàn lịch sử khi đổi phòng và không trừ tồn kho lần hai.")
   @PutMapping("/bookings/{bookingId}/room-assignments")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<BookingRoomAssignmentsResponse>> assignRooms(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID đơn đặt phòng", required = true) @PathVariable UUID bookingId,
@@ -80,7 +80,7 @@ public class ManagementStayOperationController {
       description =
           "Xác nhận khách nhận phòng khi đơn đặt phòng đã phân đủ phòng vật lý và tất cả phòng ở trạng thái READY.")
   @PostMapping("/bookings/{bookingId}/check-in")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<BookingStayOperationResponse>> checkIn(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID đơn đặt phòng", required = true) @PathVariable UUID bookingId,
@@ -100,7 +100,7 @@ public class ManagementStayOperationController {
       description =
           "Xác nhận khách trả phòng, chuyển trạng thái buồng phòng sang DIRTY và không tự động mở bán lại đêm còn lại nếu trả sớm.")
   @PostMapping("/bookings/{bookingId}/check-out")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<BookingStayOperationResponse>> checkOut(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID đơn đặt phòng", required = true) @PathVariable UUID bookingId,
@@ -120,7 +120,7 @@ public class ManagementStayOperationController {
       description =
           "Ghi nhận thời điểm dự kiến đến muộn và ghi chú để bảo vệ đơn đặt phòng khỏi bị đánh dấu NO_SHOW trước thời điểm đã hẹn.")
   @PostMapping("/bookings/{bookingId}/late-arrival")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<BookingStayOperationResponse>> recordLateArrival(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID đơn đặt phòng", required = true) @PathVariable UUID bookingId,
@@ -141,7 +141,7 @@ public class ManagementStayOperationController {
       description =
           "Đánh dấu đơn đặt phòng NO_SHOW sau khi quá hạn nhận phòng, giải phóng phân công phòng và hoàn trả tồn kho các đêm chưa sử dụng từ ngày hiện tại trở đi.")
   @PostMapping("/bookings/{bookingId}/no-show")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<BookingStayOperationResponse>> markNoShow(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID đơn đặt phòng", required = true) @PathVariable UUID bookingId,
@@ -165,7 +165,7 @@ public class ManagementStayOperationController {
       description =
           "Cập nhật trạng thái buồng phòng của một phòng vật lý sang READY sau khi dọn xong hoặc DIRTY khi cần dọn dẹp.")
   @PatchMapping("/rooms/{roomId}/readiness")
-  @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_OWNER', 'HOTEL_MANAGER', 'RECEPTIONIST')")
+  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponse<RoomReadinessResponse>> updateRoomReadiness(
       @Parameter(description = "ID khách sạn", required = true) @PathVariable UUID hotelId,
       @Parameter(description = "ID phòng vật lý", required = true) @PathVariable UUID roomId,

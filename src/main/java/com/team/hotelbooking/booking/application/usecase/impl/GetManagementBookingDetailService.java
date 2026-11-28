@@ -32,7 +32,7 @@ public final class GetManagementBookingDetailService implements GetManagementBoo
       throw new BookingException(BookingErrorCode.VALIDATION_FAILED);
     }
 
-    ListManagementBookingsService.verifyHotelManagementAccess(
+    ListManagementBookingsService.verifyHotelOperationalAccess(
         query.actorId(), query.hotelId(), accounts, hotels);
 
     Booking booking =

@@ -36,6 +36,7 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
       Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
   private final HotelJpaRepository hotelJpaRepository;
+  private final com.team.hotelbooking.hotel.HotelSalesPolicy contracts;
 
   @Override
   public Hotel add(Hotel hotel) {
@@ -144,11 +145,28 @@ public class JpaHotelRepositoryAdapter implements HotelRepository {
   }
 
   @Override
+  public PageResult<Hotel> findManagedByUser(UUID userId, PageQuery pagination) {
+    return PageResultMapper.from(
+        hotelJpaRepository.findManagedByUser(
+            userId, PageRequest.of(pagination.page(), pagination.size())),
+        HotelPersistenceMapper::toDomain);
+  }
+
+  @Override
   public PageResult<Hotel> findPublicHotels(UUID cityId, String keyword, PageQuery pagination) {
     Pageable pageable = PageRequest.of(pagination.page(), pagination.size(), PUBLIC_SORT);
+    var eligibleHotelIds = contracts.effectiveHotelIds();
 
     return PageResultMapper.from(
-        hotelJpaRepository.findAll(HotelSpecs.publicSearch(cityId, keyword), pageable),
+        hotelJpaRepository.findAll(
+            HotelSpecs.publicSearch(cityId, keyword)
+                .and(
+                    (root, query, cb) -> {
+                      return eligibleHotelIds.isEmpty()
+                          ? cb.disjunction()
+                          : root.get("id").in(eligibleHotelIds);
+                    }),
+            pageable),
         HotelPersistenceMapper::toDomain);
   }
 

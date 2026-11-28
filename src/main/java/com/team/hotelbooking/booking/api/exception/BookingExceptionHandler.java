@@ -25,9 +25,16 @@ public class BookingExceptionHandler {
         switch (exception.code()) {
           case VALIDATION_FAILED, INVALID_DATE_RANGE, MAX_STAY_EXCEEDED, INVALID_OCCUPANCY ->
               HttpStatus.BAD_REQUEST;
-          case ACCESS_DENIED, EMAIL_NOT_VERIFIED -> HttpStatus.FORBIDDEN;
+          case ACCESS_DENIED, EMAIL_NOT_VERIFIED, ADMIN_BOOKING_FORBIDDEN -> HttpStatus.FORBIDDEN;
           case HOTEL_NOT_FOUND, ROOM_TYPE_NOT_FOUND, BOOKING_NOT_FOUND -> HttpStatus.NOT_FOUND;
-          case RATE_NOT_AVAILABLE, PRICE_CHANGED -> HttpStatus.CONFLICT;
+          case VOUCHER_UNAVAILABLE,
+              RATE_NOT_AVAILABLE,
+              PRICE_CHANGED,
+              IDEMPOTENCY_CONFLICT,
+              CONTRACT_NOT_EFFECTIVE,
+              BOOKING_NOT_CANCELLABLE,
+              BOOKING_PAYMENT_IN_PROGRESS ->
+              HttpStatus.CONFLICT;
         };
 
     ProblemDetail body = problems.create(status, exception.code(), exception.getMessage(), request);

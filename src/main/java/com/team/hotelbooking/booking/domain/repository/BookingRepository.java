@@ -11,6 +11,10 @@ public interface BookingRepository {
 
   Booking add(Booking booking);
 
+  void cancelPending(UUID bookingId, Booking.Status status, Instant now, UUID actorId);
+
+  void cancelConfirmed(UUID bookingId, Instant now, UUID actorId, String reason);
+
   Optional<Booking> findById(UUID bookingId);
 
   Optional<Booking> lockById(UUID bookingId);
@@ -18,6 +22,8 @@ public interface BookingRepository {
   boolean confirmPayment(UUID bookingId, Instant now);
 
   Optional<Booking> findByIdAndCustomerId(UUID bookingId, UUID customerId);
+
+  Optional<Booking> findByCustomerIdAndIdempotencyKey(UUID customerId, String idempotencyKey);
 
   Optional<Booking> findByIdAndHotelId(UUID bookingId, UUID hotelId);
 

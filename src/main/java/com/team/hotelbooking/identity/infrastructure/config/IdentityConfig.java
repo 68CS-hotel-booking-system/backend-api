@@ -22,6 +22,7 @@ import com.team.hotelbooking.identity.application.usecase.RegisterUseCase;
 import com.team.hotelbooking.identity.application.usecase.ResendUserVerificationEmailUseCase;
 import com.team.hotelbooking.identity.application.usecase.ResetPasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.RevokeRoleUseCase;
+import com.team.hotelbooking.identity.application.usecase.UpdateProfileUseCase;
 import com.team.hotelbooking.identity.application.usecase.UpdateUserStatusUseCase;
 import com.team.hotelbooking.identity.application.usecase.VerifyEmailUseCase;
 import com.team.hotelbooking.identity.application.usecase.impl.ChangePasswordService;
@@ -40,6 +41,7 @@ import com.team.hotelbooking.identity.application.usecase.impl.RegisterService;
 import com.team.hotelbooking.identity.application.usecase.impl.ResendUserVerificationEmailService;
 import com.team.hotelbooking.identity.application.usecase.impl.ResetPasswordService;
 import com.team.hotelbooking.identity.application.usecase.impl.RevokeRoleService;
+import com.team.hotelbooking.identity.application.usecase.impl.UpdateProfileService;
 import com.team.hotelbooking.identity.application.usecase.impl.UpdateUserStatusService;
 import com.team.hotelbooking.identity.application.usecase.impl.VerifyEmailService;
 import com.team.hotelbooking.identity.domain.exception.IdentityErrorCode;
@@ -67,6 +69,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class IdentityConfig {
+
+  @Bean
+  public UpdateProfileUseCase updateProfileUseCase(
+      UserRepository users, Clock clock, PlatformTransactionManager transactionManager) {
+    UpdateProfileService service = new UpdateProfileService(users, clock);
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    return command ->
+        Objects.requireNonNull(transaction.execute(status -> service.execute(command)));
+  }
 
   @Bean
   public Clock clock() {
@@ -426,7 +437,16 @@ public class IdentityConfig {
 
     transaction.setReadOnly(true);
 
-    return userId ->
-        Objects.requireNonNull(transaction.execute(status -> adapter.findById(userId)));
+    return new AccountDirectory() {
+      @Override
+      public java.util.Optional<AccountInfo> findById(java.util.UUID userId) {
+        return Objects.requireNonNull(transaction.execute(status -> adapter.findById(userId)));
+      }
+
+      @Override
+      public java.util.Optional<AccountInfo> findByEmail(String email) {
+        return Objects.requireNonNull(transaction.execute(status -> adapter.findByEmail(email)));
+      }
+    };
   }
 }

@@ -127,6 +127,25 @@ public class JpaUserRepositoryAdapter implements UserRepository {
   }
 
   @Override
+  public User updateProfile(User updatedUser) {
+    UserJpaEntity entity =
+        users
+            .findByIdAndDeletedFalse(updatedUser.id())
+            .orElseThrow(() -> new IdentityException(IdentityErrorCode.ACCOUNT_UNAVAILABLE));
+    if (entity.getVersion() != updatedUser.version()) {
+      throw new IdentityException(IdentityErrorCode.STALE_USER_VERSION);
+    }
+    entity.setFullName(updatedUser.fullName());
+    entity.setPhone(updatedUser.phone());
+    entity.setUpdatedAt(updatedUser.updatedAt());
+    try {
+      return UserPersistenceMapper.toDomain(users.saveAndFlush(entity), updatedUser.roles());
+    } catch (DataIntegrityViolationException exception) {
+      throw translateConflict(exception);
+    }
+  }
+
+  @Override
   public User updateStatus(User updatedUser, UUID actorId, String reason) {
     UserJpaEntity entity =
         users

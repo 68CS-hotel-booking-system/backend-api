@@ -1,13 +1,16 @@
 package com.team.hotelbooking.identity.api.controller;
 
 import com.team.hotelbooking.identity.api.dto.request.ChangePasswordRequest;
+import com.team.hotelbooking.identity.api.dto.request.UpdateProfileRequest;
 import com.team.hotelbooking.identity.api.dto.response.ChangePasswordResponse;
 import com.team.hotelbooking.identity.api.dto.response.CurrentUserResponse;
 import com.team.hotelbooking.identity.application.command.ChangePasswordCommand;
+import com.team.hotelbooking.identity.application.command.UpdateProfileCommand;
 import com.team.hotelbooking.identity.application.result.ChangePasswordResult;
 import com.team.hotelbooking.identity.application.result.CurrentUserResult;
 import com.team.hotelbooking.identity.application.usecase.ChangePasswordUseCase;
 import com.team.hotelbooking.identity.application.usecase.GetCurrentUserUseCase;
+import com.team.hotelbooking.identity.application.usecase.UpdateProfileUseCase;
 import com.team.hotelbooking.shared.web.ApiResponse;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -16,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +31,22 @@ public class UserController {
 
   private final GetCurrentUserUseCase getCurrentUserUseCase;
   private final ChangePasswordUseCase changePasswordUseCase;
+  private final UpdateProfileUseCase updateProfileUseCase;
+
+  @PutMapping("/me")
+  public ResponseEntity<ApiResponse<CurrentUserResponse>> updateProfile(
+      @Valid @RequestBody UpdateProfileRequest request, Principal principal) {
+    CurrentUserResult result =
+        updateProfileUseCase.execute(
+            new UpdateProfileCommand(
+                UUID.fromString(principal.getName()),
+                request.fullName(),
+                request.phone(),
+                request.expectedVersion()));
+    return ResponseEntity.ok()
+        .header("Cache-Control", "no-store")
+        .body(ApiResponse.success("Cập nhật hồ sơ thành công.", CurrentUserResponse.from(result)));
+  }
 
   @GetMapping("/me")
   public ResponseEntity<ApiResponse<CurrentUserResponse>> getCurrentUser(Principal principal) {

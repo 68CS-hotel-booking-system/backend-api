@@ -8,7 +8,6 @@ import com.team.hotelbooking.payment.domain.exception.FinanceException;
 import com.team.hotelbooking.payment.domain.model.HotelContract;
 import com.team.hotelbooking.payment.infrastructure.persistence.entity.HotelContractJpaEntity;
 import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelContractJpaRepository;
-import com.team.hotelbooking.payment.infrastructure.persistence.repository.HotelFinancialAccessJpaRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,7 +17,8 @@ public class GetContractsService implements GetContractsUseCase {
 
   private final HotelContractJpaRepository contractJpaRepository;
   private final PaymentHotelPort paymentHotelPort;
-  private final HotelFinancialAccessJpaRepository financialAccessJpaRepository;
+
+  private final java.time.Clock clock;
 
   @Override
   public Page<HotelContractResult> execute(GetContractsQuery query) {
@@ -27,29 +27,40 @@ public class GetContractsService implements GetContractsUseCase {
             .findOwnerUserId(query.hotelId())
             .orElseThrow(() -> FinanceException.hotelNotFound("Không tìm thấy khách sạn."));
 
-    // Kiểm tra quyền: Admin, Chủ sở hữu khách sạn (Owner), hoặc có quyền tài chính
+    // Chỉ admin hoặc chủ sở hữu hiện tại được xem hợp đồng khách sạn.
     boolean isOwner =
         query.requestingUserId() != null && ownerUserId.equals(query.requestingUserId());
-    boolean hasFinanceAccess =
-        query.requestingUserId() != null
-            && financialAccessJpaRepository.existsByHotelIdAndUserIdAndGrantedTrue(
-                query.hotelId(), query.requestingUserId());
-
-    if (!query.isAdmin() && !isOwner && !hasFinanceAccess) {
+    if (!query.isAdmin() && !isOwner) {
       throw FinanceException.accessDenied(
           "Bạn không có quyền xem thông tin hợp đồng của khách sạn này.");
     }
 
-    Page<HotelContractJpaEntity> page;
-    if (query.status() != null) {
-      HotelContractJpaEntity.DbContractStatus dbStatus =
-          HotelContractJpaEntity.DbContractStatus.valueOf(query.status().name());
-      page =
-          contractJpaRepository.findAllByHotelIdAndStatus(
-              query.hotelId(), dbStatus, query.pageable());
-    } else {
-      page = contractJpaRepository.findAllByHotelId(query.hotelId(), query.pageable());
-    }
+    var now = clock.instant();
+    Page<HotelContractJpaEntity> page =
+        contractJpaRepository.findAll(
+            (root, criteria, cb) -> {
+              var hotel = cb.equal(root.get("hotelId"), query.hotelId());
+              if (query.status() == null) return hotel;
+              var active =
+                  cb.equal(root.get("status"), HotelContractJpaEntity.DbContractStatus.ACTIVE);
+              var ended = cb.lessThanOrEqualTo(root.<java.time.Instant>get("endsAt"), now);
+              if (query.status() == HotelContract.ContractStatus.EXPIRED) {
+                return cb.and(
+                    hotel,
+                    cb.or(
+                        cb.equal(
+                            root.get("status"), HotelContractJpaEntity.DbContractStatus.EXPIRED),
+                        cb.and(active, ended)));
+              }
+              if (query.status() == HotelContract.ContractStatus.ACTIVE)
+                return cb.and(hotel, active, cb.not(ended));
+              return cb.and(
+                  hotel,
+                  cb.equal(
+                      root.get("status"),
+                      HotelContractJpaEntity.DbContractStatus.valueOf(query.status().name())));
+            },
+            query.pageable());
 
     return page.map(
         entity -> {
@@ -63,7 +74,10 @@ public class GetContractsService implements GetContractsUseCase {
                   HotelContract.CommissionBasis.valueOf(entity.getCommissionBasis().name()),
                   entity.getStartsAt(),
                   entity.getEndsAt(),
-                  HotelContract.ContractStatus.valueOf(entity.getStatus().name()),
+                  entity.getStatus() == HotelContractJpaEntity.DbContractStatus.ACTIVE
+                          && !entity.getEndsAt().isAfter(now)
+                      ? HotelContract.ContractStatus.EXPIRED
+                      : HotelContract.ContractStatus.valueOf(entity.getStatus().name()),
                   entity.getCreatedByUserId(),
                   entity.getCreatedAt(),
                   entity.getUpdatedAt());
